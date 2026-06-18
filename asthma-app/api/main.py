@@ -1,21 +1,13 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+
+from api.interpreter import interpret_risk
+from api.predict import PatientInput, run_prediction
 
 app = FastAPI(title="Asthma Flare-up Prediction API")
 
 
-class PredictRequest(BaseModel):
-    """Placeholder request body for flare-up prediction."""
-
-    pass
-
-
-class PredictResponse(BaseModel):
-    """Placeholder response for flare-up prediction."""
-
-    message: str
-
-
-@app.post("/predict", response_model=PredictResponse)
-async def predict(request: PredictRequest) -> PredictResponse:
-    return PredictResponse(message="placeholder")
+@app.post("/predict")
+async def predict(inputs: PatientInput) -> dict:
+    result = run_prediction(inputs)
+    result["advice"] = await interpret_risk(result)
+    return result

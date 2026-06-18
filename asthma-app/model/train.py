@@ -22,8 +22,14 @@ FEATURES = [
     "aqi_lag2",
     "temp_lag1",
     "pollen_lag1",
-    "pef_am",
+    "daily_day_symp",
+    "daily_limit_activity",
+    "daily_relief_inhaler",
+    "daily_night_symp",
 ]
+
+ENV_LAG_FEATURES = ["aqi_lag1", "aqi_lag2", "temp_lag1", "pollen_lag1"]
+MODEL_PATH = MODEL_DIR / "asthma_model_nextday.pkl"
 
 
 def inspect_csv_files() -> dict[str, pd.DataFrame]:
@@ -63,8 +69,9 @@ def report_dataset_structure(frames: dict[str, pd.DataFrame]) -> None:
         f"\nDaily symptoms and flare label: {daily_file}\n"
         f"  Symptom columns: "
         f"{[c for c in daily_cols if c.startswith('daily_')]}\n"
-        f"  Flare label: daily_night_symp AND "
-        f"(daily_relief_inhaler >= 3 OR daily_limit_activity)"
+        f"  Flare label (same-day): daily_night_symp AND "
+        f"(daily_relief_inhaler >= 3 OR daily_limit_activity)\n"
+        f"  Training target: next-day flare label (shifted -1 per patient)"
     )
 
     print(
@@ -98,12 +105,15 @@ def report_dataset_structure(frames: dict[str, pd.DataFrame]) -> None:
 def compute_flare_label(daily: pd.DataFrame) -> pd.DataFrame:
     """Derive binary flare label from daily questionnaire symptom columns."""
     df = daily.copy()
-    df["daily_limit_activity"] = df["daily_limit_activity"].map(
-        {"True": True, "False": False, True: True, False: False}
-    )
-    df["label"] = (
-        df["daily_night_symp"]
-        & ((df["daily_relief_inhaler"] >= 3) | df["daily_limit_activity"])
+    bool_map = {"True": True, "False": False, True: True, False: False}
+    for column in ("daily_night_symp", "daily_day_symp", "daily_limit_activity"):
+        df[column] = df[column].map(bool_map)
+    df["flare_label"] = (
+        df["daily_night_symp"].fillna(False).astype(bool)
+        & (
+            (df["daily_relief_inhaler"] >= 3)
+            | df["daily_limit_activity"].fillna(False).astype(bool)
+        )
     ).astype(int)
     return df
 
@@ -134,7 +144,11 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     """Create lag features per patient, sorted by date."""
     df = df.sort_values([PATIENT_ID_COL, DATE_COL]).copy()
 
-    lag_spec = {"aqi": [1, 2], "temp": [1], "pollen": [1]}
+    lag_spec = {
+        "aqi": [1, 2],
+        "temp": [1],
+        "pollen": [1],
+    }
     for column, lags in lag_spec.items():
         grouped = df.groupby(PATIENT_ID_COL)[column]
         for lag in lags:
@@ -143,31 +157,57 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def print_missing_value_diagnostics(df: pd.DataFrame) -> None:
+    """Print missing-value counts before dropna() for dataset diagnosis."""
+    row_count = len(df)
+    print("\nMissing value report (before dropna()):")
+    for column in df.columns:
+        missing = df[column].isna().sum()
+        pct = 100 * missing / row_count if row_count else 0.0
+        print(f"  {column}: {missing} missing ({pct:.1f}%)")
+
+    lag_rows = df.dropna(subset=ENV_LAG_FEATURES).shape[0]
+    print(
+        f"\nRows remaining if only dropping NaNs from environment lag features "
+        f"{ENV_LAG_FEATURES}: {lag_rows}"
+    )
+
+    feature_rows = df.dropna(subset=FEATURES + ["label"]).shape[0]
+    print(
+        f"Rows remaining if only dropping NaNs from model features + next-day label "
+        f"{FEATURES + ['label']}: {feature_rows}"
+    )
+
+
 def build_training_dataset(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """Merge questionnaires, environment, and peak flow; engineer labels and lags."""
+    """Merge daily questionnaire with environment; engineer labels and lags."""
     print("\n" + "=" * 72)
     print("Step 3 — Build training dataset")
     print("=" * 72)
 
     daily = compute_flare_label(frames["anonym_aamos00_dailyquestionnaire.csv"])
     environment = encode_pollen(frames["anonym_aamos00_environment.csv"])
-    peakflow = build_pef_am(frames["anonym_aamos00_peakflow.csv"])
 
     merged = daily.merge(
         environment[[PATIENT_ID_COL, DATE_COL, "aqi", "temp", "pollen"]],
         on=[PATIENT_ID_COL, DATE_COL],
         how="inner",
     )
-    merged = merged.merge(peakflow, on=[PATIENT_ID_COL, DATE_COL], how="left")
+    print(f"\nShape after merge (daily + environment): {merged.shape}")
 
     merged = add_lag_features(merged)
-    merged = merged.dropna()
+    merged["label"] = merged.groupby(PATIENT_ID_COL)["flare_label"].shift(-1)
+    print_missing_value_diagnostics(merged)
+    merged = merged.dropna(subset=FEATURES + ["label"])
+    merged["label"] = merged["label"].astype(int)
+    for column in ("daily_night_symp", "daily_day_symp", "daily_limit_activity"):
+        merged[column] = merged[column].astype(int)
 
     label_counts = merged["label"].value_counts().sort_index()
     print(f"\nFinal dataset shape: {merged.shape}")
     print("Class balance:")
-    print(f"  label=0 (no flare): {label_counts.get(0, 0)}")
-    print(f"  label=1 (flare): {label_counts.get(1, 0)}")
+    print(f"  label=0 (no flare tomorrow): {label_counts.get(0, 0)}")
+    print(f"  label=1 (flare tomorrow): {label_counts.get(1, 0)}")
 
     return merged
 
@@ -189,7 +229,7 @@ def train_model(df: pd.DataFrame) -> XGBClassifier:
     print("Step 4 — Train XGBoost model")
     print("=" * 72)
 
-    features = [f for f in FEATURES if f in df.columns]
+    features = FEATURES
     print(f"\nFeatures used: {features}")
 
     train_df, test_df = time_based_split(df)
@@ -231,9 +271,8 @@ def train_model(df: pd.DataFrame) -> XGBClassifier:
     print(classification_report(y_test, y_pred, digits=4, zero_division=0))
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODEL_DIR / "asthma_model.pkl"
-    joblib.dump({"model": model, "features": features}, model_path)
-    print(f"\nSaved model to {model_path}")
+    joblib.dump({"model": model, "features": features}, MODEL_PATH)
+    print(f"\nSaved model to {MODEL_PATH}")
 
     return model
 
