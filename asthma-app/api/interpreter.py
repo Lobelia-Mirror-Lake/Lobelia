@@ -22,24 +22,39 @@ MODEL = "claude-3-5-haiku-latest"
 def _build_user_message(risk_dict: dict) -> str:
     inputs = risk_dict.get("inputs", {})
     lines = [
+        f"Prediction mode: {risk_dict.get('prediction_mode', 'unknown')}",
         f"Risk level: {risk_dict.get('risk_level')}",
-        f"Triggered rules: {', '.join(risk_dict.get('triggered_rules', []))}",
-        f"Nighttime symptoms: {inputs.get('night_symp')}",
-        f"AQI: {inputs.get('aqi')}",
-        f"Pollen: {inputs.get('pollen')}",
     ]
+
+    if risk_dict.get("flare_probability") is not None:
+        lines.append(f"Tomorrow flare probability: {risk_dict['flare_probability']:.0%}")
+
+    if risk_dict.get("top_features"):
+        lines.append(f"Top contributing features: {', '.join(risk_dict['top_features'])}")
+
+    if risk_dict.get("triggered_rules"):
+        lines.append(f"Triggered rules: {', '.join(risk_dict['triggered_rules'])}")
+
+    if risk_dict.get("cold_start"):
+        lines.append("Note: cold-start user (limited personal baseline history).")
+
+    for key in ("temp_change", "aqi", "humidity", "pollen_level", "cough_today", "inhaler_today"):
+        if key in inputs:
+            lines.append(f"{key}: {inputs[key]}")
+
+    if "night_symp" in inputs:
+        lines.append(f"Nighttime symptoms: {inputs.get('night_symp')}")
 
     pef_am = inputs.get("pef_am")
     pef_personal_best = inputs.get("pef_personal_best", 0)
-    if pef_personal_best and pef_personal_best > 0:
-        pef_ratio = pef_am / pef_personal_best
-        lines.append(f"PEF ratio (morning reading / personal best): {pef_ratio:.0%}")
+    if pef_personal_best and pef_personal_best > 0 and pef_am is not None:
+        lines.append(f"PEF ratio: {pef_am / pef_personal_best:.0%}")
 
     return "\n".join(lines)
 
 
 async def interpret_risk(risk_dict: dict) -> str:
-    """Translate risk engine output into personalized plain-English advice."""
+    """Translate risk engine or ML output into personalized plain-English advice."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY is not set")

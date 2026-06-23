@@ -1,3 +1,25 @@
 # Asthma Flare-up Prediction App
 
-Asthma flare-up prediction app that uses an XGBoost model trained on the AAMOS-00 dataset to predict next-day flare-up risk from environmental, behavioral, and physiological features. A Claude LLM interpreter translates the model output into plain-English personalized advice for the user.
+Predict **tomorrow's asthma flare-up probability** from App-realistic signals:
+environment (auto), wearables (passive), and a one-tap daily check-in.
+
+## Quick start
+
+```bash
+cd asthma-app
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Synthetic pipeline
+python -m model.generate_app_data
+python -m model.train_my_app_model
+
+# Real-structure sanity check (AsthsistPlus CSV)
+python -m model.adapt_asthsist
+
+# API
+uvicorn api.main:app --reload
+```
+
+See [`model/feature_contract.md`](model/feature_contract.md) for the feature schema and
+[`docs/PROFESSOR_BRIEF.md`](docs/PROFESSOR_BRIEF.md) for methodology and expected metrics.
