@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from model.inference import predict_flare_ml, predict_gina_fallback
+from model.inference import predict_app_gina_fallback, predict_flare_ml, predict_gina_fallback
 
 
 class PatientInput(BaseModel):
@@ -34,7 +34,11 @@ class PatientInput(BaseModel):
     temp: float | None = None
 
 
-def _gina_fields_complete(inputs: PatientInput) -> bool:
+def _baselines_missing(inputs: PatientInput) -> bool:
+    return inputs.baseline_sleep_hours is None or inputs.baseline_steps is None
+
+
+def _legacy_gina_fields_complete(inputs: PatientInput) -> bool:
     return all(
         v is not None
         for v in (
@@ -54,15 +58,12 @@ def run_prediction(inputs: PatientInput) -> dict:
     """
     Predict tomorrow flare risk.
 
-    Uses XGBoost when model is available. Falls back to GINA rules when
-    force_gina=True or when baselines are missing and GINA symptom fields are supplied.
+    Routing:
+    - force_gina or missing baselines -> App GINA (no PEF) by default
+    - legacy full GINA when all clinical fields supplied and force_gina=True
+    - otherwise -> XGBoost ML (uses neutral sleep/steps when baselines absent)
     """
-    use_gina = inputs.force_gina or (
-        (inputs.baseline_sleep_hours is None or inputs.baseline_steps is None)
-        and _gina_fields_complete(inputs)
-    )
-
-    if use_gina:
+    if inputs.force_gina and _legacy_gina_fields_complete(inputs):
         return predict_gina_fallback(
             night_symp=inputs.night_symp,
             day_symp=inputs.day_symp,
@@ -73,6 +74,17 @@ def run_prediction(inputs: PatientInput) -> dict:
             aqi=inputs.aqi,
             pollen=inputs.pollen,
             temp=inputs.temp,
+        )
+
+    if _baselines_missing(inputs) or inputs.force_gina:
+        return predict_app_gina_fallback(
+            cough_today=inputs.cough_today,
+            inhaler_today=inputs.inhaler_today,
+            aqi=inputs.aqi,
+            pollen_level=inputs.pollen_level,
+            temp_change=inputs.temp_change,
+            sens_cold=inputs.sens_cold,
+            sens_pollen=inputs.sens_pollen,
         )
 
     return predict_flare_ml(

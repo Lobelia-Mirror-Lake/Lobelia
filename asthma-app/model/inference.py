@@ -10,7 +10,7 @@ import pandas as pd
 
 from model.feature_contract import FEATURES, RISK_LEVEL_THRESHOLDS
 from model.features import compute_normalized_from_baselines
-from model.risk_engine import compute_risk
+from model.risk_engine import compute_app_risk, compute_risk
 
 MODEL_PATH = Path(__file__).resolve().parent.parent / "saved_models" / "my_app_asthma_model.pkl"
 
@@ -144,6 +144,33 @@ def predict_flare_ml(
         "cold_start": cold_start,
         "inputs": inputs,
     }
+
+
+def predict_app_gina_fallback(
+    *,
+    cough_today: int,
+    inhaler_today: int,
+    aqi: float,
+    pollen_level: int,
+    temp_change: float,
+    sens_cold: float = 0.5,
+    sens_pollen: float = 0.5,
+) -> dict:
+    """Run App-realistic GINA rules for cold-start users without PEF or baselines."""
+    result = compute_app_risk(
+        cough_today=cough_today,
+        inhaler_today=inhaler_today,
+        aqi=aqi,
+        pollen_level=pollen_level,
+        temp_change=temp_change,
+        sens_cold=sens_cold,
+        sens_pollen=sens_pollen,
+    )
+    result["prediction_mode"] = "gina_app"
+    result["flare_probability"] = None
+    result["top_features"] = result.get("triggered_rules", [])
+    result["cold_start"] = True
+    return result
 
 
 def predict_gina_fallback(
