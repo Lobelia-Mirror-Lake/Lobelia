@@ -1,14 +1,18 @@
-"""Run ML flare prediction with GINA cold-start fallback."""
+"""Run Elena ML prediction with GINA cold-start fallback."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from model.inference import predict_app_gina_fallback, predict_flare_ml, predict_gina_fallback
+from model.inference import (
+    elena_model_available,
+    predict_app_gina_fallback,
+    predict_gina_fallback,
+)
 
 
 class PatientInput(BaseModel):
-    """App-realistic inputs aligned with model/feature_contract.py."""
+    """Inputs for prediction. Elena ML path requires full encoded features (TBD)."""
 
     sens_cold: float = Field(0.5, ge=0.0, le=1.0)
     sens_pollen: float = Field(0.5, ge=0.0, le=1.0)
@@ -34,10 +38,6 @@ class PatientInput(BaseModel):
     temp: float | None = None
 
 
-def _baselines_missing(inputs: PatientInput) -> bool:
-    return inputs.baseline_sleep_hours is None or inputs.baseline_steps is None
-
-
 def _legacy_gina_fields_complete(inputs: PatientInput) -> bool:
     return all(
         v is not None
@@ -58,10 +58,8 @@ def run_prediction(inputs: PatientInput) -> dict:
     """
     Predict tomorrow flare risk.
 
-    Routing:
-    - force_gina or missing baselines -> App GINA (no PEF) by default
-    - legacy full GINA when all clinical fields supplied and force_gina=True
-    - otherwise -> XGBoost ML (uses neutral sleep/steps when baselines absent)
+    Until Elena's encoded feature pipeline is wired, uses App GINA for cold start.
+    When saved_models/elena_global_model.joblib exists, ML path will be enabled.
     """
     if inputs.force_gina and _legacy_gina_fields_complete(inputs):
         return predict_gina_fallback(
@@ -76,7 +74,8 @@ def run_prediction(inputs: PatientInput) -> dict:
             temp=inputs.temp,
         )
 
-    if _baselines_missing(inputs) or inputs.force_gina:
+    # TODO: call predict_elena_ml when feature encoding pipeline is implemented
+    if not elena_model_available() or inputs.force_gina:
         return predict_app_gina_fallback(
             cough_today=inputs.cough_today,
             inhaler_today=inputs.inhaler_today,
@@ -87,18 +86,12 @@ def run_prediction(inputs: PatientInput) -> dict:
             sens_pollen=inputs.sens_pollen,
         )
 
-    return predict_flare_ml(
-        sens_cold=inputs.sens_cold,
-        sens_pollen=inputs.sens_pollen,
-        sens_dust=inputs.sens_dust,
-        temp_change=inputs.temp_change,
-        aqi=inputs.aqi,
-        humidity=inputs.humidity,
-        pollen_level=inputs.pollen_level,
+    return predict_app_gina_fallback(
         cough_today=inputs.cough_today,
         inhaler_today=inputs.inhaler_today,
-        sleep_hours=inputs.sleep_hours,
-        steps=inputs.steps,
-        baseline_sleep_hours=inputs.baseline_sleep_hours,
-        baseline_steps=inputs.baseline_steps,
+        aqi=inputs.aqi,
+        pollen_level=inputs.pollen_level,
+        temp_change=inputs.temp_change,
+        sens_cold=inputs.sens_cold,
+        sens_pollen=inputs.sens_pollen,
     )
