@@ -8,3 +8,5 @@ python-dotenv
 anthropic
 joblib
 jupyter
+onnxmltools
+onnxruntime

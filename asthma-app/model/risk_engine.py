@@ -102,6 +102,72 @@ def _pef_in_range(
     return lower <= ratio < upper
 
 
+def compute_app_risk(
+    *,
+    cough_today: int,
+    inhaler_today: int,
+    aqi: float,
+    pollen_level: int,
+    temp_change: float,
+    sens_cold: float = 0.5,
+    sens_pollen: float = 0.5,
+) -> dict:
+    """GINA-style rules using App-realistic fields only (no PEF required)."""
+    inputs = {
+        "cough_today": cough_today,
+        "inhaler_today": inhaler_today,
+        "aqi": aqi,
+        "pollen_level": pollen_level,
+        "temp_change": temp_change,
+        "sens_cold": sens_cold,
+        "sens_pollen": sens_pollen,
+    }
+
+    high_rules: list[tuple[str, bool]] = [
+        (
+            "cough with frequent rescue inhaler use (>=3)",
+            cough_today >= 1 and inhaler_today >= 3,
+        ),
+        (
+            "frequent rescue inhaler use (>=3 puffs)",
+            inhaler_today >= 3,
+        ),
+    ]
+
+    medium_rules: list[tuple[str, bool]] = [
+        (
+            "cough with rescue inhaler use (>=1)",
+            cough_today >= 1 and inhaler_today >= 1,
+        ),
+        (
+            "aqi above 100",
+            aqi > 100,
+        ),
+        (
+            "high pollen with cough",
+            pollen_level >= 2 and cough_today >= 1 and sens_pollen >= 0.5,
+        ),
+        (
+            "cold air drop with cough",
+            temp_change <= -5 and cough_today >= 1 and sens_cold >= 0.5,
+        ),
+    ]
+
+    triggered = [name for name, fired in high_rules if fired]
+    if triggered:
+        return {"risk_level": "High", "triggered_rules": triggered, "inputs": inputs}
+
+    triggered = [name for name, fired in medium_rules if fired]
+    if triggered:
+        return {"risk_level": "Medium", "triggered_rules": triggered, "inputs": inputs}
+
+    return {
+        "risk_level": "Low",
+        "triggered_rules": ["no high or medium rules triggered"],
+        "inputs": inputs,
+    }
+
+
 def _run_tests() -> None:
     base_inputs = {
         "night_symp": False,
@@ -154,7 +220,15 @@ def _run_tests() -> None:
     assert zero_best["risk_level"] == "Low"
     assert "pef_am below 60% of personal best" not in zero_best["triggered_rules"]
 
-    print("All 5 risk_engine tests passed.")
+    # 6. App GINA: high cough + frequent inhaler
+    app_high = compute_app_risk(cough_today=1, inhaler_today=3, aqi=50, pollen_level=0, temp_change=0)
+    assert app_high["risk_level"] == "High"
+
+    # 7. App GINA: low baseline
+    app_low = compute_app_risk(cough_today=0, inhaler_today=0, aqi=50, pollen_level=0, temp_change=0)
+    assert app_low["risk_level"] == "Low"
+
+    print("All 7 risk_engine tests passed.")
 
 
 if __name__ == "__main__":

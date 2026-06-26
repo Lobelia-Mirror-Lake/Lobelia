@@ -17,9 +17,15 @@ python -m model.train_my_app_model
 # Real-structure sanity check (AsthsistPlus CSV)
 python -m model.adapt_asthsist
 
+# AAMOS merge (Elena logic from raw CSVs, or her export when available)
+python -m model.adapt_aamos
+
 # API
 uvicorn api.main:app --reload
 ```
 
 See [`model/feature_contract.md`](model/feature_contract.md) for the feature schema and
 [`docs/PROFESSOR_BRIEF.md`](docs/PROFESSOR_BRIEF.md) for methodology and expected metrics.
+[`docs/RESULTS.md`](docs/RESULTS.md) has latest evaluation numbers and API curl examples.
+
+Legacy AAMOS pipeline: `model/train.py` (superseded by `model/train_my_app_model.py`).
