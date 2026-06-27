@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 
 from .feature_engineering import (
     CATEGORICAL_COLS,
@@ -26,6 +28,47 @@ def chronological_user_split(
         train_parts.append(user_df.iloc[:split_idx])
         test_parts.append(user_df.iloc[split_idx:])
     return pd.concat(train_parts, ignore_index=True), pd.concat(test_parts, ignore_index=True)
+
+
+def per_user_holdout_metrics(
+    test_data: pd.DataFrame,
+    y_test: pd.Series,
+    y_pred: np.ndarray,
+    y_proba: np.ndarray,
+) -> pd.DataFrame:
+    """Compute accuracy, precision, recall, and AUC per user on chronological hold-out."""
+    holdout_user_keys = []
+    for user, user_df in test_data.groupby("user_key"):
+        holdout_user_keys.extend([user] * len(user_df))
+
+    eval_df = pd.DataFrame(
+        {
+            "user_key": holdout_user_keys,
+            "y_true": np.asarray(y_test),
+            "y_pred": np.asarray(y_pred),
+            "y_proba": np.asarray(y_proba),
+        }
+    )
+
+    rows = []
+    for user, user_eval in eval_df.groupby("user_key"):
+        y_true_u = user_eval["y_true"]
+        y_pred_u = user_eval["y_pred"]
+        row = {
+            "user_key": user,
+            "n_test_rows": len(user_eval),
+            "n_flares": int(y_true_u.sum()),
+            "accuracy": accuracy_score(y_true_u, y_pred_u),
+            "precision": precision_score(y_true_u, y_pred_u, zero_division=0),
+            "recall": recall_score(y_true_u, y_pred_u, zero_division=0),
+        }
+        if y_true_u.nunique() > 1:
+            row["auc"] = roc_auc_score(user_eval["y_true"], user_eval["y_proba"])
+        else:
+            row["auc"] = np.nan
+        rows.append(row)
+
+    return pd.DataFrame(rows).sort_values("user_key").reset_index(drop=True)
 
 
 def prepare_modeling_frame(
@@ -73,6 +116,7 @@ def evaluate_global_chronological(
     preds = model.predict(X_test)
 
     metrics = evaluate_classification(y_test, preds, probs)
+    per_user_df = per_user_holdout_metrics(test_data, y_test, preds, probs)
     return {
         **metrics,
         "model": model,
@@ -83,6 +127,7 @@ def evaluate_global_chronological(
         "y_test": y_test,
         "y_pred": preds,
         "y_proba": probs,
+        "per_user_df": per_user_df,
         "importance_df": feature_importances_df(model, feature_columns),
     }
 
