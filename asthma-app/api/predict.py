@@ -1,18 +1,22 @@
-"""Run Elena ML prediction with GINA cold-start fallback."""
+"""Run classifier or GINA fallback predictions."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from api.schemas import ClassifierInput
+from model.feature_engineering import compute_is_flare_up
 from model.inference import (
-    elena_model_available,
+    classifier_model_available,
+    model_available,
     predict_app_gina_fallback,
+    predict_classifier,
     predict_gina_fallback,
 )
 
 
 class PatientInput(BaseModel):
-    """Inputs for prediction. Elena ML path requires full encoded features (TBD)."""
+    """Simplified inputs for cold-start GINA rules (no full sensor history required)."""
 
     sens_cold: float = Field(0.5, ge=0.0, le=1.0)
     sens_pollen: float = Field(0.5, ge=0.0, le=1.0)
@@ -54,12 +58,33 @@ def _legacy_gina_fields_complete(inputs: PatientInput) -> bool:
     )
 
 
+def run_classifier_prediction(inputs: ClassifierInput) -> dict:
+    """Predict tomorrow's flare-up with the trained XGBoost classifier."""
+    if not classifier_model_available():
+        raise FileNotFoundError(
+            "Classifier artifact missing. Train the model and save to "
+            "model/artifacts/flare_classifier.joblib (see moduler_workflow.ipynb)."
+        )
+    payload = inputs.model_dump()
+    if payload.get("is_flare_up") is None:
+        derived = compute_is_flare_up(
+            payload.get("relief_inhaler"),
+            payload.get("daily_day_symp"),
+            payload.get("daily_night_symp"),
+            payload.get("daily_limit_activity"),
+        )
+        if derived is not None:
+            payload["is_flare_up"] = derived
+    for key in ("relief_inhaler", "daily_day_symp", "daily_night_symp", "daily_limit_activity"):
+        payload.pop(key, None)
+    return predict_classifier(payload)
+
+
 def run_prediction(inputs: PatientInput) -> dict:
     """
-    Predict tomorrow flare risk.
+    Predict tomorrow flare risk using GINA cold-start rules.
 
-    Until Elena's encoded feature pipeline is wired, uses App GINA for cold start.
-    When saved_models/elena_global_model.joblib exists, ML path will be enabled.
+    Use POST /predict/classifier for the trained ML model.
     """
     if inputs.force_gina and _legacy_gina_fields_complete(inputs):
         return predict_gina_fallback(
@@ -74,18 +99,6 @@ def run_prediction(inputs: PatientInput) -> dict:
             temp=inputs.temp,
         )
 
-    # TODO: call predict_elena_ml when feature encoding pipeline is implemented
-    if not elena_model_available() or inputs.force_gina:
-        return predict_app_gina_fallback(
-            cough_today=inputs.cough_today,
-            inhaler_today=inputs.inhaler_today,
-            aqi=inputs.aqi,
-            pollen_level=inputs.pollen_level,
-            temp_change=inputs.temp_change,
-            sens_cold=inputs.sens_cold,
-            sens_pollen=inputs.sens_pollen,
-        )
-
     return predict_app_gina_fallback(
         cough_today=inputs.cough_today,
         inhaler_today=inputs.inhaler_today,
@@ -95,3 +108,24 @@ def run_prediction(inputs: PatientInput) -> dict:
         sens_cold=inputs.sens_cold,
         sens_pollen=inputs.sens_pollen,
     )
+
+
+def health_status() -> dict:
+    return {
+        "status": "ok",
+        "classifier_loaded": classifier_model_available(),
+        "any_model_available": model_available(),
+        "training": {
+            "missing_data_strategy": "xgb_native_nan",
+            "peakflow": "not_used",
+            "nullable_api_fields": [
+                "sleep_minutes_lag",
+                "sedentary_minutes_lag",
+                "running_minutes_lag",
+                "total_steps_lag",
+                "avg_hr_lag",
+                "temp_diff_tomorrow",
+                "is_flare_up",
+            ],
+        },
+    }
