@@ -4,8 +4,11 @@ Functions expect a dict of DataFrames `dfs` with keys matching the notebooks
 (e.g. 'peakflow', 'dailyquestionnaire', 'environment', 'smartwatch1', ...).
 
 The main entrypoints are:
-- `build_binary_daily_dataset(dfs)` for flare-up classification (primary)
+- `build_binary_daily_dataset(dfs)` for flare-up classification (primary; no PEF by default)
 - `build_daily_dataset(dfs)` for legacy symptom-score regression
+
+Production flare classification: **strategy 2** (keep feature NaNs; XGBoost learns
+missing branches). Do not merge peak flow unless running notebook experiments.
 """
 from __future__ import annotations
 
@@ -14,6 +17,13 @@ from typing import Dict, List, Tuple
 
 POLLEN_COLS = ["grass_pollen", "tree_pollen", "weed_pollen"]
 CATEGORICAL_COLS = POLLEN_COLS.copy()
+SENSOR_LAG_COLS = [
+    "sleep_minutes_lag",
+    "sedentary_minutes_lag",
+    "running_minutes_lag",
+    "total_steps_lag",
+    "avg_hr_lag",
+]
 INHALER_MAPPING = {0: 0, 1: 1.5, 3: 3.5, 5: 6.5, 9: 10.5, 12: 12}
 
 
@@ -148,11 +158,32 @@ def build_daily_dataset(dfs: Dict[str, pd.DataFrame], merge_activity: bool = Tru
     return cast_pollen_categories(daily)
 
 
+def compute_is_flare_up(
+    relief_inhaler: float | int | None,
+    daily_day_symp: bool | int | None = None,
+    daily_night_symp: bool | int | None = None,
+    daily_limit_activity: bool | int | None = None,
+) -> int | None:
+    """Derive today's flare-up from questionnaire fields (matches Asthma_binary.ipynb)."""
+    if relief_inhaler is None and any(
+        v is None for v in (daily_day_symp, daily_night_symp, daily_limit_activity)
+    ):
+        return None
+    puffs = INHALER_MAPPING.get(int(relief_inhaler or 0), float(relief_inhaler or 0))
+    symptomatic = bool(daily_day_symp) and bool(daily_night_symp) and bool(daily_limit_activity)
+    return int((puffs >= 3) or symptomatic)
+
+
 def build_binary_daily_dataset(
     dfs: Dict[str, pd.DataFrame],
     add_temp_diff: bool = True,
+    merge_peakflow: bool = False,
 ) -> pd.DataFrame:
-    """Build the leak-free flare-up classification dataset from Asthma_binary."""
+    """Build the leak-free flare-up classification dataset from Asthma_binary.
+
+    Peak flow is optional: the classifier does not use PEF values. Set
+    ``merge_peakflow=True`` only for experiments with ``peakflow_connected``.
+    """
     if "dailyquestionnaire" not in dfs:
         raise KeyError("dfs must contain 'dailyquestionnaire'")
 
@@ -167,9 +198,10 @@ def build_binary_daily_dataset(
         env_clean = clean_environment_df(dfs["environment"])
         daily = pd.merge(daily, env_clean, on=["user_key", "date"], how="inner")
 
-    if "peakflow" in dfs:
+    if merge_peakflow and "peakflow" in dfs:
         peakflow_clean = clean_peakflow_df(dfs["peakflow"])
         daily = pd.merge(daily, peakflow_clean, on=["user_key", "date"], how="left")
+        daily = add_pef_features(daily)
 
     activity_summary = compute_activity_day_summary(dfs)
     if not activity_summary.empty:
@@ -177,8 +209,6 @@ def build_binary_daily_dataset(
 
     daily = daily.sort_values(["user_key", "date"]).reset_index(drop=True)
     daily["tomorrow_flare_up"] = daily.groupby("user_key")["is_flare_up"].shift(-1)
-
-    daily = add_pef_features(daily)
     daily["sleep_minutes_lag"] = daily.groupby("user_key")["sleep_minutes"].shift(1)
     daily = add_activity_lags(daily)
 

@@ -1,4 +1,9 @@
-"""Training and evaluation for tomorrow's flare-up classification model."""
+"""Training and evaluation for tomorrow's flare-up classification model.
+
+Production uses **strategy 2** (XGBoost native NaN): only ``tomorrow_flare_up`` is
+required; feature NaNs are kept so partial sensor history still trains and scores.
+Peak flow (PEF) is not used.
+"""
 from __future__ import annotations
 
 from typing import Dict, List
@@ -76,11 +81,14 @@ def prepare_modeling_frame(
     X_cols: List[str],
     y_col: str,
 ) -> pd.DataFrame:
-    """Return a clean, chronologically sorted frame ready for training."""
-    valid_features = binary_valid_features(X_cols)
+    """Return a chronologically sorted frame ready for training.
+
+    Only tomorrow's label is required. Feature NaNs are kept so XGBoost learns
+    native missing-value splits (production strategy: no strict dropna).
+    """
     return (
         data.drop_duplicates(subset=["user_key", "date"])
-        .dropna(subset=valid_features + [y_col])
+        .dropna(subset=[y_col])
         .sort_values(["user_key", "date"])
         .reset_index(drop=True)
     )
