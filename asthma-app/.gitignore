@@ -1,5 +1,7 @@
 .env
 data/raw/
+model/data/raw/*
 saved_models/
 __pycache__
 .ipynb_checkpoints
+notebooks/edge_personal_models/*
