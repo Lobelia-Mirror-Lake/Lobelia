@@ -14,6 +14,7 @@ from model.inference import (
 class PatientInput(BaseModel):
     """Inputs for prediction. Elena ML path requires full encoded features (TBD)."""
 
+    # App GINA fields (cold-start)
     sens_cold: float = Field(0.5, ge=0.0, le=1.0)
     sens_pollen: float = Field(0.5, ge=0.0, le=1.0)
     sens_dust: float = Field(0.5, ge=0.0, le=1.0)
@@ -27,6 +28,8 @@ class PatientInput(BaseModel):
     steps: float = Field(..., ge=0)
     baseline_sleep_hours: float | None = Field(None, ge=0)
     baseline_steps: float | None = Field(None, ge=0)
+    
+    # Legacy GINA fields (full clinical)
     force_gina: bool = False
     night_symp: bool | None = None
     day_symp: bool | None = None
@@ -36,6 +39,14 @@ class PatientInput(BaseModel):
     pef_personal_best: float | None = None
     pollen: float | None = None
     temp: float | None = None
+    
+    # Elena ML fields (BLOCKED on model export - see model/elena_features.py)
+    # When Elena exports elena_global_model.joblib + feature_columns.json:
+    # - Add watch lag fields: sleep_minutes_lag, sedentary_minutes_lag, running_minutes_lag, 
+    #   total_steps_lag, avg_hr_lag
+    # - Add env dict (19 columns from /env/daily) or lat/lon/date for auto-fetch
+    # - Add user static fields: sex, age_range, severity (if in feature_columns.json)
+    # - Wire build_elena_feature_row() → predict_elena_ml() in run_prediction()
 
 
 def _legacy_gina_fields_complete(inputs: PatientInput) -> bool:
@@ -58,9 +69,13 @@ def run_prediction(inputs: PatientInput) -> dict:
     """
     Predict tomorrow flare risk.
 
-    Until Elena's encoded feature pipeline is wired, uses App GINA for cold start.
-    When saved_models/elena_global_model.joblib exists, ML path will be enabled.
+    BLOCKED on Elena model export (see model/elena_features.py):
+    - saved_models/elena_global_model.joblib
+    - saved_models/feature_columns.json
+    
+    Until exported, uses App GINA for cold start.
     """
+    # Legacy GINA path (full clinical fields)
     if inputs.force_gina and _legacy_gina_fields_complete(inputs):
         return predict_gina_fallback(
             night_symp=inputs.night_symp,
@@ -74,7 +89,14 @@ def run_prediction(inputs: PatientInput) -> dict:
             temp=inputs.temp,
         )
 
-    # TODO: call predict_elena_ml when feature encoding pipeline is implemented
+    # Elena ML path (BLOCKED - model not exported yet)
+    # When elena_global_model.joblib + feature_columns.json exist:
+    #   1. Check if inputs have watch lags + env dict (or lat/lon for auto-fetch)
+    #   2. Call build_elena_feature_row() from model.elena_features
+    #   3. Pass encoded DataFrame to predict_elena_ml()
+    #   4. Return ML prediction with flare_probability
+    # For now: fall back to App GINA
+    
     if not elena_model_available() or inputs.force_gina:
         return predict_app_gina_fallback(
             cough_today=inputs.cough_today,
@@ -86,6 +108,7 @@ def run_prediction(inputs: PatientInput) -> dict:
             sens_pollen=inputs.sens_pollen,
         )
 
+    # Fallback to App GINA (model exists but inputs incomplete)
     return predict_app_gina_fallback(
         cough_today=inputs.cough_today,
         inhaler_today=inputs.inhaler_today,
