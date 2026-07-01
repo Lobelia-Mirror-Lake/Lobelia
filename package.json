@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "deploy": "cd asthma-app/frontend && npm run build && cd ../../ && git subtree push --prefix asthma-app/frontend/docs origin gh-pages"
+  }
+}
