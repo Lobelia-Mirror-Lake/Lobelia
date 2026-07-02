@@ -1,5 +1,7 @@
 {
   "scripts": {
-    "deploy": "cd asthma-app/frontend && npm run build && cd ../../ && git subtree push --prefix asthma-app/frontend/docs origin gh-pages"
+    "deploy": "cd asthma-app/frontend && npm run build && cd ../../ && git subtree push --prefix asthma-app/frontend/docs origin gh-pages",
+    "dev": "cd asthma-app/frontend && npm run dev && cd ../../",
+    "build": "cd asthma-app/frontend && npm run build && cd ../../"
   }
 }
