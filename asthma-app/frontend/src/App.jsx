@@ -1,10 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  Badge,
+  Button,
+  Card,
+  Col,
+  Container,
+  Form,
+  Nav,
+  Navbar,
+  NavDropdown,
+  Offcanvas,
+  ProgressBar,
+  Row,
+} from 'react-bootstrap'
 import './App.css'
 
 const storageKeys = {
   session: 'mirror-lake-session',
   account: 'mirror-lake-account',
   profile: 'mirror-lake-profile',
+  entries: 'mirror-lake-entries',
 }
 
 const demoAccount = {
@@ -13,22 +28,94 @@ const demoAccount = {
   password: 'Asthma123!',
 }
 
-const navigationItems = [
-  { id: 'home', label: 'Dashboard' },
-  { id: 'statistics', label: 'Statistics' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'profile', label: 'Profile' },
+const pages = [
+  { key: 'home', label: 'Home' },
+  { key: 'statistics', label: 'Statistics' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'profile', label: 'Profile' },
 ]
 
+const authSteps = ['welcome', 'account', 'details', 'preferences', 'success']
+const severityScale = [
+  { value: '1', label: 'Calm' },
+  { value: '2', label: 'Mild' },
+  { value: '3', label: 'Noticeable' },
+  { value: '4', label: 'High' },
+  { value: '5', label: 'Severe' },
+]
 const triggerOptions = ['Pollen', 'Dust', 'Exercise', 'Cold air', 'Smoke']
-
-const calendarDays = [
-  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  ['1', '2', '3', '4', '5', '6', '7'],
-  ['8', '9', '10', '11', '12', '13', '14'],
-  ['15', '16', '17', '18', '19', '20', '21'],
-  ['22', '23', '24', '25', '26', '27', '28'],
+const monthLabels = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
+const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const reminderTimes = ['06:30', '08:00', '12:30', '18:00', '21:00']
+const contactMethods = ['Email', 'Text message', 'Phone call']
+const environments = ['Garden walks', 'Indoor calm spaces', 'Low-pollen mornings', 'Cool evenings']
+const ageRanges = ['Under 18', '18-29', '30-49', '50-64', '65+']
+const severityLabels = {
+  '1': 'Calm',
+  '2': 'Mild',
+  '3': 'Noticeable',
+  '4': 'High',
+  '5': 'Severe',
+}
+
+const defaultProfile = {
+  name: demoAccount.name,
+  email: demoAccount.email,
+  ageRange: '30-49',
+  emergencyContact: '',
+  preferredReminder: '08:00',
+  contactMethod: 'Email',
+  preferredEnvironment: 'Low-pollen mornings',
+  careGoal: 'Keep symptoms stable during exercise',
+  accessibilityNeeds: 'Large text and clear contrast',
+  triggerPreferences: triggerOptions,
+}
+
+const blankAuthAccount = {
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+}
+
+const blankAuthDetails = {
+  ageRange: '30-49',
+  dateOfBirth: '',
+  emergencyContact: '',
+  careGoal: '',
+}
+
+const blankAuthPreferences = {
+  preferredReminder: '08:00',
+  contactMethod: 'Email',
+  preferredEnvironment: 'Low-pollen mornings',
+  accessibilityNeeds: '',
+  triggerPreferences: triggerOptions.reduce((accumulator, option) => {
+    accumulator[option] = option === 'Pollen' || option === 'Exercise'
+    return accumulator
+  }, {}),
+}
+
+const blankEntryForm = (dateKey) => ({
+  date: dateKey,
+  severity: '3',
+  symptoms: '',
+  notes: '',
+  triggers: '',
+})
 
 function readStorage(key, fallback) {
   if (typeof window === 'undefined') {
@@ -36,135 +123,283 @@ function readStorage(key, fallback) {
   }
 
   try {
-    const value = window.localStorage.getItem(key)
-    return value ? JSON.parse(value) : fallback
+    const stored = window.localStorage.getItem(key)
+    return stored ? JSON.parse(stored) : fallback
   } catch {
     return fallback
   }
 }
 
+function writeStorage(key, value) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (value === null || value === undefined) {
+    window.localStorage.removeItem(key)
+    return
+  }
+
+  window.localStorage.setItem(key, JSON.stringify(value))
+}
+
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function toDateKey(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function fromDateKey(dateKey) {
+  return new Date(`${dateKey}T12:00:00`)
+}
+
+function formatDateLabel(dateKey) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(fromDateKey(dateKey))
+}
+
+function formatShortDate(dateKey) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(fromDateKey(dateKey))
+}
+
+function monthLabel(year, month) {
+  return `${monthLabels[month]} ${year}`
+}
+
+function generateCalendarGrid(year, month) {
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells = []
+
+  for (let index = 0; index < firstDay; index += 1) {
+    cells.push(null)
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(day)
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push(null)
+  }
+
+  const rows = []
+
+  for (let index = 0; index < cells.length; index += 7) {
+    rows.push(cells.slice(index, index + 7))
+  }
+
+  return rows
+}
+
+function createId() {
+  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function getAuthProgress(step) {
+  return {
+    welcome: 20,
+    account: 40,
+    details: 65,
+    preferences: 85,
+    success: 100,
+  }[step]
+}
+
+function getSeverityVariant(severity) {
+  switch (severity) {
+    case '1':
+      return 'success'
+    case '2':
+      return 'info'
+    case '3':
+      return 'warning'
+    case '4':
+      return 'orange'
+    case '5':
+      return 'danger'
+    default:
+      return 'secondary'
+  }
+}
+
+function getSeverityScore(severity) {
+  return Number.parseInt(severity, 10) || 0
+}
+
+function createProfileDraft(source = defaultProfile) {
+  return {
+    name: source.name || '',
+    email: source.email || '',
+    ageRange: source.ageRange || '30-49',
+    emergencyContact: source.emergencyContact || '',
+    preferredReminder: source.preferredReminder || '08:00',
+    contactMethod: source.contactMethod || 'Email',
+    preferredEnvironment: source.preferredEnvironment || 'Low-pollen mornings',
+    careGoal: source.careGoal || '',
+    accessibilityNeeds: source.accessibilityNeeds || '',
+    triggerPreferences: source.triggerPreferences || triggerOptions,
+  }
+}
+
+function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" role="presentation" focusable="false">
+        <path d="M35 8c-9.8 1-18.1 6.6-22.2 15-3 6.2-2.8 14.1 1.2 21 6.9-4 12.7-4.2 18.8-1.7 8.4-5.4 12.5-14.4 12.2-24.2C44.7 11.2 41 8 35 8Z" />
+        <path d="M15 32c7.8-5.8 13.7-9 24-12" />
+      </svg>
+    </span>
+  )
+}
+
 function App() {
-  const [currentPage, setCurrentPage] = useState('home')
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(readStorage(storageKeys.session, null)))
-  const [authPanelOpen, setAuthPanelOpen] = useState(false)
-  const [authMode, setAuthMode] = useState('login')
-  const [signupStage, setSignupStage] = useState('account')
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
-  const [signupForm, setSignupForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  })
-  const [registrationForm, setRegistrationForm] = useState({
-    ageGroup: '',
-    severity: '',
-    trigger: '',
-    rescueUse: '',
-    goal: '',
-    emergencyContact: '',
-  })
-  const [authError, setAuthError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState({})
+  const [page, setPage] = useState('home')
+  const [navbarExpanded, setNavbarExpanded] = useState(false)
   const [sessionUser, setSessionUser] = useState(() => readStorage(storageKeys.session, null))
   const [savedAccount, setSavedAccount] = useState(() => readStorage(storageKeys.account, null))
   const [profile, setProfile] = useState(() => readStorage(storageKeys.profile, null))
+  const [entries, setEntries] = useState(() => readStorage(storageKeys.entries, []))
+  const [authOpen, setAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState('login')
+  const [authStep, setAuthStep] = useState('welcome')
+  const [authError, setAuthError] = useState('')
+  const [authFields, setAuthFields] = useState({})
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [signupAccount, setSignupAccount] = useState(blankAuthAccount)
+  const [signupDetails, setSignupDetails] = useState(blankAuthDetails)
+  const [signupPreferences, setSignupPreferences] = useState(blankAuthPreferences)
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth())
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
+  const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()))
+  const [entryForm, setEntryForm] = useState(blankEntryForm(toDateKey(new Date())))
+  const [editingEntryId, setEditingEntryId] = useState(null)
+  const [entryError, setEntryError] = useState('')
+  const [profileForm, setProfileForm] = useState(() => createProfileDraft(profile || savedAccount || defaultProfile))
+  const [profileMessage, setProfileMessage] = useState('')
 
+  const isLoggedIn = Boolean(sessionUser)
   const activeUser = sessionUser || profile || savedAccount || demoAccount
-
-  const pageCopy = useMemo(
-    () => ({
-      home: {
-        title: 'Dashboard',
-        subtitle: 'Daily asthma management at a glance.',
-      },
-      statistics: {
-        title: 'Statistics',
-        subtitle: 'Spot patterns before symptoms escalate.',
-      },
-      calendar: {
-        title: 'Calendar',
-        subtitle: 'Track visits, peaks, and medication changes.',
-      },
-      profile: {
-        title: 'Profile',
-        subtitle: 'Keep your care plan and preferences up to date.',
-      },
-    }),
-    [],
+  const signupProgress = getAuthProgress(authStep)
+  const calendarGrid = useMemo(() => generateCalendarGrid(calendarYear, calendarMonth), [calendarMonth, calendarYear])
+  const entryByDate = useMemo(
+    () => Object.fromEntries(entries.map((entry) => [entry.date, entry])),
+    [entries],
   )
+  const monthEntries = useMemo(
+    () => entries.filter((entry) => {
+      const date = fromDateKey(entry.date)
+      return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth
+    }),
+    [calendarMonth, calendarYear, entries],
+  )
+  const profileSource = profile || savedAccount || defaultProfile
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+  const statistics = useMemo(() => {
+    const totalSeverity = entries.reduce((sum, entry) => sum + getSeverityScore(entry.severity), 0)
+    const averageSeverity = entries.length ? totalSeverity / entries.length : 0
+    const highestEntry = [...entries].sort((left, right) => getSeverityScore(right.severity) - getSeverityScore(left.severity))[0]
+    const triggerCounts = entries.reduce((counts, entry) => {
+      entry.triggers
+        .split(',')
+        .map((trigger) => trigger.trim())
+        .filter(Boolean)
+        .forEach((trigger) => {
+          counts[trigger] = (counts[trigger] || 0) + 1
+        })
+      return counts
+    }, {})
+
+    const sortedTriggerCounts = Object.entries(triggerCounts).sort((left, right) => right[1] - left[1])
+    const topTrigger = sortedTriggerCounts[0]?.[0] || 'No trigger data yet'
+    const months = []
+    const reference = new Date()
+
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const date = new Date(reference.getFullYear(), reference.getMonth() - offset, 1)
+      const key = `${date.getFullYear()}-${pad(date.getMonth() + 1)}`
+      const monthEntriesForPeriod = entries.filter((entry) => entry.date.startsWith(key))
+      const monthAverage = monthEntriesForPeriod.length
+        ? monthEntriesForPeriod.reduce((sum, entry) => sum + getSeverityScore(entry.severity), 0) / monthEntriesForPeriod.length
+        : 0
+
+      months.push({
+        label: monthLabels[date.getMonth()].slice(0, 3),
+        average: monthAverage,
+        count: monthEntriesForPeriod.length,
+      })
     }
 
-    if (sessionUser) {
-      window.localStorage.setItem(storageKeys.session, JSON.stringify(sessionUser))
-    } else {
-      window.localStorage.removeItem(storageKeys.session)
-    }
-  }, [sessionUser])
+    const calmDays = entries.filter((entry) => getSeverityScore(entry.severity) <= 2).length
+    const severeDays = entries.filter((entry) => getSeverityScore(entry.severity) >= 4).length
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+    return {
+      averageSeverity,
+      highestEntry,
+      topTrigger,
+      months,
+      calmDays,
+      severeDays,
     }
+  }, [entries])
 
-    if (savedAccount) {
-      window.localStorage.setItem(storageKeys.account, JSON.stringify(savedAccount))
-    } else {
-      window.localStorage.removeItem(storageKeys.account)
-    }
-  }, [savedAccount])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    if (profile) {
-      window.localStorage.setItem(storageKeys.profile, JSON.stringify(profile))
-    } else {
-      window.localStorage.removeItem(storageKeys.profile)
-    }
-  }, [profile])
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setCurrentPage('home')
-    }
-  }, [isLoggedIn])
+  useEffect(() => writeStorage(storageKeys.session, sessionUser), [sessionUser])
+  useEffect(() => writeStorage(storageKeys.account, savedAccount), [savedAccount])
+  useEffect(() => writeStorage(storageKeys.profile, profile), [profile])
+  useEffect(() => writeStorage(storageKeys.entries, entries), [entries])
 
   const openLogin = () => {
     setAuthMode('login')
-    setSignupStage('account')
+    setAuthStep('welcome')
     setAuthError('')
-    setFieldErrors({})
-    setAuthPanelOpen(true)
+    setAuthFields({})
+    setAuthOpen(true)
   }
 
   const openSignUp = () => {
     setAuthMode('signup')
-    setSignupStage('account')
+    setAuthStep('welcome')
     setAuthError('')
-    setFieldErrors({})
-    setAuthPanelOpen(true)
+    setAuthFields({})
+    setSignupAccount(blankAuthAccount)
+    setSignupDetails(blankAuthDetails)
+    setSignupPreferences(blankAuthPreferences)
+    setAuthOpen(true)
   }
 
-  const closeAuthPanel = () => {
-    setAuthPanelOpen(false)
+  const closeAuth = () => {
+    setAuthOpen(false)
     setAuthError('')
-    setFieldErrors({})
+    setAuthFields({})
   }
 
   const logout = () => {
-    setIsLoggedIn(false)
     setSessionUser(null)
-    setCurrentPage('home')
+    setPage('home')
+    setNavbarExpanded(false)
+    setAuthOpen(false)
     setAuthMode('login')
-    setSignupStage('account')
-    setAuthPanelOpen(false)
+    setAuthStep('welcome')
+    setAuthError('')
+  }
+
+  const navigateTo = (nextPage) => {
+    setPage(nextPage)
+    setNavbarExpanded(false)
   }
 
   const handleLoginSubmit = (event) => {
@@ -181,632 +416,1288 @@ function App() {
     }
 
     if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors)
+      setAuthFields(nextErrors)
       setAuthError('')
       return
     }
 
-    const storedAccount = savedAccount || profile
-    const validDemoLogin =
-      loginForm.email.trim().toLowerCase() === demoAccount.email && loginForm.password === demoAccount.password
+    const account = savedAccount || profile || demoAccount
+    const loginEmail = loginForm.email.trim().toLowerCase()
+    const validDemoLogin = loginEmail === demoAccount.email && loginForm.password === demoAccount.password
     const validSavedLogin =
-      storedAccount &&
-      loginForm.email.trim().toLowerCase() === storedAccount.email.toLowerCase() &&
-      loginForm.password === storedAccount.password
+      account && loginEmail === account.email.toLowerCase() && loginForm.password === account.password
 
     if (!validDemoLogin && !validSavedLogin) {
       setAuthError('Incorrect email or password. Try the demo account or sign up first.')
-      setFieldErrors({})
+      setAuthFields({})
       return
     }
 
-    const user = validSavedLogin ? storedAccount : demoAccount
-    setSessionUser({ name: user.name, email: user.email })
-    setIsLoggedIn(true)
-    setAuthPanelOpen(false)
-    setCurrentPage('home')
+    setSessionUser({ name: account.name, email: account.email })
+    setProfile((current) => current || profileSource)
+    setProfileForm(createProfileDraft(profileSource || account))
+    setPage('home')
+    setAuthOpen(false)
     setAuthError('')
-    setFieldErrors({})
+    setAuthFields({})
+  }
+
+  const validateSignupAccount = () => {
+    const nextErrors = {}
+
+    if (!signupAccount.name.trim()) {
+      nextErrors.name = 'Enter your full name.'
+    }
+
+    if (!signupAccount.email.trim()) {
+      nextErrors.email = 'Enter your email address.'
+    } else if (!signupAccount.email.includes('@')) {
+      nextErrors.email = 'Use a valid email address.'
+    }
+
+    if (signupAccount.password.length < 8) {
+      nextErrors.password = 'Use at least 8 characters.'
+    }
+
+    if (signupAccount.password !== signupAccount.confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match.'
+    }
+
+    return nextErrors
   }
 
   const handleSignupAccountSubmit = (event) => {
     event.preventDefault()
-
-    const nextErrors = {}
-
-    if (!signupForm.name.trim()) {
-      nextErrors.name = 'Enter your full name.'
-    }
-
-    if (!signupForm.email.trim()) {
-      nextErrors.email = 'Enter your email address.'
-    } else if (!signupForm.email.includes('@')) {
-      nextErrors.email = 'Use a valid email address.'
-    }
-
-    if (signupForm.password.length < 8) {
-      nextErrors.password = 'Use at least 8 characters.'
-    }
-
-    if (signupForm.password !== signupForm.confirmPassword) {
-      nextErrors.confirmPassword = 'Passwords do not match.'
-    }
+    const nextErrors = validateSignupAccount()
 
     if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors)
-      setAuthError('')
+      setAuthFields(nextErrors)
       return
     }
 
-    setFieldErrors({})
-    setAuthError('')
-    setSignupStage('details')
+    setAuthFields({})
+    setAuthStep('details')
   }
 
-  const handleRegistrationSubmit = (event) => {
+  const handleSignupDetailsSubmit = (event) => {
     event.preventDefault()
 
     const nextErrors = {}
 
-    if (!registrationForm.ageGroup) {
-      nextErrors.ageGroup = 'Choose an age group.'
+    if (!signupDetails.dateOfBirth.trim()) {
+      nextErrors.dateOfBirth = 'Choose your date of birth.'
     }
 
-    if (!registrationForm.severity) {
-      nextErrors.severity = 'Choose a severity level.'
-    }
-
-    if (!registrationForm.trigger) {
-      nextErrors.trigger = 'Pick your most common trigger.'
-    }
-
-    if (!registrationForm.rescueUse) {
-      nextErrors.rescueUse = 'Tell us how often you use your rescue inhaler.'
-    }
-
-    if (!registrationForm.goal.trim()) {
-      nextErrors.goal = 'Add a care goal so your dashboard can focus the plan.'
-    }
-
-    if (!registrationForm.emergencyContact.trim()) {
+    if (!signupDetails.emergencyContact.trim()) {
       nextErrors.emergencyContact = 'Add an emergency contact.'
     }
 
+    if (!signupDetails.careGoal.trim()) {
+      nextErrors.careGoal = 'Add a care goal so your plan is focused.'
+    }
+
     if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors)
+      setAuthFields(nextErrors)
       return
     }
 
-    const account = {
-      name: signupForm.name.trim(),
-      email: signupForm.email.trim().toLowerCase(),
-      password: signupForm.password,
+    setAuthFields({})
+    setAuthStep('preferences')
+  }
+
+  const handleSignupPreferencesSubmit = (event) => {
+    event.preventDefault()
+
+    const nextErrors = {}
+    const selectedTriggers = Object.entries(signupPreferences.triggerPreferences)
+      .filter(([, value]) => Boolean(value))
+      .map(([trigger]) => trigger)
+
+    if (selectedTriggers.length === 0) {
+      nextErrors.triggers = 'Select at least one trigger preference.'
     }
 
-    const nextProfile = {
-      ...account,
-      ...registrationForm,
-      trackedSince: 'Today',
-      preferredReminder: '8:00 AM',
+    if (!signupPreferences.accessibilityNeeds.trim()) {
+      nextErrors.accessibilityNeeds = 'Tell us about your accessibility preferences.'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setAuthFields(nextErrors)
+      return
+    }
+
+    setAuthFields({})
+    setAuthStep('success')
+  }
+
+  const completeSignup = () => {
+    const triggerPreferences = Object.entries(signupPreferences.triggerPreferences)
+      .filter(([, value]) => Boolean(value))
+      .map(([trigger]) => trigger)
+
+    const account = {
+      name: signupAccount.name.trim(),
+      email: signupAccount.email.trim().toLowerCase(),
+      password: signupAccount.password,
+    }
+
+    const profileData = {
+      ...defaultProfile,
+      name: account.name,
+      email: account.email,
+      ageRange: signupDetails.ageRange,
+      dateOfBirth: signupDetails.dateOfBirth,
+      emergencyContact: signupDetails.emergencyContact.trim(),
+      careGoal: signupDetails.careGoal.trim(),
+      preferredReminder: signupPreferences.preferredReminder,
+      contactMethod: signupPreferences.contactMethod,
+      preferredEnvironment: signupPreferences.preferredEnvironment,
+      accessibilityNeeds: signupPreferences.accessibilityNeeds.trim(),
+      triggerPreferences,
     }
 
     setSavedAccount(account)
-    setProfile(nextProfile)
-    setSessionUser({ name: account.name, email: account.email })
-    setIsLoggedIn(true)
-    setCurrentPage('home')
-    setAuthPanelOpen(false)
-    setSignupStage('account')
-    setFieldErrors({})
+    setProfile(profileData)
+    setProfileForm(createProfileDraft(profileData))
+    setSessionUser({ name: profileData.name, email: profileData.email })
+    setPage('home')
+    setAuthOpen(false)
+    setAuthStep('welcome')
     setAuthError('')
+    setAuthFields({})
   }
 
-  const handleLoginFieldChange = (event) => {
-    const { name, value } = event.target
-    setLoginForm((current) => ({ ...current, [name]: value }))
+  const handleAuthBack = () => {
+    const currentIndex = authSteps.indexOf(authStep)
+    setAuthStep(authSteps[Math.max(0, currentIndex - 1)])
+    setAuthError('')
+    setAuthFields({})
   }
 
-  const handleSignupFieldChange = (event) => {
-    const { name, value } = event.target
-    setSignupForm((current) => ({ ...current, [name]: value }))
+  const handleCalendarDateChange = (event) => {
+    const nextDate = event.target.value
+    setSelectedDate(nextDate)
+    setEntryForm((current) => ({ ...current, date: nextDate }))
+    setEditingEntryId(null)
+    setEntryError('')
   }
 
-  const handleRegistrationFieldChange = (event) => {
-    const { name, value } = event.target
-    setRegistrationForm((current) => ({ ...current, [name]: value }))
+  const handleEntrySubmit = (event) => {
+    event.preventDefault()
+
+    if (!entryForm.date) {
+      setEntryError('Choose a date for the symptom entry.')
+      return
+    }
+
+    if (!entryForm.symptoms.trim()) {
+      setEntryError('Describe the symptoms for this day.')
+      return
+    }
+
+    const existingEntry = entries.find((entry) => entry.id === editingEntryId || entry.date === entryForm.date)
+    const nextEntry = {
+      id: existingEntry?.id || createId(),
+      date: entryForm.date,
+      severity: entryForm.severity,
+      symptoms: entryForm.symptoms.trim(),
+      notes: entryForm.notes.trim(),
+      triggers: entryForm.triggers.trim(),
+    }
+
+    const nextEntries = entries.filter((entry) => entry.id !== nextEntry.id && entry.date !== nextEntry.date)
+    nextEntries.push(nextEntry)
+    nextEntries.sort((left, right) => fromDateKey(right.date) - fromDateKey(left.date))
+
+    setEntries(nextEntries)
+    setSelectedDate(nextEntry.date)
+    setEntryForm(blankEntryForm(nextEntry.date))
+    setEditingEntryId(null)
+    setEntryError('')
   }
 
-  const authPanelTitle = authMode === 'login' ? 'Welcome back' : 'Create your account'
-  const authPanelSubtitle =
-    authMode === 'login'
-      ? 'Log in to continue to your symptom dashboard.'
-      : 'Start with a quick account setup, then finish your registration questions.'
+  const editEntry = (entry) => {
+    setSelectedDate(entry.date)
+    setCalendarYear(fromDateKey(entry.date).getFullYear())
+    setCalendarMonth(fromDateKey(entry.date).getMonth())
+    setEntryForm({
+      date: entry.date,
+      severity: entry.severity,
+      symptoms: entry.symptoms,
+      notes: entry.notes,
+      triggers: entry.triggers,
+    })
+    setEditingEntryId(entry.id)
+    setEntryError('')
+    setPage('calendar')
+  }
+
+  const deleteEntry = (entryId) => {
+    setEntries((current) => current.filter((entry) => entry.id !== entryId))
+    if (editingEntryId === entryId) {
+      setEditingEntryId(null)
+      setEntryForm(blankEntryForm(selectedDate))
+    }
+  }
+
+  const handleProfileSubmit = (event) => {
+    event.preventDefault()
+
+    if (!profileForm.name.trim() || !profileForm.email.trim()) {
+      setProfileMessage('Name and email are required.')
+      return
+    }
+
+    const nextProfile = {
+      ...profile,
+      ...profileForm,
+      name: profileForm.name.trim(),
+      email: profileForm.email.trim().toLowerCase(),
+    }
+
+    setProfile(nextProfile)
+    setSavedAccount((current) =>
+      current
+        ? {
+            ...current,
+            name: nextProfile.name,
+            email: nextProfile.email,
+          }
+        : current,
+    )
+    setSessionUser((current) => (current ? { ...current, name: nextProfile.name, email: nextProfile.email } : current))
+    setProfileForm(createProfileDraft(nextProfile))
+    setProfileMessage('Profile saved successfully.')
+  }
+
+  const handleProfileCheckboxChange = (option) => {
+    setProfileForm((current) => ({
+      ...current,
+      triggerPreferences: current.triggerPreferences.includes(option)
+        ? current.triggerPreferences.filter((item) => item !== option)
+        : [...current.triggerPreferences, option],
+    }))
+  }
+
+  const handleCalendarDaySelect = (day) => {
+    if (!day) {
+      return
+    }
+
+    const nextDate = `${calendarYear}-${pad(calendarMonth + 1)}-${pad(day)}`
+    setSelectedDate(nextDate)
+    setEntryForm((current) => ({ ...current, date: nextDate }))
+    setEditingEntryId(entryByDate[nextDate]?.id || null)
+    setEntryError('')
+    setPage('calendar')
+  }
+
+  const handleMonthChange = (direction) => {
+    const next = new Date(calendarYear, calendarMonth + direction, 1)
+    setCalendarYear(next.getFullYear())
+    setCalendarMonth(next.getMonth())
+  }
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Asthma symptom tracking</p>
-          <h1>Mirror Lake Health</h1>
-        </div>
-
-        <div className="topbar-actions">
-          {isLoggedIn ? (
-            <>
-              <span className="user-chip">Signed in as {activeUser.name}</span>
-              <button className="secondary-button" type="button" onClick={logout}>
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="secondary-button" type="button" onClick={openLogin}>
-                Login
-              </button>
-              <button className="primary-button" type="button" onClick={openSignUp}>
-                Sign Up
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-
       {!isLoggedIn ? (
-        <main className="landing-view">
-          <section className="hero-card">
-            <div className="hero-copy">
-              <p className="eyebrow">Track symptoms. Predict flare-ups. Stay prepared.</p>
-              <h2>Bring breathing patterns, triggers, and treatment notes into one calm dashboard.</h2>
+        <main className="landing-shell">
+          <section className="landing-hero">
+            <div className="landing-copy">
+              <p className="eyebrow">Asthma symptom tracking with a calm, natural rhythm</p>
+              <h1>Track breathing, spot patterns, and stay connected to your care plan.</h1>
               <p className="hero-text">
-                Log symptoms, review trends, and keep your care plan close without losing sight of the next appointment.
+                Mirror Lake Health pairs daily symptom tracking with a soft, nature-inspired interface so the experience feels clear, composed, and easy to use on any device.
               </p>
 
               <div className="hero-actions">
-                <button className="primary-button" type="button" onClick={openLogin}>
+                <Button className="primary-action" onClick={openLogin}>
                   Login
-                </button>
-                <button className="ghost-button" type="button" onClick={openSignUp}>
+                </Button>
+                <Button className="secondary-action" onClick={openSignUp}>
                   Sign Up
-                </button>
+                </Button>
               </div>
 
-              <div className="demo-banner">
-                <span>Demo login</span>
-                <strong>demo@mirrorlake.com / Asthma123!</strong>
+              <div className="hero-badges" aria-label="Highlights">
+                <Badge bg="success" className="soft-badge">
+                  Daily symptom ratings
+                </Badge>
+                <Badge bg="warning" text="dark" className="soft-badge">
+                  Editable calendar history
+                </Badge>
+                <Badge bg="info" text="dark" className="soft-badge">
+                  Insights and progress summaries
+                </Badge>
               </div>
             </div>
 
-            <div className="hero-panels">
-              <article className="hero-stat">
-                <span>Today</span>
-                <strong>4 symptom-free hours</strong>
-                <small>Next inhaler reminder in 45 minutes</small>
-              </article>
-
-              <article className="hero-stat accent">
-                <span>Trigger watch</span>
-                <strong>Pollen + exercise</strong>
-                <small>Lower intensity workouts recommended</small>
-              </article>
-
-              <article className="hero-stat">
-                <span>Care plan</span>
-                <strong>Green zone</strong>
-                <small>Medication adherence: 96%</small>
-              </article>
-            </div>
-          </section>
-
-          <section className="feature-grid">
-            <article className="feature-card">
-              <h3>Daily symptom log</h3>
-              <p>Capture shortness of breath, wheezing, rescue use, and activity impact in a few taps.</p>
-            </article>
-            <article className="feature-card">
-              <h3>Trend insights</h3>
-              <p>See where symptoms cluster by time of day, trigger, or weather condition.</p>
-            </article>
-            <article className="feature-card">
-              <h3>Care reminders</h3>
-              <p>Keep follow-up visits, peak flow checks, and medication schedules visible.</p>
-            </article>
-          </section>
-        </main>
-      ) : (
-        <main className="dashboard-view">
-          <section className="dashboard-header">
-            <div>
-              <p className="eyebrow">Welcome back</p>
-              <h2>{pageCopy[currentPage].title}</h2>
-              <p>{pageCopy[currentPage].subtitle}</p>
-            </div>
-
-            <div className="dashboard-header-actions">
-              <span className="status-pill">Care plan synced</span>
-              <button className="secondary-button" type="button" onClick={logout}>
-                Logout
-              </button>
-            </div>
-          </section>
-
-          <nav className="dashboard-nav" aria-label="Primary">
-            {navigationItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={currentPage === item.id ? 'nav-tab active' : 'nav-tab'}
-                onClick={() => setCurrentPage(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
-          {currentPage === 'home' && (
-            <section className="dashboard-grid">
-              <article className="dashboard-card large">
-                <div className="card-heading">
-                  <h3>Today's summary</h3>
-                  <span>Updated 10 minutes ago</span>
-                </div>
-                <div className="meter-grid">
+            <Card className="landing-panel">
+              <Card.Body>
+                <p className="panel-label">Today at a glance</p>
+                <h2>Nature-inspired health tracking</h2>
+                <div className="panel-stats">
                   <div>
-                    <strong>2</strong>
-                    <span>Symptoms logged</span>
-                  </div>
-                  <div>
-                    <strong>1</strong>
-                    <span>Rescue inhaler use</span>
+                    <strong>4</strong>
+                    <span>Quick symptom check-ins</span>
                   </div>
                   <div>
                     <strong>96%</strong>
-                    <span>Medication adherence</span>
-                  </div>
-                </div>
-                <div className="progress-stack">
-                  <div>
-                    <span>Breathing stability</span>
-                    <div className="progress-bar"><i style={{ width: '84%' }} /></div>
+                    <span>Medication consistency</span>
                   </div>
                   <div>
-                    <span>Trigger exposure</span>
-                    <div className="progress-bar warning"><i style={{ width: '42%' }} /></div>
-                  </div>
-                  <div>
-                    <span>Recovery readiness</span>
-                    <div className="progress-bar"><i style={{ width: '91%' }} /></div>
+                    <strong>2</strong>
+                    <span>Recent trigger notes</span>
                   </div>
                 </div>
-              </article>
+              </Card.Body>
+            </Card>
+          </section>
 
-              <article className="dashboard-card">
-                <h3>Quick actions</h3>
-                <ul className="action-list">
-                  <li>Log symptom now</li>
-                  <li>Review trigger notes</li>
-                  <li>Send update to care team</li>
-                </ul>
-              </article>
-
-              <article className="dashboard-card">
-                <h3>Reminder</h3>
-                <p>Take the evening controller medication at 8:00 PM.</p>
-                <strong className="highlight-note">Next check-in: tomorrow morning</strong>
-              </article>
-            </section>
-          )}
-
-          {currentPage === 'statistics' && (
-            <section className="dashboard-grid stats-grid">
-              <article className="dashboard-card large">
-                <div className="card-heading">
-                  <h3>Weekly trend</h3>
-                  <span>Symptoms per day</span>
-                </div>
-                <div className="chart-bars">
-                  {[
-                    ['Mon', '32%'],
-                    ['Tue', '44%'],
-                    ['Wed', '22%'],
-                    ['Thu', '58%'],
-                    ['Fri', '36%'],
-                    ['Sat', '18%'],
-                    ['Sun', '28%'],
-                  ].map(([label, width]) => (
-                    <div className="chart-bar" key={label}>
-                      <i style={{ height: width }} />
-                      <span>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="dashboard-card">
-                <h3>Top triggers</h3>
-                <div className="tag-cloud">
-                  <span>Pollen</span>
-                  <span>Dust</span>
-                  <span>Cold air</span>
-                  <span>Exercise</span>
-                </div>
-              </article>
-
-              <article className="dashboard-card">
-                <h3>Medication adherence</h3>
-                <p>8 of 8 doses taken this week.</p>
-                <strong className="highlight-note">No missed doses in 7 days</strong>
-              </article>
-            </section>
-          )}
-
-          {currentPage === 'calendar' && (
-            <section className="dashboard-grid calendar-layout">
-              <article className="dashboard-card large calendar-card">
-                <div className="card-heading">
-                  <h3>July calendar</h3>
-                  <span>Appointments and flare notes</span>
-                </div>
-                <div className="calendar-grid">
-                  {calendarDays.flat().map((day, index) => (
-                    <div key={`${day}-${index}`} className={index < 7 ? 'calendar-cell header' : 'calendar-cell'}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="dashboard-card">
-                <h3>Upcoming events</h3>
-                <ul className="event-list">
-                  <li>7/04 - Peak flow check</li>
-                  <li>7/08 - Allergy consultation</li>
-                  <li>7/15 - Controller refill</li>
-                </ul>
-              </article>
-            </section>
-          )}
-
-          {currentPage === 'profile' && (
-            <section className="dashboard-grid profile-layout">
-              <article className="dashboard-card large profile-card">
-                <div className="card-heading">
-                  <h3>Profile details</h3>
-                  <span>{activeUser.email}</span>
-                </div>
-                <div className="profile-fields">
-                  <div>
-                    <span>Name</span>
-                    <strong>{activeUser.name}</strong>
-                  </div>
-                  <div>
-                    <span>Age group</span>
-                    <strong>{profile?.ageGroup || 'Not provided'}</strong>
-                  </div>
-                  <div>
-                    <span>Severity</span>
-                    <strong>{profile?.severity || 'Not provided'}</strong>
-                  </div>
-                  <div>
-                    <span>Main trigger</span>
-                    <strong>{profile?.trigger || 'Not provided'}</strong>
-                  </div>
-                  <div>
-                    <span>Emergency contact</span>
-                    <strong>{profile?.emergencyContact || 'Not provided'}</strong>
-                  </div>
-                </div>
-              </article>
-
-              <article className="dashboard-card">
-                <h3>Care goal</h3>
-                <p>{profile?.goal || 'Set a goal during registration.'}</p>
-              </article>
-            </section>
-          )}
+          <section className="feature-grid">
+            <Card className="feature-card">
+              <Card.Body>
+                <h3>Gentle guidance</h3>
+                <p>Login and sign up slide in from the right, keeping the landing page uncluttered and focused.</p>
+              </Card.Body>
+            </Card>
+            <Card className="feature-card">
+              <Card.Body>
+                <h3>Daily severity rating</h3>
+                <p>Rate symptoms on any day, review the full calendar, and edit or delete old entries when needed.</p>
+              </Card.Body>
+            </Card>
+            <Card className="feature-card">
+              <Card.Body>
+                <h3>Clear progress</h3>
+                <p>Registration moves through a welcome screen, account setup, details, preferences, and success.</p>
+              </Card.Body>
+            </Card>
+          </section>
         </main>
+      ) : (
+        <>
+          <Navbar
+            expand="lg"
+            expanded={navbarExpanded}
+            onToggle={(nextExpanded) => setNavbarExpanded(nextExpanded)}
+            className="app-navbar"
+            sticky="top"
+            aria-label="Primary navigation"
+          >
+            <Container fluid="xl">
+              <Navbar.Brand href="#home" onClick={(event) => {
+                event.preventDefault()
+                navigateTo('home')
+              }} className="brand-link">
+                <BrandMark />
+                <span>
+                  <strong>Mirror Lake</strong>
+                  <small>Asthma tracker</small>
+                </span>
+              </Navbar.Brand>
+              <Navbar.Toggle aria-controls="main-navigation" />
+              <Navbar.Collapse id="main-navigation">
+                <Nav className="me-auto align-items-lg-center gap-lg-2" activeKey={page} onSelect={(nextPage) => nextPage && navigateTo(nextPage)}>
+                  <Nav.Link eventKey="home">Home</Nav.Link>
+                  <Nav.Link eventKey="statistics">Statistics</Nav.Link>
+                  <Nav.Link eventKey="calendar">Calendar</Nav.Link>
+                  <Nav.Link eventKey="profile">Profile</Nav.Link>
+                  <NavDropdown title="Pages" id="pages-dropdown">
+                    {pages.map((item) => (
+                      <NavDropdown.Item key={item.key} eventKey={item.key} onClick={() => navigateTo(item.key)}>
+                        {item.label}
+                      </NavDropdown.Item>
+                    ))}
+                  </NavDropdown>
+                </Nav>
+                <div className="nav-actions">
+                  <span className="nav-user">{activeUser.name}</span>
+                  <Button variant="outline-success" className="logout-button" onClick={logout}>
+                    Logout
+                  </Button>
+                </div>
+              </Navbar.Collapse>
+            </Container>
+          </Navbar>
+
+          <Container fluid="xl" className="app-content py-4 py-lg-5">
+            {page === 'home' && (
+              <section className="page-section">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Dashboard</p>
+                    <h1>Welcome back, {activeUser.name}</h1>
+                    <p>Today's overview highlights your breathing stability, triggers, and follow-up tasks.</p>
+                  </div>
+                  <Badge bg="success" className="status-badge">
+                    Care plan synced
+                  </Badge>
+                </div>
+
+                <Row className="g-3">
+                  <Col md={6} lg={3}>
+                    <Card className="stat-card">
+                      <Card.Body>
+                        <span className="stat-label">Average severity</span>
+                        <strong>{statistics.averageSeverity ? statistics.averageSeverity.toFixed(1) : '0.0'}</strong>
+                        <small>Across all saved entries</small>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col md={6} lg={3}>
+                    <Card className="stat-card">
+                      <Card.Body>
+                        <span className="stat-label">Calm days</span>
+                        <strong>{statistics.calmDays}</strong>
+                        <small>Severity 1-2 entries</small>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col md={6} lg={3}>
+                    <Card className="stat-card">
+                      <Card.Body>
+                        <span className="stat-label">Active triggers</span>
+                        <strong>{statistics.topTrigger}</strong>
+                        <small>Most frequently noted</small>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col md={6} lg={3}>
+                    <Card className="stat-card">
+                      <Card.Body>
+                        <span className="stat-label">Latest note</span>
+                        <strong>{entries[0] ? severityLabels[entries[0].severity] : 'No entry'}</strong>
+                        <small>{entries[0] ? formatShortDate(entries[0].date) : 'Add your first daily entry'}</small>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+
+                <Row className="g-3 mt-1">
+                  <Col lg={8}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <div className="card-heading">
+                          <h2>Today's rhythm</h2>
+                          <p>Balanced breathing, lighter triggers, and consistent reminders.</p>
+                        </div>
+                        <div className="progress-stack">
+                          <div>
+                            <div className="progress-labels">
+                              <span>Breathing stability</span>
+                              <strong>84%</strong>
+                            </div>
+                            <ProgressBar now={84} variant="success" />
+                          </div>
+                          <div>
+                            <div className="progress-labels">
+                              <span>Trigger exposure</span>
+                              <strong>32%</strong>
+                            </div>
+                            <ProgressBar now={32} variant="warning" />
+                          </div>
+                          <div>
+                            <div className="progress-labels">
+                              <span>Recovery readiness</span>
+                              <strong>91%</strong>
+                            </div>
+                            <ProgressBar now={91} variant="info" />
+                          </div>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col lg={4}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <h2>Care reminders</h2>
+                        <ul className="feature-list">
+                          <li>Evening controller at 8:00 PM</li>
+                          <li>Peak flow check tomorrow morning</li>
+                          <li>Review pollen exposure before workouts</li>
+                        </ul>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              </section>
+            )}
+
+            {page === 'statistics' && (
+              <section className="page-section">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Statistics</p>
+                    <h1>Symptoms over time</h1>
+                    <p>Review averages, identify patterns, and compare monthly severity at a glance.</p>
+                  </div>
+                  <Badge bg="secondary" className="status-badge">
+                    {entries.length} entries
+                  </Badge>
+                </div>
+
+                <Row className="g-3">
+                  <Col lg={8}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <div className="card-heading">
+                          <h2>Six-month severity trend</h2>
+                          <p>Monthly averages based on saved daily entries.</p>
+                        </div>
+                        <div className="chart-grid" aria-label="Monthly symptom severity chart">
+                          {statistics.months.map((month) => (
+                            <div className="chart-item" key={month.label}>
+                              <div className="chart-bar-shell" aria-hidden="true">
+                                <div className="chart-bar" style={{ height: `${Math.max(month.average * 18, 10)}%` }} />
+                              </div>
+                              <span>{month.label}</span>
+                              <small>{month.count} logs</small>
+                            </div>
+                          ))}
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col lg={4}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <h2>Insights</h2>
+                        <ul className="feature-list">
+                          <li>Highest average severity: {statistics.highestEntry ? `${statistics.highestEntry.severity}/5 on ${formatShortDate(statistics.highestEntry.date)}` : 'No entries yet'}</li>
+                          <li>Most common trigger: {statistics.topTrigger}</li>
+                          <li>Severe days logged: {statistics.severeDays}</li>
+                        </ul>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              </section>
+            )}
+
+            {page === 'calendar' && (
+              <section className="page-section">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Calendar</p>
+                    <h1>{monthLabel(calendarYear, calendarMonth)}</h1>
+                    <p>Select a date, rate severity, and save or edit past symptom notes.</p>
+                  </div>
+                  <Badge bg="success" className="status-badge">
+                    {monthEntries.length} entries this month
+                  </Badge>
+                  <div className="calendar-controls">
+                    <Button variant="outline-success" onClick={() => handleMonthChange(-1)} aria-label="Previous month">
+                      Previous
+                    </Button>
+                    <Button variant="outline-success" onClick={() => handleMonthChange(1)} aria-label="Next month">
+                      Next
+                    </Button>
+                  </div>
+                </div>
+
+                <Row className="g-3">
+                  <Col lg={8}>
+                    <Card className="detail-card calendar-card h-100">
+                      <Card.Body>
+                        <div className="calendar-toolbar">
+                          <Form.Select value={calendarMonth} onChange={(event) => setCalendarMonth(Number(event.target.value))} aria-label="Month">
+                            {monthLabels.map((label, index) => (
+                              <option key={label} value={index}>
+                                {label}
+                              </option>
+                            ))}
+                          </Form.Select>
+                          <Form.Select value={calendarYear} onChange={(event) => setCalendarYear(Number(event.target.value))} aria-label="Year">
+                            {Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index).map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </Form.Select>
+                          <Form.Control type="date" value={selectedDate} onChange={handleCalendarDateChange} aria-label="Jump to date" />
+                        </div>
+
+                        <div className="calendar-grid" role="grid" aria-label="Monthly calendar">
+                          {weekdayLabels.map((day) => (
+                            <div className="calendar-weekday" key={day} role="columnheader">
+                              {day}
+                            </div>
+                          ))}
+                          {calendarGrid.flat().map((day, index) => {
+                            if (!day) {
+                              return <div className="calendar-cell blank" key={`blank-${index}`} aria-hidden="true" />
+                            }
+
+                            const dateKey = `${calendarYear}-${pad(calendarMonth + 1)}-${pad(day)}`
+                            const entry = entryByDate[dateKey]
+                            const isSelected = selectedDate === dateKey
+
+                            return (
+                              <button
+                                key={dateKey}
+                                type="button"
+                                className={isSelected ? 'calendar-cell selected' : 'calendar-cell'}
+                                onClick={() => handleCalendarDaySelect(day)}
+                                aria-label={`${formatDateLabel(dateKey)}${entry ? `, severity ${entry.severity}` : ''}`}
+                              >
+                                <span className="calendar-day-number">{day}</span>
+                                {entry ? (
+                                  <Badge bg={getSeverityVariant(entry.severity)} text={entry.severity === '2' ? 'dark' : undefined}>
+                                    {entry.severity}/5
+                                  </Badge>
+                                ) : (
+                                  <span className="calendar-placeholder">No entry</span>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col lg={4}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <div className="card-heading">
+                          <h2>{editingEntryId ? 'Edit entry' : 'Daily symptom rating'}</h2>
+                          <p>{formatDateLabel(entryForm.date)}</p>
+                        </div>
+                        <Form className="entry-form" onSubmit={handleEntrySubmit}>
+                          <Form.Group>
+                            <Form.Label>Date</Form.Label>
+                            <Form.Control type="date" value={entryForm.date} onChange={handleCalendarDateChange} />
+                          </Form.Group>
+
+                          <Form.Group>
+                            <Form.Label>Severity</Form.Label>
+                            <div className="severity-picker" role="radiogroup" aria-label="Severity rating">
+                              {severityScale.map((severity) => (
+                                <Button
+                                  key={severity.value}
+                                  type="button"
+                                  variant={entryForm.severity === severity.value ? 'success' : 'outline-success'}
+                                  className="severity-chip"
+                                  onClick={() => setEntryForm((current) => ({ ...current, severity: severity.value }))}
+                                  aria-pressed={entryForm.severity === severity.value}
+                                >
+                                  <span>{severity.value}</span>
+                                  <small>{severity.label}</small>
+                                </Button>
+                              ))}
+                            </div>
+                          </Form.Group>
+
+                          <Form.Group>
+                            <Form.Label>Symptoms</Form.Label>
+                            <Form.Control
+                              as="textarea"
+                              rows={3}
+                              value={entryForm.symptoms}
+                              onChange={(event) => setEntryForm((current) => ({ ...current, symptoms: event.target.value }))}
+                              placeholder="Shortness of breath, wheezing, chest tightness..."
+                            />
+                          </Form.Group>
+
+                          <Form.Group>
+                            <Form.Label>Triggers</Form.Label>
+                            <Form.Control
+                              value={entryForm.triggers}
+                              onChange={(event) => setEntryForm((current) => ({ ...current, triggers: event.target.value }))}
+                              placeholder="Pollen, exercise, cold air..."
+                            />
+                          </Form.Group>
+
+                          <Form.Group>
+                            <Form.Label>Notes</Form.Label>
+                            <Form.Control
+                              as="textarea"
+                              rows={3}
+                              value={entryForm.notes}
+                              onChange={(event) => setEntryForm((current) => ({ ...current, notes: event.target.value }))}
+                              placeholder="Medication, weather, how recovery felt..."
+                            />
+                          </Form.Group>
+
+                          {entryError ? <p className="form-error">{entryError}</p> : null}
+
+                          <div className="d-grid gap-2">
+                            <Button type="submit" className="primary-action">
+                              {editingEntryId ? 'Update entry' : 'Save entry'}
+                            </Button>
+                            {editingEntryId ? (
+                              <Button
+                                variant="outline-success"
+                                onClick={() => {
+                                  setEditingEntryId(null)
+                                  setEntryForm(blankEntryForm(selectedDate))
+                                }}
+                              >
+                                Cancel editing
+                              </Button>
+                            ) : null}
+                          </div>
+                        </Form>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+
+                <Row className="g-3 mt-1">
+                  <Col>
+                    <Card className="detail-card">
+                      <Card.Body>
+                        <div className="card-heading">
+                          <h2>Past entries</h2>
+                          <p>Review, edit, or delete previous daily logs.</p>
+                        </div>
+                        {entries.length ? (
+                          <div className="entry-list">
+                            {entries.map((entry) => (
+                              <Card className="entry-item" key={entry.id}>
+                                <Card.Body>
+                                  <div className="entry-row">
+                                    <div>
+                                      <h3>{formatShortDate(entry.date)}</h3>
+                                      <p>{entry.symptoms}</p>
+                                      <small>Triggers: {entry.triggers || 'None noted'}</small>
+                                    </div>
+                                    <div className="entry-actions">
+                                      <Badge bg={getSeverityVariant(entry.severity)} text={entry.severity === '2' ? 'dark' : undefined}>
+                                        {entry.severity}/5 - {severityLabels[entry.severity]}
+                                      </Badge>
+                                      <Button variant="outline-success" size="sm" onClick={() => editEntry(entry)}>
+                                        Edit
+                                      </Button>
+                                      <Button variant="outline-danger" size="sm" onClick={() => deleteEntry(entry.id)}>
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card.Body>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="empty-state">No entries saved yet. Use the form above to add one.</p>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              </section>
+            )}
+
+            {page === 'profile' && (
+              <section className="page-section">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Profile</p>
+                    <h1>Personal information and preferences</h1>
+                    <p>Update your details, reminder cadence, communication preferences, and accessibility needs.</p>
+                  </div>
+                </div>
+
+                <Row className="g-3">
+                  <Col lg={7}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <Form className="profile-form" onSubmit={handleProfileSubmit}>
+                          <Row className="g-3">
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Full name</Form.Label>
+                                <Form.Control
+                                  value={profileForm.name}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
+                                />
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Email address</Form.Label>
+                                <Form.Control
+                                  type="email"
+                                  value={profileForm.email}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+                                />
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Age range</Form.Label>
+                                <Form.Select
+                                  value={profileForm.ageRange}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, ageRange: event.target.value }))}
+                                >
+                                  {ageRanges.map((ageRange) => (
+                                    <option key={ageRange} value={ageRange}>
+                                      {ageRange}
+                                    </option>
+                                  ))}
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Emergency contact</Form.Label>
+                                <Form.Control
+                                  value={profileForm.emergencyContact}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, emergencyContact: event.target.value }))}
+                                />
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Preferred reminder time</Form.Label>
+                                <Form.Select
+                                  value={profileForm.preferredReminder}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, preferredReminder: event.target.value }))}
+                                >
+                                  {reminderTimes.map((time) => (
+                                    <option key={time} value={time}>
+                                      {time}
+                                    </option>
+                                  ))}
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Preferred contact method</Form.Label>
+                                <Form.Select
+                                  value={profileForm.contactMethod}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, contactMethod: event.target.value }))}
+                                >
+                                  {contactMethods.map((method) => (
+                                    <option key={method} value={method}>
+                                      {method}
+                                    </option>
+                                  ))}
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Preferred environment</Form.Label>
+                                <Form.Select
+                                  value={profileForm.preferredEnvironment}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, preferredEnvironment: event.target.value }))}
+                                >
+                                  {environments.map((environment) => (
+                                    <option key={environment} value={environment}>
+                                      {environment}
+                                    </option>
+                                  ))}
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Care goal</Form.Label>
+                                <Form.Control
+                                  as="textarea"
+                                  rows={3}
+                                  value={profileForm.careGoal}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, careGoal: event.target.value }))}
+                                />
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Accessibility needs</Form.Label>
+                                <Form.Control
+                                  as="textarea"
+                                  rows={3}
+                                  value={profileForm.accessibilityNeeds}
+                                  onChange={(event) => setProfileForm((current) => ({ ...current, accessibilityNeeds: event.target.value }))}
+                                />
+                              </Form.Group>
+                            </Col>
+                          </Row>
+
+                          <div className="mt-3">
+                            <Form.Label>Trigger preferences</Form.Label>
+                            <div className="trigger-grid">
+                              {triggerOptions.map((trigger) => (
+                                <Form.Check
+                                  inline
+                                  key={trigger}
+                                  type="checkbox"
+                                  id={`trigger-${trigger}`}
+                                  label={trigger}
+                                  checked={profileForm.triggerPreferences.includes(trigger)}
+                                  onChange={() => handleProfileCheckboxChange(trigger)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          {profileMessage ? <p className="profile-message">{profileMessage}</p> : null}
+
+                          <div className="d-flex gap-2 flex-wrap mt-3">
+                            <Button type="submit" className="primary-action">
+                              Save profile
+                            </Button>
+                            <Button
+                              variant="outline-success"
+                              onClick={() => {
+                                setProfileForm({
+                                  name: profileSource.name || '',
+                                  email: profileSource.email || '',
+                                  ageRange: profileSource.ageRange || '30-49',
+                                  emergencyContact: profileSource.emergencyContact || '',
+                                  preferredReminder: profileSource.preferredReminder || '08:00',
+                                  contactMethod: profileSource.contactMethod || 'Email',
+                                  preferredEnvironment: profileSource.preferredEnvironment || 'Low-pollen mornings',
+                                  careGoal: profileSource.careGoal || '',
+                                  accessibilityNeeds: profileSource.accessibilityNeeds || '',
+                                  triggerPreferences: profileSource.triggerPreferences || triggerOptions,
+                                })
+                                setProfileMessage('')
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          </div>
+                        </Form>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col lg={5}>
+                    <Card className="detail-card h-100">
+                      <Card.Body>
+                        <div className="card-heading">
+                          <h2>Profile snapshot</h2>
+                          <p>Saved preferences that shape reminders and reporting.</p>
+                        </div>
+                        <div className="profile-summary">
+                          <div>
+                            <span>Name</span>
+                            <strong>{profileForm.name || 'Not set'}</strong>
+                          </div>
+                          <div>
+                            <span>Email</span>
+                            <strong>{profileForm.email || 'Not set'}</strong>
+                          </div>
+                          <div>
+                            <span>Reminder</span>
+                            <strong>{profileForm.preferredReminder}</strong>
+                          </div>
+                          <div>
+                            <span>Contact method</span>
+                            <strong>{profileForm.contactMethod}</strong>
+                          </div>
+                          <div>
+                            <span>Environment</span>
+                            <strong>{profileForm.preferredEnvironment}</strong>
+                          </div>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              </section>
+            )}
+          </Container>
+        </>
       )}
 
-      {!isLoggedIn && (
-        <aside className={authPanelOpen ? 'auth-overlay open' : 'auth-overlay'} aria-hidden={!authPanelOpen}>
-          <button className="overlay-backdrop" type="button" onClick={closeAuthPanel} aria-label="Close authentication panel" />
+      <Offcanvas show={authOpen} onHide={closeAuth} placement="end" className="auth-offcanvas" backdropClassName="auth-backdrop">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>{authMode === 'login' ? 'Login' : 'Sign up'}</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          <div className="auth-intro">
+            <p className="eyebrow">{authMode === 'login' ? 'Welcome back' : 'Begin your registration'}</p>
+            <h2>{authMode === 'login' ? 'Log in to continue to your dashboard.' : 'Create an account in a few calm steps.'}</h2>
+            <ProgressBar now={authMode === 'login' ? 100 : signupProgress} className="auth-progress" aria-label="Registration progress" />
+          </div>
 
-          <section className="auth-panel" aria-label="Authentication form">
-            <div className="auth-panel-header">
-              <div>
-                <p className="eyebrow">{authMode === 'login' ? 'Login' : 'Sign up'}</p>
-                <h2>{authPanelTitle}</h2>
-                <p>{authPanelSubtitle}</p>
+          {authMode === 'login' ? (
+            <Form className="auth-form" onSubmit={handleLoginSubmit}>
+              <Form.Group>
+                <Form.Label>Email address</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={loginForm.email}
+                  onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="name@example.com"
+                />
+                {authFields.email ? <p className="form-error">{authFields.email}</p> : null}
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Password</Form.Label>
+                <Form.Control
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="Enter your password"
+                />
+                {authFields.password ? <p className="form-error">{authFields.password}</p> : null}
+              </Form.Group>
+              {authError ? <p className="form-error">{authError}</p> : null}
+              <div className="d-grid gap-2">
+                <Button type="submit" className="primary-action">Login</Button>
+                <Button variant="outline-success" onClick={openSignUp}>
+                  Need an account? Sign up
+                </Button>
+              </div>
+            </Form>
+          ) : (
+            <div className="signup-flow">
+              <div className="signup-stepper" aria-label="Registration steps">
+                {authSteps.map((step, index) => {
+                  const currentIndex = authSteps.indexOf(authStep)
+                  const isActive = index <= currentIndex
+                  return (
+                    <div key={step} className={isActive ? 'step-pill active' : 'step-pill'}>
+                      <span>{index + 1}</span>
+                      <small>{step}</small>
+                    </div>
+                  )
+                })}
               </div>
 
-              <button className="icon-button" type="button" onClick={closeAuthPanel} aria-label="Close panel">
-                ×
-              </button>
+              {authStep === 'welcome' ? (
+                <Card className="auth-page-card">
+                  <Card.Body>
+                    <p className="panel-label">Welcome screen</p>
+                    <h3>Let's set up your tracking profile.</h3>
+                    <p>We will move through account details, personal details, preferences, and a final success screen.</p>
+                    <div className="d-grid gap-2 mt-3">
+                      <Button className="primary-action" onClick={() => setAuthStep('account')}>
+                        Start registration
+                      </Button>
+                      <Button variant="outline-success" onClick={openLogin}>
+                        Already have an account? Login
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ) : null}
+
+              {authStep === 'account' ? (
+                <Form className="auth-form" onSubmit={handleSignupAccountSubmit}>
+                  <Form.Group>
+                    <Form.Label>Full name</Form.Label>
+                    <Form.Control
+                      value={signupAccount.name}
+                      onChange={(event) => setSignupAccount((current) => ({ ...current, name: event.target.value }))}
+                    />
+                    {authFields.name ? <p className="form-error">{authFields.name}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Email address</Form.Label>
+                    <Form.Control
+                      type="email"
+                      value={signupAccount.email}
+                      onChange={(event) => setSignupAccount((current) => ({ ...current, email: event.target.value }))}
+                    />
+                    {authFields.email ? <p className="form-error">{authFields.email}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Password</Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={signupAccount.password}
+                      onChange={(event) => setSignupAccount((current) => ({ ...current, password: event.target.value }))}
+                    />
+                    {authFields.password ? <p className="form-error">{authFields.password}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Confirm password</Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={signupAccount.confirmPassword}
+                      onChange={(event) => setSignupAccount((current) => ({ ...current, confirmPassword: event.target.value }))}
+                    />
+                    {authFields.confirmPassword ? <p className="form-error">{authFields.confirmPassword}</p> : null}
+                  </Form.Group>
+                  <div className="step-actions">
+                    <Button variant="outline-success" onClick={handleAuthBack}>
+                      Back
+                    </Button>
+                    <Button type="submit" className="primary-action">
+                      Continue
+                    </Button>
+                  </div>
+                </Form>
+              ) : null}
+
+              {authStep === 'details' ? (
+                <Form className="auth-form" onSubmit={handleSignupDetailsSubmit}>
+                  <Form.Group>
+                    <Form.Label>Date of birth</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={signupDetails.dateOfBirth}
+                      onChange={(event) => setSignupDetails((current) => ({ ...current, dateOfBirth: event.target.value }))}
+                    />
+                    {authFields.dateOfBirth ? <p className="form-error">{authFields.dateOfBirth}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Age range</Form.Label>
+                    <Form.Select
+                      value={signupDetails.ageRange}
+                      onChange={(event) => setSignupDetails((current) => ({ ...current, ageRange: event.target.value }))}
+                    >
+                      {ageRanges.map((ageRange) => (
+                        <option key={ageRange} value={ageRange}>
+                          {ageRange}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Emergency contact</Form.Label>
+                    <Form.Control
+                      value={signupDetails.emergencyContact}
+                      onChange={(event) => setSignupDetails((current) => ({ ...current, emergencyContact: event.target.value }))}
+                      placeholder="Name and phone number"
+                    />
+                    {authFields.emergencyContact ? <p className="form-error">{authFields.emergencyContact}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Care goal</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      value={signupDetails.careGoal}
+                      onChange={(event) => setSignupDetails((current) => ({ ...current, careGoal: event.target.value }))}
+                      placeholder="What do you want to improve?"
+                    />
+                    {authFields.careGoal ? <p className="form-error">{authFields.careGoal}</p> : null}
+                  </Form.Group>
+                  <div className="step-actions">
+                    <Button variant="outline-success" onClick={handleAuthBack}>
+                      Back
+                    </Button>
+                    <Button type="submit" className="primary-action">
+                      Continue
+                    </Button>
+                  </div>
+                </Form>
+              ) : null}
+
+              {authStep === 'preferences' ? (
+                <Form className="auth-form" onSubmit={handleSignupPreferencesSubmit}>
+                  <Form.Group>
+                    <Form.Label>Preferred reminder time</Form.Label>
+                    <Form.Select
+                      value={signupPreferences.preferredReminder}
+                      onChange={(event) => setSignupPreferences((current) => ({ ...current, preferredReminder: event.target.value }))}
+                    >
+                      {reminderTimes.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Contact method</Form.Label>
+                    <Form.Select
+                      value={signupPreferences.contactMethod}
+                      onChange={(event) => setSignupPreferences((current) => ({ ...current, contactMethod: event.target.value }))}
+                    >
+                      {contactMethods.map((method) => (
+                        <option key={method} value={method}>
+                          {method}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Preferred environment</Form.Label>
+                    <Form.Select
+                      value={signupPreferences.preferredEnvironment}
+                      onChange={(event) => setSignupPreferences((current) => ({ ...current, preferredEnvironment: event.target.value }))}
+                    >
+                      {environments.map((environment) => (
+                        <option key={environment} value={environment}>
+                          {environment}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Accessibility needs</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      value={signupPreferences.accessibilityNeeds}
+                      onChange={(event) => setSignupPreferences((current) => ({ ...current, accessibilityNeeds: event.target.value }))}
+                      placeholder="Large text, low motion, clear contrast..."
+                    />
+                    {authFields.accessibilityNeeds ? <p className="form-error">{authFields.accessibilityNeeds}</p> : null}
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>Trigger preferences</Form.Label>
+                    <div className="trigger-grid">
+                      {triggerOptions.map((trigger) => (
+                        <Form.Check
+                          key={trigger}
+                          type="checkbox"
+                          id={`trigger-${trigger}`}
+                          label={trigger}
+                          checked={Boolean(signupPreferences.triggerPreferences[trigger])}
+                          onChange={() =>
+                            setSignupPreferences((current) => ({
+                              ...current,
+                              triggerPreferences: {
+                                ...current.triggerPreferences,
+                                [trigger]: !current.triggerPreferences[trigger],
+                              },
+                            }))
+                          }
+                        />
+                      ))}
+                    </div>
+                    {authFields.triggers ? <p className="form-error">{authFields.triggers}</p> : null}
+                  </Form.Group>
+                  <div className="step-actions">
+                    <Button variant="outline-success" onClick={handleAuthBack}>
+                      Back
+                    </Button>
+                    <Button type="submit" className="primary-action">
+                      Review
+                    </Button>
+                  </div>
+                </Form>
+              ) : null}
+
+              {authStep === 'success' ? (
+                <Card className="auth-page-card">
+                  <Card.Body>
+                    <p className="panel-label">Registration success</p>
+                    <h3>Your profile is ready.</h3>
+                    <p>You're set to start logging daily symptoms, tracking severity, and reviewing insights.</p>
+                    <div className="success-summary">
+                      <div>
+                        <span>Reminder</span>
+                        <strong>{signupPreferences.preferredReminder}</strong>
+                      </div>
+                      <div>
+                        <span>Contact</span>
+                        <strong>{signupPreferences.contactMethod}</strong>
+                      </div>
+                    </div>
+                    <div className="step-actions">
+                      <Button variant="outline-success" onClick={handleAuthBack}>
+                        Back
+                      </Button>
+                      <Button className="primary-action" onClick={completeSignup}>
+                        Enter dashboard
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ) : null}
             </div>
-
-            {authMode === 'login' ? (
-              <form className="auth-form" onSubmit={handleLoginSubmit}>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    name="email"
-                    value={loginForm.email}
-                    onChange={handleLoginFieldChange}
-                    placeholder="name@example.com"
-                  />
-                  {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
-                </label>
-
-                <label>
-                  Password
-                  <input
-                    type="password"
-                    name="password"
-                    value={loginForm.password}
-                    onChange={handleLoginFieldChange}
-                    placeholder="Enter your password"
-                  />
-                  {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
-                </label>
-
-                {authError && <p className="form-error">{authError}</p>}
-
-                <button className="primary-button full-width" type="submit">
-                  Login
-                </button>
-
-                <button className="link-button" type="button" onClick={openSignUp}>
-                  Need an account? Switch to Sign Up.
-                </button>
-              </form>
-            ) : signupStage === 'account' ? (
-              <form className="auth-form" onSubmit={handleSignupAccountSubmit}>
-                <label>
-                  Full name
-                  <input
-                    type="text"
-                    name="name"
-                    value={signupForm.name}
-                    onChange={handleSignupFieldChange}
-                    placeholder="Your full name"
-                  />
-                  {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
-                </label>
-
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    name="email"
-                    value={signupForm.email}
-                    onChange={handleSignupFieldChange}
-                    placeholder="name@example.com"
-                  />
-                  {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
-                </label>
-
-                <label>
-                  Password
-                  <input
-                    type="password"
-                    name="password"
-                    value={signupForm.password}
-                    onChange={handleSignupFieldChange}
-                    placeholder="Create a strong password"
-                  />
-                  {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
-                </label>
-
-                <label>
-                  Confirm password
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={signupForm.confirmPassword}
-                    onChange={handleSignupFieldChange}
-                    placeholder="Repeat the password"
-                  />
-                  {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
-                </label>
-
-                <button className="primary-button full-width" type="submit">
-                  Continue
-                </button>
-
-                <button className="link-button" type="button" onClick={openLogin}>
-                  Already registered? Switch to Login.
-                </button>
-              </form>
-            ) : (
-              <form className="auth-form" onSubmit={handleRegistrationSubmit}>
-                <label>
-                  Age group
-                  <select name="ageGroup" value={registrationForm.ageGroup} onChange={handleRegistrationFieldChange}>
-                    <option value="">Select one</option>
-                    <option value="Under 18">Under 18</option>
-                    <option value="18-29">18-29</option>
-                    <option value="30-49">30-49</option>
-                    <option value="50+">50+</option>
-                  </select>
-                  {fieldErrors.ageGroup && <span className="field-error">{fieldErrors.ageGroup}</span>}
-                </label>
-
-                <label>
-                  Asthma severity
-                  <select name="severity" value={registrationForm.severity} onChange={handleRegistrationFieldChange}>
-                    <option value="">Select one</option>
-                    <option value="Mild">Mild</option>
-                    <option value="Moderate">Moderate</option>
-                    <option value="Severe">Severe</option>
-                  </select>
-                  {fieldErrors.severity && <span className="field-error">{fieldErrors.severity}</span>}
-                </label>
-
-                <label>
-                  Main trigger
-                  <select name="trigger" value={registrationForm.trigger} onChange={handleRegistrationFieldChange}>
-                    <option value="">Select one</option>
-                    {triggerOptions.map((trigger) => (
-                      <option key={trigger} value={trigger}>
-                        {trigger}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.trigger && <span className="field-error">{fieldErrors.trigger}</span>}
-                </label>
-
-                <label>
-                  Rescue inhaler use
-                  <select name="rescueUse" value={registrationForm.rescueUse} onChange={handleRegistrationFieldChange}>
-                    <option value="">Select one</option>
-                    <option value="Rarely">Rarely</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Daily">Daily</option>
-                  </select>
-                  {fieldErrors.rescueUse && <span className="field-error">{fieldErrors.rescueUse}</span>}
-                </label>
-
-                <label>
-                  Care goal
-                  <textarea
-                    name="goal"
-                    value={registrationForm.goal}
-                    onChange={handleRegistrationFieldChange}
-                    placeholder="Example: keep symptoms under control during exercise"
-                  />
-                  {fieldErrors.goal && <span className="field-error">{fieldErrors.goal}</span>}
-                </label>
-
-                <label>
-                  Emergency contact
-                  <input
-                    type="text"
-                    name="emergencyContact"
-                    value={registrationForm.emergencyContact}
-                    onChange={handleRegistrationFieldChange}
-                    placeholder="Name and phone number"
-                  />
-                  {fieldErrors.emergencyContact && <span className="field-error">{fieldErrors.emergencyContact}</span>}
-                </label>
-
-                <button className="primary-button full-width" type="submit">
-                  Complete registration
-                </button>
-
-                <button
-                  className="link-button"
-                  type="button"
-                  onClick={() => {
-                    setSignupStage('account')
-                  }}
-                >
-                  Back to account details
-                </button>
-              </form>
-            )}
-          </section>
-        </aside>
-      )}
+          )}
+        </Offcanvas.Body>
+      </Offcanvas>
     </div>
   )
 }
