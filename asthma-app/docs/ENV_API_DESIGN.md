@@ -36,7 +36,7 @@ AAMOS `anonym_aamos00_environment.csv` matches **OpenWeather** air pollution (AQ
 |---|---|---|---|
 | Weather (daily min/max/mean, pressure, humidity, wind) | OpenWeather | One Call API 3.0 `day` summary **or** Forecast 2.5 `/forecast` aggregated | `OPENWEATHER_API_KEY` |
 | Air quality (all 9 pollutant fields + AQI 1–5) | OpenWeather | `/data/2.5/air_pollution` (+ `/history` for past dates) | same key |
-| Pollen (grass / tree / weed categories) | **Google Pollen API** | `forecast:lookup` → map `indexInfo.category` | `GOOGLE_MAPS_API_KEY` |
+| Pollen (grass / tree / weed categories) | **Google Pollen API** | `forecast:lookup` → map `indexInfo.category` | `GOOGLE_POLLEN_API_KEY` |
 
 Google returns categories like `LOW`, `MODERATE`, `HIGH`, `VERY_HIGH` — capitalize to match AAMOS (`Low`, `Moderate`, `High`, `Very High`).
 
@@ -166,7 +166,7 @@ Store cache in memory (dev) or Redis (prod).
 
 ```bash
 OPENWEATHER_API_KEY=...      # required for Option A
-GOOGLE_MAPS_API_KEY=...      # pollen (Option A)
+GOOGLE_POLLEN_API_KEY=...      # pollen (Option A)
 ENV_PROVIDER=openweather       # or openmeteo
 ENV_CACHE_TTL_SECONDS=21600
 ```

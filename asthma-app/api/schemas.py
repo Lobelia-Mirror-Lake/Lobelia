@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -38,33 +38,33 @@ class ClassifierInput(BaseModel):
     grass_pollen: PollenLevel = "Low"
     tree_pollen: PollenLevel = "Low"
     weed_pollen: PollenLevel = "Low"
-    sleep_minutes_lag: float | None = Field(
+    sleep_minutes_lag: Optional[float] = Field(
         None,
         ge=0,
         description="Sleep minutes yesterday; omit or null if unknown",
     )
-    sedentary_minutes_lag: float | None = Field(None, ge=0)
-    running_minutes_lag: float | None = Field(None, ge=0)
-    total_steps_lag: float | None = Field(None, ge=0)
-    avg_hr_lag: float | None = Field(None, ge=0)
-    temp_diff_tomorrow: float | None = Field(
+    sedentary_minutes_lag: Optional[float] = Field(None, ge=0)
+    running_minutes_lag: Optional[float] = Field(None, ge=0)
+    total_steps_lag: Optional[float] = Field(None, ge=0)
+    avg_hr_lag: Optional[float] = Field(None, ge=0)
+    temp_diff_tomorrow: Optional[float] = Field(
         None,
         description="Forecast temperature change tomorrow minus today; null if unknown",
     )
-    is_flare_up: int | None = Field(
+    is_flare_up: Optional[int] = Field(
         None,
         ge=0,
         le=1,
         description="Whether the patient had a flare-up today; null if unknown",
     )
-    relief_inhaler: int | None = Field(
+    relief_inhaler: Optional[int] = Field(
         None,
         ge=0,
         description="Relief inhaler use today (questionnaire code); used to derive is_flare_up if omitted",
     )
-    daily_day_symp: bool | None = None
-    daily_night_symp: bool | None = None
-    daily_limit_activity: bool | None = None
+    daily_day_symp: Optional[bool] = None
+    daily_night_symp: Optional[bool] = None
+    daily_limit_activity: Optional[bool] = None
 
     model_config = {
         "json_schema_extra": {

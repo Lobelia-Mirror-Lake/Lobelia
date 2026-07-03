@@ -1,5 +1,7 @@
 """GINA-based rule engine for asthma flare-up risk assessment."""
 
+from __future__ import annotations
+
 
 def compute_risk(
     night_symp: bool,
