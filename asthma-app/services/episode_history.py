@@ -12,8 +12,8 @@ from db.models import CheckIn, WearableDaily
 
 
 def _pollen_high(features: dict) -> bool:
-  levels = [features.get("tree_pollen"), features.get("grass_pollen"), features.get("weed_pollen")]
-  return any(v in ("High", "Very High") for v in levels)
+    levels = [features.get("tree_pollen"), features.get("grass_pollen"), features.get("weed_pollen")]
+    return any(v in ("High", "Very High") for v in levels)
 
 
 def build_episode_summary(
