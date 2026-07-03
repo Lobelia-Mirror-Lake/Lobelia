@@ -31,5 +31,6 @@ async def get_env_daily(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Env provider error: {e}") from e
+        detail = str(e).strip() or type(e).__name__
+        raise HTTPException(status_code=502, detail=f"Env provider error: {detail}") from e
     return EnvDailyResponse(**result)

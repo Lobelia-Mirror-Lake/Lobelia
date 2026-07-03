@@ -1,19 +1,36 @@
-"""Fetch daily environment features in Elena / AAMOS schema."""
+"""Environment data orchestrator — provider switch, cache, Elena feature validation."""
 
 from __future__ import annotations
 
 import os
-from datetime import date, datetime
-from typing import Protocol
+import time
+from datetime import date, timedelta
 
-from model.elena_env_schema import AAMOS_FALLBACK, ENV_FEATURE_COLUMNS, validate_env_features
+from dotenv import load_dotenv
 
-# In-memory cache: {(lat_rounded, lon_rounded, date, provider): (response, timestamp)}
-_env_cache: dict[tuple, tuple[dict, datetime]] = {}
+from model.elena_env_schema import validate_env_features
+from services.providers.openmeteo import OpenMeteoEnvProvider
+from services.providers.openweather import OpenWeatherEnvProvider
+
+load_dotenv()
+
+_cache: dict[tuple, tuple[float, dict]] = {}
+CACHE_TTL_TODAY = int(os.getenv("ENV_CACHE_TTL_SECONDS", "21600"))
+CACHE_TTL_PAST = 7 * 24 * 3600
 
 
-class EnvProvider(Protocol):
-    async def fetch_daily(self, lat: float, lon: float, day: date) -> dict: ...
+def _cache_key(lat: float, lon: float, day: date, provider: str) -> tuple:
+    return (round(lat, 2), round(lon, 2), day.isoformat(), provider)
+
+
+def _cache_ttl(day: date) -> int:
+    return CACHE_TTL_TODAY if day >= date.today() else CACHE_TTL_PAST
+
+
+def _get_provider(name: str):
+    if name == "openweather":
+        return OpenWeatherEnvProvider()
+    return OpenMeteoEnvProvider()
 
 
 async def fetch_env_daily(
@@ -22,60 +39,31 @@ async def fetch_env_daily(
     day: date | None = None,
     provider: str | None = None,
 ) -> dict:
-    """
-    Return Elena-compatible env features for one calendar day.
-    
-    Caches results in memory with TTL: 6h for today, 7d for past dates.
-    """
+    """Fetch one Elena-compatible env row for a location and calendar date."""
     day = day or date.today()
-    provider_name = provider or os.getenv("ENV_PROVIDER", "openmeteo")
-    
-    # Round lat/lon to 2 decimals (~1 km grid)
-    lat_rounded = round(lat, 2)
-    lon_rounded = round(lon, 2)
-    cache_key = (lat_rounded, lon_rounded, day, provider_name)
-    
-    # Check cache
-    now = datetime.now()
-    if cache_key in _env_cache:
-        cached_response, cached_time = _env_cache[cache_key]
-        ttl_seconds = int(os.getenv("ENV_CACHE_TTL_SECONDS", "21600"))  # 6h default
-        
-        # Use longer TTL for past dates (7 days)
-        if day < date.today():
-            ttl_seconds = 7 * 86400
-        
-        age_seconds = (now - cached_time).total_seconds()
-        if age_seconds < ttl_seconds:
-            cached_response["cached"] = True
-            return cached_response
+    provider = provider or os.getenv("ENV_PROVIDER", "openmeteo")
+    if provider not in ("openweather", "openmeteo"):
+        raise ValueError(f"Unknown provider '{provider}'. Use openweather or openmeteo.")
 
-    # Fetch from provider
-    if provider_name == "openmeteo":
-        from services.providers.openmeteo import OpenMeteoEnvProvider
+    key = _cache_key(lat, lon, day, provider)
+    now = time.time()
+    cached = _cache.get(key)
+    if cached and now - cached[0] < _cache_ttl(day):
+        result = dict(cached[1])
+        result["cached"] = True
+        return result
 
-        raw = await OpenMeteoEnvProvider().fetch_daily(lat, lon, day)
-    elif provider_name == "openweather":
-        from services.providers.openweather import OpenWeatherEnvProvider
+    raw = await _get_provider(provider).fetch_daily(lat, lon, day)
+    features, missing = validate_env_features(raw)
 
-        raw = await OpenWeatherEnvProvider().fetch_daily(lat, lon, day)
-    else:
-        raise ValueError(f"Unknown ENV_PROVIDER: {provider_name}")
-
-    features = {col: raw.get(col, AAMOS_FALLBACK.get(col)) for col in ENV_FEATURE_COLUMNS}
-    missing = validate_env_features(features)
-
-    response = {
+    result = {
         "date": day.isoformat(),
         "lat": lat,
         "lon": lon,
-        "provider": provider_name,
+        "provider": provider,
         "features": features,
         "missing": missing,
         "cached": False,
     }
-    
-    # Store in cache
-    _env_cache[cache_key] = (response.copy(), now)
-    
-    return response
+    _cache[key] = (now, result)
+    return result
