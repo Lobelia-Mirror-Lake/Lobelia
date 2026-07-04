@@ -9,7 +9,7 @@ Elena's model expects **19 environment columns** per `(user, date)` plus user/de
 | `temperature` | OpenWeather daily mean °C | Open-Meteo `temperature_2m_mean` **or** OW One Call daily | Match daily aggregate, not instant |
 | `temperature_min` | OW daily min | Open-Meteo `temperature_2m_min` / OW `temp.min` | |
 | `temperature_max` | OW daily max | Open-Meteo `temperature_2m_max` / OW `temp.max` | |
-| `pressure` | hPa | Open-Meteo `surface_pressure` (÷100 → hPa) | AAMOS uses ~1015 hPa |
+| `pressure` | hPa | Open-Meteo `surface_pressure` (already hPa) | AAMOS uses ~1015 hPa; do **not** divide by 100 |
 | `humidity` | % | Open-Meteo `relative_humidity_2m_mean` | 0–100 |
 | `wind_speed` | m/s | Open-Meteo `wind_speed_10m_max` or mean | |
 | `wind_deg` | 0–360 | Open-Meteo `wind_direction_10m_dominant` | Dominant direction for the day |
@@ -36,7 +36,7 @@ AAMOS `anonym_aamos00_environment.csv` matches **OpenWeather** air pollution (AQ
 |---|---|---|---|
 | Weather (daily min/max/mean, pressure, humidity, wind) | OpenWeather | One Call API 3.0 `day` summary **or** Forecast 2.5 `/forecast` aggregated | `OPENWEATHER_API_KEY` |
 | Air quality (all 9 pollutant fields + AQI 1–5) | OpenWeather | `/data/2.5/air_pollution` (+ `/history` for past dates) | same key |
-| Pollen (grass / tree / weed categories) | **Google Pollen API** | `forecast:lookup` → map `indexInfo.category` | `GOOGLE_MAPS_API_KEY` |
+| Pollen (grass / tree / weed categories) | **Google Pollen API** | `forecast:lookup` → map `indexInfo.category` | `GOOGLE_POLLEN_API_KEY` |
 
 Google returns categories like `LOW`, `MODERATE`, `HIGH`, `VERY_HIGH` — capitalize to match AAMOS (`Low`, `Moderate`, `High`, `Very High`).
 
@@ -166,7 +166,7 @@ Store cache in memory (dev) or Redis (prod).
 
 ```bash
 OPENWEATHER_API_KEY=...      # required for Option A
-GOOGLE_MAPS_API_KEY=...      # pollen (Option A)
+GOOGLE_POLLEN_API_KEY=...      # pollen (Option A)
 ENV_PROVIDER=openweather       # or openmeteo
 ENV_CACHE_TTL_SECONDS=21600
 ```
