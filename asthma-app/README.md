@@ -18,20 +18,59 @@ The notebook and feature engineering modules expect files named like `anonym_aam
 
 ```bash
 cd asthma-app
-python -m venv .venv && source .venv/bin/activate   # or use repo-root .venv
+
+# 1. Start PostgreSQL locally (recommended)
+docker compose up -d
+
+# 2. Python env + dependencies
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # edit keys as needed
 
-# Place trained classifier here (from moduler_workflow.ipynb or Asthma_binary.ipynb)
-# model/artifacts/flare_classifier.joblib
+# 3. Create tables
+python scripts/init_db.py
 
-# API — must use asthma-app as app-dir (api/ and model/ live here)
+# 4. Run API
 ./run_api.sh
-# or: uvicorn api.main:app --reload --app-dir .
 ```
+
+**Database options**
+
+| Environment | Setup |
+|-------------|--------|
+| **Local dev** | `docker compose up -d` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` |
+| **Staging / demo** | Supabase project → paste the pooler connection string into `DATABASE_URL` in `.env` |
+
+The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work.
+
+### Run tests
+
+```bash
+docker compose up -d
+pip install -r requirements.txt
+./run_tests.sh          # fast tests, mocked APIs (default)
+./run_live_tests.sh     # real OpenWeather / Pollen / LLM — needs .env keys
+```
+
+Default `pytest` skips live tests (`pytest.ini`: `-m "not live"`). Live tests call real external APIs and use keys from `.env`.
+
+Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If PostgreSQL is unavailable, DB tests are skipped.
 
 **If you see `ModuleNotFoundError: No module named 'api'`** you started uvicorn from the repo root (`Mirror-Lake/`). `cd asthma-app` first, or use `./run_api.sh`.
 
 Open http://127.0.0.1:8000/docs for interactive API docs.
+
+### Check LLM advice manually
+
+```bash
+./check_llm_advice.sh                              # direct LLM call (uses .env keys)
+./check_llm_advice.sh --provider gemini --risk High --puffs 2
+./check_llm_advice.sh --api                        # full flow via running API
+./check_llm_advice.sh --api --lat 42.36 --lon -71.06
+./check_llm_advice.sh --json > advice.json         # save raw JSON
+```
+
+Direct mode skips the server and calls Gemini/Claude with a sample scenario. `--api` registers a temp user, logs a puff, and runs `POST /v1/forecast` with real env data.
 
 ### Classifier prediction (`POST /predict/classifier`)
 
@@ -87,9 +126,14 @@ Simpler inputs for new users without full AAMOS feature history.
 | `model/train.py` | Population and personalized training routines |
 | `model/inference_new.py` | Notebook-friendly inference helpers |
 | `model/artifacts/flare_classifier.joblib` | Trained global classifier (local) |
-| `api/` | FastAPI `/predict/classifier` + GINA `/predict` |
+| `api/` | FastAPI legacy `/predict/*` + `/v1` product APIs |
+| `db/` | PostgreSQL models and session management |
+| `docker-compose.yml` | Local PostgreSQL 16 for development |
+| `tests/` | Pytest suite (auth, check-ins, forecast, advice) |
 | `model/data/` | AAMOS raw CSVs (local, gitignored) |
 | `docs/ELENA_HANDOFF.md` | What Elena exports for deploy |
+| `docs/API.md` | Backend API spec for frontend + new endpoints |
+| `docs/ENV_API_DESIGN.md` | Environment fetch design (OpenWeather / pollen) |
 | `notebooks/Asthma_Prediction_Model.ipynb` | Research notebook rebuilt to use the shared modules |
 | `../Asthma_binary.ipynb` | Elena's binary + Edge notebook (Elena branch) |
 

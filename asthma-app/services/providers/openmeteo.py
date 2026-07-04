@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime
 
 import httpx
@@ -11,16 +12,36 @@ from model.elena_env_schema import grains_to_pollen_category, us_aqi_to_openweat
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+REQUEST_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
+MAX_ATTEMPTS = 3
 
 
 class OpenMeteoEnvProvider:
     async def fetch_daily(self, lat: float, lon: float, day: date) -> dict:
         day_str = day.isoformat()
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             weather = await self._fetch_weather(client, lat, lon, day_str)
             air = await self._fetch_air(client, lat, lon, day_str)
 
         return {**weather, **air}
+
+    async def _get_json(self, client: httpx.AsyncClient, url: str, params: dict) -> dict:
+        last_exc: Exception | None = None
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                return response.json()
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                last_exc = exc
+                if attempt < MAX_ATTEMPTS:
+                    await asyncio.sleep(attempt)
+                    continue
+                raise RuntimeError(
+                    f"Open-Meteo request failed after {MAX_ATTEMPTS} attempts: {type(exc).__name__}"
+                ) from exc
+        assert last_exc is not None
+        raise last_exc
 
     async def _fetch_weather(self, client: httpx.AsyncClient, lat: float, lon: float, day_str: str) -> dict:
         from datetime import date as date_cls
@@ -36,9 +57,7 @@ class OpenMeteoEnvProvider:
             "start_date": day_str,
             "end_date": day_str,
         }
-        r = await client.get(url, params=params)
-        r.raise_for_status()
-        data = r.json()
+        data = await self._get_json(client, url, params)
 
         daily = data.get("daily", {})
         hourly = data.get("hourly", {})
@@ -54,7 +73,7 @@ class OpenMeteoEnvProvider:
             "temperature": t_mean,
             "temperature_min": t_min,
             "temperature_max": t_max,
-            "pressure": (_mean(pressures) / 100) if pressures else None,  # Pa → hPa
+            "pressure": _mean(pressures) if pressures else None,  # Open-Meteo: already hPa
             "humidity": _mean(humids),
             "wind_speed": _first(daily.get("wind_speed_10m_max")),
             "wind_deg": _first(daily.get("wind_direction_10m_dominant")),
@@ -73,9 +92,8 @@ class OpenMeteoEnvProvider:
             "start_date": day_str,
             "end_date": day_str,
         }
-        r = await client.get(AIR_QUALITY_URL, params=params)
-        r.raise_for_status()
-        h = r.json().get("hourly", {})
+        data = await self._get_json(client, AIR_QUALITY_URL, params)
+        h = data.get("hourly", {})
 
         us_aqi = _mean(h.get("us_aqi") or [])
         return {

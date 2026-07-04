@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from api.schemas import ClassifierInput
@@ -30,19 +32,19 @@ class PatientInput(BaseModel):
     inhaler_today: int = Field(0, ge=0, le=3)
     sleep_hours: float = Field(..., ge=0)
     steps: float = Field(..., ge=0)
-    baseline_sleep_hours: float | None = Field(None, ge=0)
-    baseline_steps: float | None = Field(None, ge=0)
+    baseline_sleep_hours: Optional[float] = Field(None, ge=0)
+    baseline_steps: Optional[float] = Field(None, ge=0)
     
     # Legacy GINA fields (full clinical)
     force_gina: bool = False
-    night_symp: bool | None = None
-    day_symp: bool | None = None
-    limit_activity: bool | None = None
-    relief_inhaler_puffs: int | None = None
-    pef_am: float | None = None
-    pef_personal_best: float | None = None
-    pollen: float | None = None
-    temp: float | None = None
+    night_symp: Optional[bool] = None
+    day_symp: Optional[bool] = None
+    limit_activity: Optional[bool] = None
+    relief_inhaler_puffs: Optional[int] = None
+    pef_am: Optional[float] = None
+    pef_personal_best: Optional[float] = None
+    pollen: Optional[float] = None
+    temp: Optional[float] = None
     
     # Elena ML fields (BLOCKED on model export - see model/elena_features.py)
     # When Elena exports elena_global_model.joblib + feature_columns.json:
@@ -123,10 +125,15 @@ def run_prediction(inputs: PatientInput) -> dict:
 
 
 def health_status() -> dict:
+    from db.health import check_db_status
+
+    db_status = check_db_status()
+    overall = "ok" if db_status.get("connected") else "degraded"
     return {
-        "status": "ok",
+        "status": overall,
         "classifier_loaded": classifier_model_available(),
         "any_model_available": model_available(),
+        "database": db_status,
         "training": {
             "missing_data_strategy": "xgb_native_nan",
             "peakflow": "not_used",
