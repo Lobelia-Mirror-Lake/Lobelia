@@ -12,7 +12,9 @@ from jose import JWTError, jwt
 
 load_dotenv()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "change_me_in_production")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET or JWT_SECRET == "change_me_in_production":
+    raise RuntimeError("JWT_SECRET must be set to a strong secret (do not use the placeholder).")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))
 

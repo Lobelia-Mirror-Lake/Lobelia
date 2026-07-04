@@ -197,7 +197,7 @@ async def generate_advice(
         else:
             parsed = await _call_claude(prompt)
     except Exception as exc:
-        raise RuntimeError(f"LLM provider error: {exc}") from exc
+        raise RuntimeError("LLM provider error") from exc
 
     sources = ["GINA", "CDC"]
     if "Personalized Patient History" in layer3_summary:

@@ -66,6 +66,18 @@ def db_engine():
             conn.execute(text("SELECT 1"))
     except Exception as exc:
         pytest.skip(f"PostgreSQL not available for tests: {exc}")
+@pytest.fixture(scope="session")
+def db_engine():
+    _ensure_test_database()
+    url = os.environ["DATABASE_URL"]
+    if "mirror_lake_test" not in url and os.getenv("ALLOW_DROP_DB_FOR_TESTS") != "1":
+        pytest.skip(f"Refusing to run destructive DB tests against non-test DATABASE_URL: {url}")
+    engine = create_engine(url, pool_pre_ping=True)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL not available for tests: {exc}")
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine

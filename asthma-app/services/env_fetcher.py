@@ -65,5 +65,8 @@ async def fetch_env_daily(
         "missing": missing,
         "cached": False,
     }
+    max_entries = int(os.getenv("ENV_CACHE_MAX_ENTRIES", "5000"))
+    if len(_cache) >= max_entries and _cache:
+        _cache.pop(next(iter(_cache)))
     _cache[key] = (now, result)
     return result

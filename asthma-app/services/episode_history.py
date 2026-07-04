@@ -76,6 +76,9 @@ def build_episode_summary(
         f"Over the last {lookback_days} days you logged {len(check_ins)} check-ins.",
         f"Night symptoms on {night_symptom_days} days; rescue inhaler use ≥2 puffs on {rescue_spike_days} days.",
         f"Days with poor sleep (<6h): {poor_sleep_days}.",
+        f"Days where triggers included pollen/exercise/cold air: {high_pollen_days}.",
+    ]
+        f"Days with poor sleep (<6h): {poor_sleep_days}.",
     ]
     if matched_episodes:
         lines.append(

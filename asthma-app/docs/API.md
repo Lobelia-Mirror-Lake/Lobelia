@@ -57,7 +57,7 @@ sequenceDiagram
 
 ## Authentication
 
-All `/v1/*` routes except none require a JWT (Bearer token).
+All `/v1/*` routes except `/v1/auth/*` and `GET /v1/env/daily` require a JWT (Bearer token).
 
 ### Register
 
