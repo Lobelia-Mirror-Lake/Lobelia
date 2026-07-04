@@ -73,7 +73,7 @@ class OpenMeteoEnvProvider:
             "temperature": t_mean,
             "temperature_min": t_min,
             "temperature_max": t_max,
-            "pressure": _mean(pressures) if pressures else None,
+            "pressure": _mean(pressures) if pressures else None,  # Open-Meteo: already hPa
             "humidity": _mean(humids),
             "wind_speed": _first(daily.get("wind_speed_10m_max")),
             "wind_deg": _first(daily.get("wind_direction_10m_dominant")),

@@ -78,8 +78,6 @@ def build_episode_summary(
         f"Days with poor sleep (<6h): {poor_sleep_days}.",
         f"Days where triggers included pollen/exercise/cold air: {high_pollen_days}.",
     ]
-        f"Days with poor sleep (<6h): {poor_sleep_days}.",
-    ]
     if matched_episodes:
         lines.append(
             f"{matched_episodes} prior days combined elevated rescue use with night symptoms — "

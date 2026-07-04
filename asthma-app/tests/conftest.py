@@ -60,15 +60,6 @@ def _ensure_test_database() -> str:
 @pytest.fixture(scope="session")
 def db_engine():
     _ensure_test_database()
-    engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception as exc:
-        pytest.skip(f"PostgreSQL not available for tests: {exc}")
-@pytest.fixture(scope="session")
-def db_engine():
-    _ensure_test_database()
     url = os.environ["DATABASE_URL"]
     if "mirror_lake_test" not in url and os.getenv("ALLOW_DROP_DB_FOR_TESTS") != "1":
         pytest.skip(f"Refusing to run destructive DB tests against non-test DATABASE_URL: {url}")
