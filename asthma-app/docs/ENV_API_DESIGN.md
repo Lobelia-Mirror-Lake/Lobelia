@@ -9,7 +9,7 @@ Elena's model expects **19 environment columns** per `(user, date)` plus user/de
 | `temperature` | OpenWeather daily mean °C | Open-Meteo `temperature_2m_mean` **or** OW One Call daily | Match daily aggregate, not instant |
 | `temperature_min` | OW daily min | Open-Meteo `temperature_2m_min` / OW `temp.min` | |
 | `temperature_max` | OW daily max | Open-Meteo `temperature_2m_max` / OW `temp.max` | |
-| `pressure` | hPa | Open-Meteo `surface_pressure` (÷100 → hPa) | AAMOS uses ~1015 hPa |
+| `pressure` | hPa | Open-Meteo `surface_pressure` (already hPa) | AAMOS uses ~1015 hPa; do **not** divide by 100 |
 | `humidity` | % | Open-Meteo `relative_humidity_2m_mean` | 0–100 |
 | `wind_speed` | m/s | Open-Meteo `wind_speed_10m_max` or mean | |
 | `wind_deg` | 0–360 | Open-Meteo `wind_direction_10m_dominant` | Dominant direction for the day |
