@@ -22,7 +22,7 @@ def check_db_status() -> dict:
             "status": "error",
             "connected": False,
             "url_host": _safe_host(DATABASE_URL),
-            "detail": str(exc),
+            "detail": type(exc).__name__,
         }
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -93,7 +92,12 @@ async def run_forecast(
     except Exception as exc:
         from api.errors import api_error
 
-        raise api_error(502, f"Environment provider error: {exc}", "ENV_PROVIDER_ERROR") from exc
+        # Avoid leaking upstream URLs / API keys in client-facing error messages.
+        raise api_error(
+            502,
+            "Environment provider error. Please try again later.",
+            "ENV_PROVIDER_ERROR",
+        ) from exc
 
     env_features = env_result["features"]
     snapshot = db.scalar(
