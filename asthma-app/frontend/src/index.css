@@ -2,9 +2,11 @@
   /* Core brand */
   --color-primary: #FFFBF2;
   --color-primary-dark: #E5E2DA;
+  --color-primary-darkest: #C9C4B6;
 
   --color-secondary: #18403F;
   --color-secondary-dark: #0E2626;
+  --color-secondary-darkest: #040C0D;
 
   --color-tertiary: #D1DFAD;
   --color-tertiary-dark: #A3B478;
@@ -82,27 +84,27 @@
   row-gap: var(--vertical-gap, 0px);
 }
 
-.vertical-8  { row-gap: var(--space-8); }
-.vertical-16 { row-gap: var(--space-16); }
-.vertical-24 { row-gap: var(--space-24); }
-.vertical-32 { row-gap: var(--space-32); }
-.vertical-40 { row-gap: var(--space-40); }
-.vertical-48 { row-gap: var(--space-48); }
-.vertical-56 { row-gap: var(--space-56); }
-.vertical-64 { row-gap: var(--space-64); }
-.vertical-72 { row-gap: var(--space-72); }
-.vertical-80 { row-gap: var(--space-80); }
+.vertical-8  { --vertical-gap: var(--space-8); }
+.vertical-16 { --vertical-gap: var(--space-16); }
+.vertical-24 { --vertical-gap: var(--space-24); }
+.vertical-32 { --vertical-gap: var(--space-32); }
+.vertical-40 { --vertical-gap: var(--space-40); }
+.vertical-48 { --vertical-gap: var(--space-48); }
+.vertical-56 { --vertical-gap: var(--space-56); }
+.vertical-64 { --vertical-gap: var(--space-64); }
+.vertical-72 { --vertical-gap: var(--space-72); }
+.vertical-80 { --vertical-gap: var(--space-80); }
 
-.horizontal-8  { column-gap: var(--space-8); }
-.horizontal-16 { column-gap: var(--space-16); }
-.horizontal-24 { column-gap: var(--space-24); }
-.horizontal-32 { column-gap: var(--space-32); }
-.horizontal-40 { column-gap: var(--space-40); }
-.horizontal-48 { column-gap: var(--space-48); }
-.horizontal-56 { column-gap: var(--space-56); }
-.horizontal-64 { column-gap: var(--space-64); }
-.horizontal-72 { column-gap: var(--space-72); }
-.horizontal-80 { column-gap: var(--space-80); }
+.horizontal-8  { --horizontal-gap: var(--space-8); }
+.horizontal-16 { --horizontal-gap: var(--space-16); }
+.horizontal-24 { --horizontal-gap: var(--space-24); }
+.horizontal-32 { --horizontal-gap: var(--space-32); }
+.horizontal-40 { --horizontal-gap: var(--space-40); }
+.horizontal-48 { --horizontal-gap: var(--space-48); }
+.horizontal-56 { --horizontal-gap: var(--space-56); }
+.horizontal-64 { --horizontal-gap: var(--space-64); }
+.horizontal-72 { --horizontal-gap: var(--space-72); }
+.horizontal-80 { --horizontal-gap: var(--space-80); }
 
 [class*="at-"] {
   display: flex;
@@ -132,6 +134,30 @@
 [class*="-center"] { --hori-align: var(--flex-center); }
 [class*="-right"]  { --hori-align: var(--flex-right); }
 
+.line-break {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.line-break::before,
+.line-break::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-secondary-dark);
+  margin: 0 1rem;
+}
+
+@media (max-width: 1200px) {
+  .line-break-wrapper {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: center;
+  }
+}
+
 /********************************* ICONS ********************************************/
 
 body {
@@ -145,13 +171,12 @@ body {
 }
 
 .btn {
-  padding-left: var(--space-144);
-  padding-right: var(--space-144);
-  padding-top: var(--space-16);
-  padding-bottom: var(--space-16);
+  padding: clamp(0.5rem, 20vw, var(--space-16))
+          clamp(1rem, 20vw, var(--space-144));
 
   border-radius: var(--space-40);
   border-width: var(--stroke-width);
+  white-space: nowrap;
 }
 
 .button-dark {
@@ -160,11 +185,21 @@ body {
   border-color: var(--color-secondary-dark);
 }
 
-.button-dark:hover {
+.button-dark:hover,
+.button-dark:focus,
+.button-dark.active {
   background-color: var(--color-secondary-dark);
   color: var(--color-primary-dark);
-  border-color: var(--color-secondary-dark);
+  border-color: var(--color-secondary-darkest);
 }
+
+.button-dark:active,
+.button-dark:focus:active {
+  background-color: var(--color-secondary-darkest);
+  color: var(--color-primary-darkest);
+  border-color: var(--color-secondary-darkest);
+}
+
 
 .button-light {
   background-color: var(--color-primary);
@@ -172,10 +207,19 @@ body {
   border-color: var(--color-primary-dark);
 }
 
-.button-light:hover {
+.button-light:hover,
+.button-light:focus,
+.button-light.active {
   background-color: var(--color-primary-dark);
   color: var(--color-secondary-dark);
-  border-color: var(--color-primary-dark);
+  border-color: var(--color-primary-darkest);
+}
+
+.button-light:active,
+.button-light:focus:active {
+  background-color: var(--color-primary-darkest);
+  color: var(--color-secondary-darkest);
+  border-color: var(--color-primary-darkest);
 }
 
 .alert-error {
