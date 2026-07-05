@@ -18,7 +18,7 @@ function LandingContent({ onLogin, onSignUp }) {
 
         <Row className="at-middle-center g-3">
             <Col xs="auto">
-                <Button className="button-light btn-large-text" onClick={onLogin}>
+                <Button className="button-dark btn-large-text" onClick={onLogin}>
                     Login
                 </Button>
             </Col>
