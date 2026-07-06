@@ -16,7 +16,7 @@ cd ../../
 echo "Pushing docs/ to gh-pages..."
 git subtree push --prefix asthma-app/frontend/docs origin gh-pages
 
-echo "Committing main branch..."
+echo "Committing to current branch..."
 git add *
 git commit -m "$COMMIT_MSG"
 git push
