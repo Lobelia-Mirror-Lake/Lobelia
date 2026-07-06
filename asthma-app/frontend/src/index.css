@@ -170,6 +170,11 @@ body {
   color: var(--color-secondary);
 }
 
+.dark-green-body {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+}
+
 .btn {
   padding: clamp(0.5rem, 20vw, var(--space-16))
           clamp(1rem, 20vw, var(--space-144));
@@ -225,6 +230,24 @@ body {
 .alert-error {
   background-color: var(--color-error-light);
   color: var(--color-error-darkest);
+}
+
+hr {
+  flex-grow: 1;
+  border-width: var(--stroke-width);
+  opacity: 100%;
+  border-radius: 999px;
+}
+
+.form-label {
+  color: var(--color-primary);
+  font-size: 1.2rem;
+}
+
+.form-control {
+  background-color: var(--color-primary);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: 1rem;
 }
 
 /***************************************** TEXT ********************************************/

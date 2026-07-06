@@ -1,5 +1,5 @@
 import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router'
-import AuthOffcanvas from './components/landing/AuthOffcanvas'
+import AuthSlide from './components/landing/AuthSlide'
 import DashboardLayout from './components/DashboardLayout'
 import LandingPage from './components/pages/LandingPage'
 import CalendarPage from './components/pages/CalendarPage'
