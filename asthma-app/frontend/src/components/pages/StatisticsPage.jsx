@@ -5,4 +5,4 @@ function StatisticsPage() {
   );
 }
 
-export default StatisticsPage
+export default StatisticsPage;

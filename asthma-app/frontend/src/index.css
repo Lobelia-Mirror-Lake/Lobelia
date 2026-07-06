@@ -241,13 +241,25 @@ hr {
 
 .form-label {
   color: var(--color-primary);
-  font-size: 1.2rem;
+
+  font-family: var(--font-section-text-family);
+  font-size: var(--font-section-text-size);
+  font-weight: var(--font-section-text-weight);
+  line-height: var(--font-section-text-size);
 }
 
 .form-control {
   background-color: var(--color-primary);
-  border: 2px solid var(--color-primary-dark);
-  border-radius: 1rem;
+  border: var(--stroke-width) solid var(--color-primary-dark);
+  border-radius: 0.5rem;
+}
+
+.absolute-top-left {
+  position: absolute;
+  top: 3rem;
+  left: 3rem;
+
+  z-index: 10;
 }
 
 /***************************************** TEXT ********************************************/
