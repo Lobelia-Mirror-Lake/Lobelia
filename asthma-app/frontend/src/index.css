@@ -239,8 +239,56 @@ hr {
   border-radius: 999px;
 }
 
+.form-full {
+  --form-background: var(--color-primary);
+  --form-text: var(--color-secondary);
+  --form-border: var(--color-primary-dark);
+  
+  --form-focus-background: var(--color-primary-dark);
+  --form-focus-text: var(--color-secondary-dark);
+  --form-focus-border: var(--color-primary-darkest);
+
+  --form-error-main-contrast: var(--color-error-dark);
+  --form-error-secondary-contrast: var(--color-error-light);
+
+  --form-error-focus-main-contrast: var(--color-error-darkest);
+  --form-error-focus-secondary-contrast: var(--color-error-dark);
+}
+
+.form-full.light {
+  --form-background: var(--color-primary);
+  --form-text: var(--color-secondary);
+  --form-border: var(--color-primary-dark);
+
+  --form-focus-background: var(--color-primary-dark);
+  --form-focus-text: var(--color-secondary-dark);
+  --form-focus-border: var(--color-primary-darkest);
+  
+  --form-error-main-contrast: var(--color-error-dark);
+  --form-error-secondary-contrast: var(--color-error-light);
+
+  --form-error-focus-main-contrast: var(--color-error-dark);
+  --form-error-focus-secondary-contrast: var(--color-error-dark);
+}
+
+.form-full.dark {
+  --form-background: var(--color-secondary);
+  --form-text: var(--color-primary);
+  --form-border: var(--color-secondary-dark);
+
+  --form-focus-background: var(--color-secondary-dark);
+  --form-focus-text: var(--color-primary-dark);
+  --form-focus-border: var(--color-secondary-darkest);
+  
+  --form-error-main-contrast: var(--color-error-light);
+  --form-error-secondary-contrast: var(--color-error-dark);
+
+  --form-error-focus-main-contrast: var(--color-error-light);
+  --form-error-focus-secondary-contrast: var(--color-error-darkest);
+}
+
 .form-label {
-  color: var(--color-primary);
+  color: var(--form-background);
 
   font-family: var(--font-section-text-family);
   font-size: var(--font-section-text-size);
@@ -249,9 +297,52 @@ hr {
 }
 
 .form-control {
-  background-color: var(--color-primary);
-  border: var(--stroke-width) solid var(--color-primary-dark);
+  background-color: var(--form-background);
+  border: var(--stroke-width) solid var(--form-border);
   border-radius: 0.5rem;
+
+  caret-color: var(--form-text);
+  color: var(--form-text);
+
+  font-family: var(--font-body-family);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  
+  line-height: var(--font-body-size);
+  margin: 0;
+}
+
+.form-control:focus {
+  background-color: var(--form-focus-background);
+  border: var(--stroke-width) solid var(--form-focus-border);
+
+  color: var(--form-focus-text);
+}
+
+.form-control::placeholder {
+  color: var(--form-text);
+  opacity: 50%;
+  
+  font-family: var(--font-body-family);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  
+  line-height: var(--font-body-size);
+  margin: 0;
+}
+
+.invalid-feedback {
+  color: var(--form-error-secondary-contrast);
+}
+
+.form-control.is-invalid {
+  color: var(--form-error-main-contrast);
+  border-color: var(--form-error-secondary-contrast);
+}
+
+.form-control.is-invalid:focus {
+  color: var(--form-error-focus-main-contrast);
+  border-color: var(--form-error-focus-secondary-contrast);
 }
 
 .absolute-top-left {
