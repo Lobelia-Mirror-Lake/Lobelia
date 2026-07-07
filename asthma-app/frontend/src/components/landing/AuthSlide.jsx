@@ -1,6 +1,8 @@
-import { Container, Row, Col, Button, Form } from 'react-bootstrap'
-import FormFull from '../input/FormFull'
+import { Container, Row, Col, Button, Form } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
+import FormFull from '../input/FormFull';
 import BackButton from '../input/BackButton';
+import { loginFields, signUpFields, loginState, signUpState } from '../../lib/constants';
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
@@ -8,12 +10,8 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     return <h1>Error in loading.</h1>
   }
 
-  // form info
-  const signUp_Labels = ["Username", "Password", "Confirm Password"];
-  const signUp_Placeholders = ["Enter your username", "Enter your password", "Re-enter your password"];
-  
-  const login_Labels = ["Username", "Password"];
-  const login_Placeholders = ["Enter your username", "Enter your password"];
+  const [formData, setFormData] = showLogin ? useState(loginState) : useState(signUpState);
+  const [errors, setErrors] = showLogin ? useState(loginState) : useState(signUpState);
 
   return (
     <Container
@@ -22,7 +20,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     >
       {
         // back button will be placed in top-left corner absolutely (without affecting placement of other items)
-        !landingVisible && <BackButton className="button-dark p-2 absolute-top-left" onClick={onBack} />
+        !landingVisible && <BackButton className="button-light p-2 absolute-top-left" onClick={onBack} />
       }
         <Row className="flex-grow-1">
           <Col
@@ -33,10 +31,10 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
               <hr />
             </div>
             {
-              !showLogin && <FormFull labels={signUp_Labels} placeholders={signUp_Placeholders}/>
+              !showLogin && <FormFull theme={"light"} fields={signUpFields} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors} />
             }
             {
-              showLogin && <FormFull labels={login_Labels} placeholders={login_Placeholders}/>
+              showLogin && <FormFull theme={"light"} fields={loginFields} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors} />
             }
           </Col>
         </Row>
