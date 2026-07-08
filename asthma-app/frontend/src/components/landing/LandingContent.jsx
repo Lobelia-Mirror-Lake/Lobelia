@@ -1,6 +1,6 @@
 import { Button, Container, Row, Col } from "react-bootstrap";
 
-function LandingContent({ onLogin, onSignUp }) {
+function LandingContent({ onLogin, onSignUp, onBack, authSlideOpen}) {
     return (
         <Container
             fluid
@@ -17,19 +17,32 @@ function LandingContent({ onLogin, onSignUp }) {
             </Row>
 
             <Row className="at-middle-center g-3">
-                <Col xs="auto">
-                    <Button className="button-dark btn-large-text" onClick={onLogin}>
-                        Login
-                    </Button>
-                </Col>
-                <Col xs="auto line-break-wrapper">
-                    <span className="btn-large-text line-break">Or</span>
-                </Col>
-                <Col xs="auto">
-                    <Button className="button-dark btn-large-text" onClick={onSignUp}>
-                        Sign Up
-                    </Button>
-                </Col>
+                {
+                    !authSlideOpen && <>
+                        <Col xs="auto">
+                            <Button className="button-dark btn-large-text" onClick={onLogin}>
+                                Login
+                            </Button>
+                        </Col>
+                        <Col xs="auto line-break-wrapper">
+                            <span className="btn-large-text line-break">Or</span>
+                        </Col>
+                        <Col xs="auto">
+                            <Button className="button-dark btn-large-text" onClick={onSignUp}>
+                                Sign Up
+                            </Button>
+                        </Col>
+                    </>
+                }
+                {
+                    authSlideOpen && <>
+                        <Col xs="auto">
+                            <Button className="button-dark btn-large-text" onClick={onBack}>
+                                Back
+                            </Button>
+                        </Col>
+                    </>
+                }
             </Row>
         </Container>
     );
