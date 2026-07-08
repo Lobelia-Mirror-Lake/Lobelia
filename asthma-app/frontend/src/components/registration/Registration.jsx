@@ -7,6 +7,9 @@ export function Registration({
   numPages = 7,
   onNext,
   onBack,
+  nextDisabled,
+  buttonError,
+  shake,
   children
 }) {
     var headerEle = <></>
@@ -34,6 +37,7 @@ export function Registration({
                     { headerEle }
                     <hr />
                     { children }
+                    <p className="error-text-dark mt-auto">{buttonError}</p>
                     <div className="horizontal-48 at-bottom-center mt-auto">
                         {
                             numPage != 0 && <ArrowButton
@@ -44,9 +48,10 @@ export function Registration({
                         }
                         {
                             numPage != numPages - 1 && <ArrowButton
-                                className="button-dark btn-arrow"
+                                className={`button-dark btn-arrow ${shake ? "shake" : ""}`}
                                 isBack={false}
                                 onClick={onNext}
+                                disabled={nextDisabled}
                             ></ArrowButton>
                         }
                     </div>

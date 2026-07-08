@@ -3,13 +3,9 @@ import { useEffect } from 'react';
 import { errorIconDataUri } from '../../helper-functions/errorIconDataUri.js';
 import { getColor } from '../../helper-functions/getColor';
 import { validate } from '../../helper-functions/validate.js';
+import { IMaskInput } from "react-imask";
 
 function FormFull( { fields, formData, setFormData, errors, setErrors, setInputError, theme = "dark" } ) {
-    // labels and placeholders should hold same amount of info
-    if (fields.length != Object.keys(formData).length) {
-        return <h1>Error in number of fields and data.</h1>
-    }
-
     // test whether input meets requirements
     const handleChange = (name, value) => {
         const newData = {
@@ -47,26 +43,41 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
 
     return (
         <div
-            className={`form-full ${theme} vertical-16 flex-fill`}
+            className={`form-full ${theme} vertical-24 flex-fill`}
             style={{ justifyContent: "space-evenly" }}
         >
         {
-            fields.map((data, index) => {
-                return (<Form.Group key={data.name} className="vertical-8 flex-fill">
+            fields.map((data) => (
+                <Form.Group key={data.name} className="form-item">
                     <Form.Label>{data.label}</Form.Label>
-                    <Form.Control
-                        type={data.type}
-                        placeholder={data.placeholder}
-                        value={formData[data.name] ?? ""}
-                        onChange={(e) => handleChange(data.name, e.target.value)}
-                        isInvalid={ errors[data.name] }
-                    />
+
+                    {
+                        data.type === "tel" ? (
+                        <Form.Control
+                            as={IMaskInput}
+                            mask="(000) 000-0000"
+                            lazy={true}
+                            placeholder="(XXX) XXX-XXXX"
+                            value={formData[data.name] ?? ""}
+                            onAccept={(value) => handleChange(data.name, value)}
+                            isInvalid={!!errors[data.name]}
+                        />
+                        ) : (
+                        <Form.Control
+                            type={data.type}
+                            placeholder={data.placeholder}
+                            value={formData[data.name] ?? ""}
+                            onChange={(e) => handleChange(data.name, e.target.value)}
+                            isInvalid={!!errors[data.name]}
+                        />
+                        )
+                    }
+
                     <Form.Control.Feedback type="invalid">
-                        { errors[data.name] }
+                        {errors[data.name]}
                     </Form.Control.Feedback>
-                </ Form.Group>);
-            })
-        }
+                </Form.Group>
+            ))}
         </div>  
     );
 }
