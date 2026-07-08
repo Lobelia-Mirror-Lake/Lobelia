@@ -1,13 +1,20 @@
-import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router'
-import AuthSlide from './components/landing/AuthSlide'
-import DashboardLayout from './components/DashboardLayout'
-import LandingPage from './components/pages/LandingPage'
-import CalendarPage from './components/pages/CalendarPage'
-import HomePage from './components/pages/HomePage'
-import ProfilePage from './components/pages/ProfilePage'
-import StatisticsPage from './components/pages/StatisticsPage'
+import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router';
+import { useEffect } from 'react';
+import AuthSlide from './components/landing/AuthSlide';
+import DashboardLayout from './components/DashboardLayout';
+import LandingPage from './components/pages/LandingPage';
+import CalendarPage from './components/pages/CalendarPage';
+import HomePage from './components/pages/HomePage';
+import ProfilePage from './components/pages/ProfilePage';
+import StatisticsPage from './components/pages/StatisticsPage';
+import { preloadAudio } from './helper-functions/playAudio';
 
 function App() {
+  // preload sounds
+  useEffect(() => {
+    preloadAudio();
+  }, []);
+
   return (
     <HashRouter>
       <Routes>

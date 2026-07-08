@@ -1,9 +1,9 @@
 import { Form } from 'react-bootstrap';
 import { useEffect } from 'react';
-import { errorIconDataUri } from '../../helper-functions/errorIconDataUri';
+import { errorIconDataUri } from '../../helper-functions/errorIconDataUri.js';
 import { getColor } from '../../helper-functions/getColor';
 
-function FormFull( { fields, formData, setFormData, errors, setErrors, theme = "dark" } ) {
+function FormFull( { fields, formData, setFormData, errors, validate, theme = "dark" } ) {
     // labels and placeholders should hold same amount of info
     if (fields.length != Object.keys(formData).length) {
         return <h1>Error in number of fields and data.</h1>
@@ -17,16 +17,7 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, theme = "
         };
 
         setFormData(newData);
-
-        const newErrors = {};
-        fields.forEach(field => {
-            newErrors[field.name] = field.error(
-                newData[field.name],
-                newData
-            );
-        });
-
-        setErrors(newErrors);
+        validate(newData);
     };
 
     // get color and shape for error icon

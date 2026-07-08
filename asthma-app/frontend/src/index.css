@@ -424,6 +424,18 @@ hr {
   margin: 0;
 }
 
+/* Error Text */
+.error-text-light {
+  font-family: var(--font-body-family);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  
+  line-height: var(--font-body-size);
+  margin: 0;
+
+  color: var(--color-error-light)
+}
+
 h1 {
   font-family: var(--font-header-family);
   font-size: var(--font-header-size);
@@ -458,4 +470,18 @@ p {
   
   line-height: var(--font-body-size);
   margin: 0;
+}
+
+/***************************** ANIMATIONS ***************************************/
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+
+.shake {
+  animation: shake 0.3s ease;
 }
