@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
 import BackButton from '../input/BackButton';
 import { loginFields, signUpFields, loginState, signUpState } from '../../lib/constants';
+import { login, signUp, isJwt } from '../../helper-functions/authentication';
+import { useAuth } from '../../context/AuthContext';
+import playErrorResponse from '../../helper-functions/playErrorResponse';
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
@@ -10,13 +13,80 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     return <h1>Error in loading.</h1>
   }
 
-  const [formData, setFormData] = showLogin ? useState(loginState) : useState(signUpState);
-  const [errors, setErrors] = showLogin ? useState(loginState) : useState(signUpState);
+  // fields to use
+  var fields = showLogin ? loginFields : signUpFields;
+
+  // store user input and errors for the user input
+  var initialFormData = showLogin ? loginState : signUpState;
+  const [formData, setFormData] = useState(initialFormData);
+  const [errors, setErrors] = useState(initialFormData);
+
+  // authentication
+  const { storeToken } = useAuth();
+
+  // button error handling
+  const [buttonError, setButtonError] = useState("");
+  const [shake, setShake] = useState(false);
+
+  // ********************* update error messages *****************************
+  function validate(data) {
+    const newErrors = {};
+
+    fields.forEach(field => {
+        newErrors[field.name] = field.error(
+            data[field.name],
+            data
+        );
+    });
+
+    setErrors(newErrors);
+
+    // clear button error, as fields are being updated
+    setButtonError("");
+  }
+
+  // validate errors immediately
+  useEffect(() => {
+    validate(formData);
+  }, [])
+
+  // ********************* login or sign up is clicked *****************************
+  async function authButtonClick() {
+    // ensure there are no error messages
+    if (Object.values(errors).some(error => error)) {
+      setButtonError("You have not met the requirements.");
+      playErrorResponse(setShake);
+      return;
+    }
+    
+    var result;
+
+    // validate with API
+    if ( showLogin ) {
+      result = await login(formData["email"], formData["password"]);
+    }
+    else {
+      result = await signUp(formData["email"], formData["password"]);
+    }
+
+    console.log("hi");
+
+    // valid token: store it and navigate to next page
+    if ( isJwt(result) ) {
+      storeToken(result);
+    }
+    // invalid token: update errors
+    else {
+      playErrorResponse();
+      playErrorResponse(setShake);
+    }
+
+  }
 
   return (
     <Container
         fluid
-        className="dark-green-body p-5 vertical-48 min-vh-100 position-relative"
+        className="dark-green-body p-5 vertical min-vh-100 position-relative"
     >
       {
         // back button will be placed in top-left corner absolutely (without affecting placement of other items)
@@ -31,16 +101,19 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
               <hr />
             </div>
             {
-              !showLogin && <FormFull theme={"light"} fields={signUpFields} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors} />
+              !showLogin && <FormFull theme={"light"} fields={fields} formData={formData} setFormData={setFormData} errors={errors} validate={validate} />
             }
             {
-              showLogin && <FormFull theme={"light"} fields={loginFields} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors} />
+              showLogin && <FormFull theme={"light"} fields={fields} formData={formData} setFormData={setFormData} errors={errors} validate={validate} />
             }
           </Col>
         </Row>
-
+        <Row
+          className="error-text-light at-middle-center"
+          style={{height:48}}
+        >{buttonError}</Row>
         <Row>
-          <Button className="button-light btn-large-text">{ showLogin ? "Login" : "Sign Up" }</Button>
+          <Button className={`button-light btn-large-text ${shake ? "shake" : ""}`} onClick={(e) => authButtonClick()} > { showLogin ? "Login" : "Sign Up" } </Button>
         </Row>
     </Container>
   )
