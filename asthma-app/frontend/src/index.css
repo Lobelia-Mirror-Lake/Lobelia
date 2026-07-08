@@ -300,6 +300,14 @@ hr {
   --form-error-focus-secondary-contrast: var(--color-error-darkest);
 }
 
+.form-item {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+
+  row-gap: var(--form-item-gap, var(--space-8));
+}
+
 .form-label {
   color: var(--form-background);
 
@@ -346,6 +354,8 @@ hr {
 
 .invalid-feedback {
   color: var(--form-error-secondary-contrast);
+  font-size: var(--font-invalid-size);
+  line-height: var(--font-invalid-size);
 }
 
 .form-control.is-invalid {
@@ -362,6 +372,13 @@ hr {
   position: absolute;
   top: 3rem;
   left: 3rem;
+
+  z-index: 10;
+}
+.absolute-top-right {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
 
   z-index: 10;
 }
@@ -396,6 +413,61 @@ hr {
 
 .progress-segment.filled {
   background-color: var(--color-tertiary);
+}
+
+.form-modal-overlay {
+  position: fixed;
+  inset: 0;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: var(--space-24);
+
+  background-color: rgba(0, 0, 0, 0.5);
+
+  z-index: 1000;
+}
+
+.form-modal {
+  width: min(90vw, 600px);
+  max-height: calc(100vh - 2 * var(--space-24));
+
+  display: flex;
+  flex-direction: column;
+
+  border-radius: var(--space-16);
+  padding: var(--space-32);
+
+  --font-section-text-size: 24px;
+  --font-body-size: 18px;
+  --font-invalid-size: 14px;
+  --form-item-gap: 4px;
+}
+
+.form-modal-header,
+.form-modal-footer {
+  flex-shrink: 0;
+}
+
+.form-modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-modal h2 {
+  font-size: 36px;
+}
+
+.form-modal .form-label {
+  font-size: 24px;
+  line-height: 24px;
+}
+
+.form-modal .form-control {
+  font-size: 18px;
+  line-height: 18px;
 }
 
 /***************************************** TEXT ********************************************/
@@ -479,6 +551,16 @@ hr {
   margin: 0;
 
   color: var(--color-error-light)
+}
+.error-text-dark {
+  font-family: var(--font-body-family);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  
+  line-height: var(--font-body-size);
+  margin: 0;
+
+  color: var(--color-error-dark)
 }
 
 h1 {
