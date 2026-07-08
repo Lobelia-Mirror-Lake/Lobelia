@@ -1,11 +1,12 @@
 import { Container, Row, Col, Button, Form } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
-import BackButton from '../input/BackButton';
+import ArrowButton from '../input/ArrowButton';
 import { loginFields, signUpFields, loginState, signUpState } from '../../lib/constants';
 import { login, signUp, isJwt } from '../../helper-functions/authentication';
 import { useAuth } from '../../context/AuthContext';
 import playErrorResponse from '../../helper-functions/playErrorResponse';
+import { validate } from '../../helper-functions/validate';
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
@@ -28,26 +29,9 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   const [buttonError, setButtonError] = useState("");
   const [shake, setShake] = useState(false);
 
-  // ********************* update error messages *****************************
-  function validate(data) {
-    const newErrors = {};
-
-    fields.forEach(field => {
-        newErrors[field.name] = field.error(
-            data[field.name],
-            data
-        );
-    });
-
-    setErrors(newErrors);
-
-    // clear button error, as fields are being updated
-    setButtonError("");
-  }
-
   // validate errors immediately
   useEffect(() => {
-    validate(formData);
+    validate(fields, formData, setErrors, setButtonError);
   }, [])
 
   // ********************* login or sign up is clicked *****************************
@@ -90,7 +74,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     >
       {
         // back button will be placed in top-left corner absolutely (without affecting placement of other items)
-        !landingVisible && <BackButton className="button-light p-2 absolute-top-left" onClick={onBack} />
+        !landingVisible && <ArrowButton className="button-light p-2 absolute-top-left" isBack={true} onClick={onBack} />
       }
         <Row className="flex-grow-1">
           <Col
@@ -100,12 +84,15 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
               <h1 className="text-center">{ showLogin ? "Login" : "Sign Up" }</h1>
               <hr />
             </div>
-            {
-              !showLogin && <FormFull theme={"light"} fields={fields} formData={formData} setFormData={setFormData} errors={errors} validate={validate} />
-            }
-            {
-              showLogin && <FormFull theme={"light"} fields={fields} formData={formData} setFormData={setFormData} errors={errors} validate={validate} />
-            }
+            <FormFull
+              theme={"light"}
+              fields={fields}
+              formData={formData}
+              setFormData={setFormData}
+              errors={errors}
+              setErrors={setErrors}
+              setInputError={setButtonError}
+            />
           </Col>
         </Row>
         <Row
