@@ -1,8 +1,8 @@
-import { playErrorBuzz } from "./playAudio";
+import { playAudio } from "./playAudio";
 
 export function playErrorResponse(setShake) {
     navigator.vibrate?.(100);
-    playErrorBuzz();
+    playAudio("buzz");
     setShake(true);
     setTimeout(() => setShake(false), 300);
 }
