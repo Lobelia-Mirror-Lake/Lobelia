@@ -5,4 +5,4 @@ function BrandMark() {
   )
 }
 
-export default BrandMark
+export default BrandMark;
