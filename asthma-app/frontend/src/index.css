@@ -470,6 +470,17 @@ hr {
   line-height: 18px;
 }
 
+.contact-card {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+  border-color: var(--color-secondary-dark);
+  border-width: var(--stroke-width);
+  border-radius: var(--space-16);
+  width: max(30vw, 300px);
+
+  padding: var(--space-16);
+}
+
 /***************************************** TEXT ********************************************/
 /* Header */
 .header-text {

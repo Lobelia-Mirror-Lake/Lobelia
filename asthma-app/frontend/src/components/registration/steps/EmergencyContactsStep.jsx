@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "react-bootstrap";
+import { Button, Container, Row, Col } from "react-bootstrap";
 import ContactModal from "../ContactModal";
 import ContactCard from "../ContactCard";
 
@@ -33,41 +33,41 @@ function EmergencyContactsStep({
     });
     };
 
-
     return (
-        <div className="vertical-32">
-            <p>Who are your Emergency Contacts?</p>
-
-
-            <div className="vertical-16">
-            {
-                contacts.map(contact => (
-                <ContactCard
-                    key={contact.id}
-                    contact={contact}
-                    onDelete={() =>
-                    removeContact(contact.id)
+        <Container>
+            <Row>
+                <Col className="vertical-32 at-top-center">
+                    <p>Who are your Emergency Contacts?</p>
+                    <div className="vertical-16">
+                    {
+                        contacts.map(contact => (
+                            <ContactCard
+                                key={contact.id}
+                                contact={contact}
+                                onDelete={() =>
+                                    removeContact(contact.id)
+                                }
+                            />
+                        ))
                     }
-                />
-                ))
-            }
-            </div>
+                    </div>
 
+                    <Button
+                        className="button-dark btn-medium-text"
+                        style={{width:"max(40vw, 400px)"}}
+                        onClick={() => setShowModal(true)}
+                    >
+                        Add Contact
+                    </Button>
 
-            <Button
-            className="button-dark btn-medium-text"
-            onClick={() => setShowModal(true)}
-            >
-            Add Contact
-            </Button>
-
-
-            <ContactModal
-                show={showModal}
-                onHide={() => setShowModal(false)}
-                onSubmit={addContact}
-            />
-        </div>
+                    <ContactModal
+                        show={showModal}
+                        onHide={() => setShowModal(false)}
+                        onSubmit={addContact}
+                    />
+                </Col>
+            </Row>
+        </ Container>
     );
 }
 

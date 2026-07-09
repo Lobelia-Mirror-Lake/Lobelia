@@ -68,6 +68,7 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
                             placeholder={data.placeholder}
                             value={formData[data.name] ?? ""}
                             onChange={(e) => handleChange(data.name, e.target.value)}
+                            onBlur={(e) => handleChange(data.name, e.target.value.trim())}
                             isInvalid={!!errors[data.name]}
                         />
                         )
