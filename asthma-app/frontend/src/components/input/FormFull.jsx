@@ -14,7 +14,11 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
         };
 
         setFormData(newData);
-        validate(fields, newData, setErrors, setInputError);
+
+        const newErrors = validate(fields, newData);
+
+        setErrors(newErrors);
+        setInputError("");
     };
 
     // get color and shape for error icon

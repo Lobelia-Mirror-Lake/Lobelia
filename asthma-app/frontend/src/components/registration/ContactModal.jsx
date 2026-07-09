@@ -2,11 +2,18 @@ import { useState, useEffect } from "react";
 import FormModal from "../input/FormModal";
 import FormFull from "../input/FormFull";
 import { contactFields, contactState } from "../../lib/constants";
-import { validate } from "../../helper-functions/validate";
+import { validate, hasErrors } from "../../helper-functions/validate";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
 
 
-function ContactModal({ show, onHide, onSubmit }) {
+function ContactModal({
+    show,
+    onHide,
+    onSubmit,
+    initialData = null
+}) {
+
+    const isEditing = initialData !== null;
 
     const [formData, setFormData] = useState(contactState);
     const [errors, setErrors] = useState(contactState);
@@ -16,18 +23,32 @@ function ContactModal({ show, onHide, onSubmit }) {
 
 
     useEffect(() => {
-        validate(
+        if (!show) return;
+
+        const data = initialData ?? contactState;
+
+        setFormData(data);
+
+        const newErrors = validate(
             contactFields,
-            formData,
-            setErrors,
-            setButtonError
+            data
         );
-    }, []);
+
+        setErrors(newErrors);
+        setButtonError("");
+
+    }, [show, initialData]);
 
 
     function submit() {
+        const newErrors = validate(
+            contactFields,
+            formData
+        );
 
-        if (Object.values(errors).some(error => error)) {
+        setErrors(newErrors);
+
+        if (hasErrors(newErrors)) {
             setButtonError(
                 "You have not met the requirements."
             );
@@ -37,26 +58,25 @@ function ContactModal({ show, onHide, onSubmit }) {
         }
 
 
-        onSubmit({
-            ...formData,
-            id: crypto.randomUUID()
-        });
+        onSubmit(formData);
 
-
-        // clear form on successful submit
         setFormData(contactState);
         setErrors(contactState);
+        setButtonError("");
+
         onHide();
     }
 
+
     if (!show) return null;
+
 
     return (
         <FormModal
-            title="Add Contact"
+            title={isEditing ? "Edit Contact" : "Add Contact"}
             onHide={onHide}
             onSubmit={submit}
-            submitText="Add"
+            submitText={isEditing ? "Edit" : "Add"}
             buttonError={buttonError}
             shake={shake}
         >

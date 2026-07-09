@@ -13,8 +13,11 @@ export function ProfileStep({
 
     // validate errors immediately
     useEffect(() => {
-        validate(profileFields, formData, setErrors, setButtonError);
-    }, [])
+        const newErrors = validate(profileFields, formData);
+
+        setErrors(newErrors);
+        setButtonError("");
+}, []);
 
     return(
         <div className="text-start">
