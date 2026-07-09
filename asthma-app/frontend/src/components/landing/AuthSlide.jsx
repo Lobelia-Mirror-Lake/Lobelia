@@ -6,7 +6,7 @@ import { loginFields, signUpFields, loginState, signUpState } from '../../lib/co
 import { login, signUp, isJwt } from '../../helper-functions/authentication';
 import { useAuth } from '../../context/AuthContext';
 import playErrorResponse from '../../helper-functions/playErrorResponse';
-import { validate } from '../../helper-functions/validate';
+import { validate, hasErrors } from '../../helper-functions/validate';
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
@@ -36,11 +36,15 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
 
   // ********************* login or sign up is clicked *****************************
   async function authButtonClick() {
-    // ensure there are no error messages
-    if (Object.values(errors).some(error => error)) {
-      setButtonError("You have not met the requirements.");
-      playErrorResponse(setShake);
-      return;
+    const newErrors = validate(fields, formData);
+
+    setErrors(newErrors);
+
+    // ensure there are no errors
+    if (hasErrors(newErrors)) {
+        setButtonError("You have not met the requirements.");
+        playErrorResponse(setShake);
+        return;
     }
     
     var result;

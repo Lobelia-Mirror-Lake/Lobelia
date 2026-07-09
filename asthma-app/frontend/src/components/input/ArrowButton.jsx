@@ -1,13 +1,14 @@
 import { Button } from "react-bootstrap";
 
-function ArrowButton({ isBack=true, size = 48, onClick, className = "" }) {
+function ArrowButton({ isBack=true, size = 48, onClick, className = "", style = {}, width = "36", height = "36" }) {
   return (
     <Button
         className={`${className}`}
+        style={style}
         onClick={onClick}
         aria-label={"back"}
     >
-        <svg className={`${!isBack ? "rotate-180" : ""}`} width="36" height="36" viewBox="0 0 16 16" fill="none">
+        <svg className={`${!isBack ? "rotate-180" : ""}`}  width={width} height={height} viewBox="0 0 16 16" fill="none">
         <path
             d="
                 M 14 8

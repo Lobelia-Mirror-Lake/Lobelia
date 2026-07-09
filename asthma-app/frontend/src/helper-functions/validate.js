@@ -1,15 +1,16 @@
-export function validate(fields, data, setErrors, setInputError) {
-    const newErrors = {};
+export function validate(fields, data) {
+    const errors = {};
 
     fields.forEach(field => {
-        newErrors[field.name] = field.error(
+        errors[field.name] = field.error(
             data[field.name],
             data
         );
     });
 
-    setErrors(newErrors);
+    return errors;
+}
 
-    // reset input error field, as fields are being updated
-    setInputError("");
+export function hasErrors(errors) {
+    return Object.values(errors).some(error => error);
 }
