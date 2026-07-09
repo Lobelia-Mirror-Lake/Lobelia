@@ -3,16 +3,21 @@ import { useState, useEffect } from 'react';
 import FormFull from "../../input/FormFull";
 import { validate } from '../../../helper-functions/validate';
 
-export function ProfileStep() {
-    // store user input and errors for the user input
-    const [formData, setFormData] = useState(profileState);
-    const [errors, setErrors] = useState(profileState);
-    const [buttonError, setButtonError] = useState("");
+export function ProfileStep({
+    formData,
+    setFormData,
+    errors,
+    setErrors,
+    setButtonError
+}) {
 
     // validate errors immediately
     useEffect(() => {
-        validate(profileFields, formData, setErrors, setButtonError);
-    }, [])
+        const newErrors = validate(profileFields, formData);
+
+        setErrors(newErrors);
+        setButtonError("");
+}, []);
 
     return(
         <div className="text-start">
