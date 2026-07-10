@@ -20,7 +20,7 @@ export function ProfileStep({
 }, []);
 
     return(
-        <div className="text-start">
+        <div className="text-start flex-grow-1">
             <FormFull
               theme={"dark"}
               fields={profileFields}
