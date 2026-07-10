@@ -86,9 +86,9 @@ function EmergencyContactsStep({
     return (
         <Container>
             <Row>
-                <Col className="vertical-32 at-top-center">
+                <Col className="vertical-24 at-top-center">
 
-                    <p>
+                    <p className="section-text">
                         Who are your Emergency Contacts?
                     </p>
 

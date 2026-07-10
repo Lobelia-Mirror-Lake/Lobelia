@@ -1,7 +1,7 @@
 function WelcomeStep() {
   return (
     <>
-      <p>
+      <p className="section-text">
         Let's setup your account.
       </p>
     </>

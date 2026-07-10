@@ -9,38 +9,93 @@ import TrackingStep from "../registration/steps/TrackingStep";
 import FinishStep from "../registration/steps/FinishStep";
 import { profileState } from "../../lib/constants";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
+import { useNavigate } from "react-router";
+import { updateProfile } from "../../helper-functions/updateProfile";
+import { useAuth } from "../../context/AuthContext";
 
 function SetupPage() {
+    // get user token
+    const { token } = useAuth();
+
+    // number of pages to go through
     const numPages = 7;
     const [numPage, setNumPage] = useState(0);
 
     const [setupData, setSetupData] = useState({
         ...profileState,
-        // add other pages here
         emergencyContacts: [],
         triggers: [],
         symptoms: [],
-        tracking: {},
+        tracking: [],
+        trackingExcluded: []
     });
+
+    // final setup
+    const navigate = useNavigate();
+    const [saving, setSaving] = useState(false);
 
     // error handling
     const [errors, setErrors] = useState({});
     const [buttonError, setButtonError] = useState("");
     const [shake, setShake] = useState(false);
 
-    const nextPage = () => {
+    const nextPage = async () => {
         if (!canContinue) {
             setButtonError("Please complete all required fields.");
             playErrorResponse(setShake);
             return;
-        }        
-        if (numPage < numPages - 1) {
-            setNumPage(numPage + 1);
-
-            // reset errors
-            setErrors({});
-            setButtonError("");
         }
+
+        // Leaving TrackingStep
+        if (numPage === numPages - 2) {
+            try {
+                setSaving(true);
+
+                await updateProfile({
+                    name: setupData.name,
+                    date_of_birth: setupData.date_of_birth,
+
+                    emergency_contacts: setupData.emergencyContacts,
+
+                    trigger_preferences: setupData.triggers,
+
+                    symptoms: setupData.symptoms,
+
+                    tracking: setupData.tracking,
+                }, token);
+
+                setNumPage(numPage + 1);
+                setButtonError("");
+                setErrors({});
+            }
+            catch (err) {
+                setButtonError(
+                    "Unable to save your information. Please try again."
+                );
+
+                console.log(err);
+
+                playErrorResponse(setShake);
+            }
+            finally {
+                setSaving(false);
+            }
+
+            return;
+        }
+
+        // Leaving FinishStep
+        if (numPage === numPages - 1) {
+            navigate("/home");
+            return;
+        }
+
+        // All other pages
+        setNumPage(numPage + 1);
+
+        // reset errors
+        setErrors({});
+        setButtonError("");
     };
 
     const prevPage = () => {
@@ -110,6 +165,7 @@ function SetupPage() {
             nextDisabled={!canContinue}
             buttonError={buttonError}
             shake={shake}
+            saving={saving}
         >
             {pages[numPage]}
         </Registration>

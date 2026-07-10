@@ -238,7 +238,7 @@ body {
 
 .button-small {
   border-radius: 8px;
-  border-width: 2px;
+  border-width: calc(var(--stroke-width) / 2);
   padding: 2px;
 }
 
@@ -485,6 +485,104 @@ hr {
   width: max(35vw, 400px);
 
   padding: var(--space-16);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+
+  cursor: pointer;
+
+  width: fit-content;
+}
+
+.checkbox input {
+  display: none;
+}
+
+.checkbox-box {
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: var(--checkbox-bg);
+  border: var(--stroke-width) solid var(--checkbox-border);
+  border-radius: var(--space-8);
+
+  transition: 0.15s ease;
+}
+
+.checkbox.light {
+  --checkbox-bg: var(--color-primary);
+  --checkbox-border: var(--color-primary-dark);
+  --checkbox-check: var(--color-secondary);
+
+  --checkbox-hover-bg: var(--color-primary-dark);
+  --checkbox-hover-border: var(--color-primary-darkest);
+
+  --checkbox-active-bg: var(--color-primary-darkest);
+  --checkbox-active-border: var(--color-primary-darkest);
+}
+
+.checkbox.dark {
+  --checkbox-bg: var(--color-secondary);
+  --checkbox-border: var(--color-secondary-dark);
+  --checkbox-check: var(--color-primary);
+
+  --checkbox-hover-bg: var(--color-secondary-dark);
+  --checkbox-hover-border: var(--color-secondary-darkest);
+
+  --checkbox-active-bg: var(--color-secondary-darkest);
+  --checkbox-active-border: var(--color-secondary-darkest);
+}
+
+.checkbox:hover .checkbox-box {
+  background-color: var(--checkbox-hover-bg);
+  border-color: var(--checkbox-hover-border);
+}
+
+.checkbox:active .checkbox-box {
+  background-color: var(--checkbox-active-bg);
+  border-color: var(--checkbox-active-border);
+}
+
+.registration-container {
+  height: 100vh;
+  overflow: hidden;
+  padding: var(--space-64);
+}
+
+.registration-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.registration-header {
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.registration-body {
+  flex: 1;
+  min-height: 0; /* IMPORTANT */
+  overflow-y: auto;
+
+  display: flex;
+  justify-content: center;
+}
+
+.registration-footer {
+  flex-shrink: 0;
+  text-align: center;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
 }
 
 /***************************************** TEXT ********************************************/
