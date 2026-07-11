@@ -1,10 +1,13 @@
 function FinishStep({ data }) {
   return (
-    <>
-      <p>
-        Your account is set up. You can always edit your information later.
+    <div className="vertical-8 text-center" >
+      <p className="section-text">
+        Your account is set up.
       </p>
-    </>
+      <p className="section-text">
+        You can always edit your information later.
+      </p>
+    </ div>
   );
 }
 

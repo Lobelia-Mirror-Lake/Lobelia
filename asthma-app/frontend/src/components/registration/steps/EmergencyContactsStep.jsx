@@ -12,33 +12,26 @@ function EmergencyContactsStep({
     const [showModal, setShowModal] = useState(false);
     const [editingContact, setEditingContact] = useState(null);
 
-
     const contacts = formData.emergencyContacts ?? [];
-
 
     function openAddModal() {
         setEditingContact(null);
         setShowModal(true);
     }
 
-
     function openEditModal(contact) {
         setEditingContact(contact);
         setShowModal(true);
     }
-
 
     function closeModal() {
         setEditingContact(null);
         setShowModal(false);
     }
 
-
     function saveContact(contact) {
-
         // Add
         if (!editingContact) {
-
             setFormData({
                 ...formData,
                 emergencyContacts: [
@@ -49,12 +42,10 @@ function EmergencyContactsStep({
                     }
                 ]
             });
-
         }
 
         // Edit
         else {
-
             setFormData({
                 ...formData,
                 emergencyContacts: contacts.map(existing =>
@@ -63,12 +54,9 @@ function EmergencyContactsStep({
                         : existing
                 )
             });
-
         }
-
         closeModal();
     }
-
 
     function removeContact(id) {
 
@@ -82,56 +70,39 @@ function EmergencyContactsStep({
 
     }
 
-
     return (
-        <Container>
-            <Row>
-                <Col className="vertical-32 at-top-center">
+        <div className="vertical-fill vertical-24 at-top-center">
 
-                    <p>
-                        Who are your Emergency Contacts?
-                    </p>
+            <p className="section-text">
+                Who are your Emergency Contacts?
+            </p>
 
-
-                    <div className="vertical-16">
-                        {
-                            contacts.map(contact => (
-                                <ContactCard
-                                    key={contact.id}
-                                    contact={contact}
-                                    onEdit={() =>
-                                        openEditModal(contact)
-                                    }
-                                    onDelete={() =>
-                                        removeContact(contact.id)
-                                    }
-                                />
-                            ))
-                        }
-                    </div>
-
-
-                    <Button
-                        className="button-dark btn-medium-text"
-                        style={{
-                            width: "max(40vw, 400px)"
-                        }}
-                        onClick={openAddModal}
-                    >
-                        Add Contact
-                    </Button>
-
-
-                    <ContactModal
-                        show={showModal}
-                        onHide={closeModal}
-                        onSubmit={saveContact}
-                        initialData={editingContact}
+            <div className="vertical-16 scrollable">
+                {contacts.map(contact => (
+                    <ContactCard
+                        key={contact.id}
+                        contact={contact}
+                        onEdit={() => openEditModal(contact)}
+                        onDelete={() => removeContact(contact.id)}
                     />
+                ))}
+            </div>
 
-                </Col>
-            </Row>
-        </Container>
+            <Button
+                className="button-dark btn-medium-text"
+                style={{ width: "max(40vw, 400px)" }}
+                onClick={openAddModal}
+            >
+                Add Contact
+            </Button>
+
+            <ContactModal
+                show={showModal}
+                onHide={closeModal}
+                onSubmit={saveContact}
+                initialData={editingContact}
+            />
+        </div>
     );
 }
 
