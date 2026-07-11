@@ -35,17 +35,19 @@ export function TrackingStep({
     };
 
     return (
-        <div className="vertical-24 at-top-center w-100">
+        <div className="vertical-fill vertical-24 at-top-center w-100">
 
             <p className="section-text">
                 Which symptoms do you want to track?
             </p>
 
-            <CheckboxList
-                options={formData.symptoms}
-                selected={formData.tracking}
-                setSelected={setTrackedSymptoms}
-            />
+            <div className="at-top-center scrollable w-100">
+                <CheckboxList
+                    options={formData.symptoms}
+                    selected={formData.tracking}
+                    setSelected={setTrackedSymptoms}
+                />
+            </div>
 
             {
                 formData.tracking.length == 0 ? 

@@ -162,6 +162,19 @@
   transform: rotate(180deg);
 }
 
+.vertical-fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.scrollable {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /********************************* ICONS ********************************************/
 
 body {
@@ -569,11 +582,10 @@ hr {
 
 .registration-body {
   flex: 1;
-  min-height: 0; /* IMPORTANT */
-  overflow-y: auto;
+  min-height: 0;
 
   display: flex;
-  justify-content: center;
+  flex-direction: column;
 }
 
 .registration-footer {

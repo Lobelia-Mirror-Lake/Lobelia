@@ -1,6 +1,7 @@
 import { Container, Row, Col } from 'react-bootstrap';
 import ArrowButton from '../input/ArrowButton';
 import SegmentedProgressBar from '../input/SegmentedProgressBar';
+import { Spinner } from "react-bootstrap";
 
 export function Registration({
   numPage = 0,
@@ -59,7 +60,14 @@ export function Registration({
                         {buttonError}
                     </p>
 
-                    <div className="horizontal-48 at-bottom-center">
+                    <div
+                        className="horizontal-48 at-bottom-center"
+                        style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center"
+                            }}
+                    >
 
                         {
                             numPage !== 0 && numPage !== numPages - 1 &&
@@ -70,12 +78,26 @@ export function Registration({
                             />
                         }
 
-                        <ArrowButton
-                            className={`button-dark btn-arrow ${shake ? "shake" : ""}`}
-                            isBack={false}
-                            onClick={onNext}
-                            disabled={nextDisabled || saving}
-                        />
+                        {
+                            saving ? (
+                                <Spinner
+                                    animation="border"
+                                    role="status"
+                                    style={{
+                                        width: "48px",
+                                        height: "48px",
+                                        color: "var(--color-secondary)",
+                                    }}
+                                />
+                            ) : (
+                                <ArrowButton
+                                    className={`button-dark btn-arrow ${shake ? "shake" : ""}`}
+                                    isBack={false}
+                                    onClick={onNext}
+                                    disabled={nextDisabled}
+                                />
+                            )
+                        }
 
                     </div>
                 </div>
