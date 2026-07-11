@@ -1,4 +1,4 @@
-const audioContext = new AudioContext();
+let audioContext = null;
 
 const sounds = {};
 
@@ -6,15 +6,27 @@ const soundFiles = {
   buzz: "error-buzz.mp3",
 };
 
+function getAudioContext() {
+  if (!audioContext) {
+    audioContext = new AudioContext();
+  }
+
+  return audioContext;
+}
+
 export async function preloadAudio() {
+  const ctx = getAudioContext();
+
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+
   const promises = Object.entries(soundFiles).map(
     async ([name, file]) => {
       const response = await fetch(`/Mirror-Lake/sounds/${file}`);
       const arrayBuffer = await response.arrayBuffer();
 
-      const audioBuffer = await audioContext.decodeAudioData(
-        arrayBuffer
-      );
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
       sounds[name] = audioBuffer;
     }
@@ -31,15 +43,16 @@ export function playAudio(name) {
     return;
   }
 
-  // unlock browser audio if needed
-  if (audioContext.state === "suspended") {
-    audioContext.resume();
+  const ctx = getAudioContext();
+
+  if (ctx.state === "suspended") {
+    ctx.resume();
   }
 
-  const source = audioContext.createBufferSource();
+  const source = ctx.createBufferSource();
 
   source.buffer = buffer;
-  source.connect(audioContext.destination);
+  source.connect(ctx.destination);
 
   source.start(0);
 }

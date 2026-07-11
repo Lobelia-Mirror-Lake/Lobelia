@@ -1,5 +1,5 @@
 import { profileFields, profileState } from '../../../lib/constants';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import FormFull from "../../input/FormFull";
 import { validate } from '../../../helper-functions/validate';
 
@@ -20,7 +20,7 @@ export function ProfileStep({
 }, []);
 
     return(
-        <div className="text-start">
+        <div className="text-start flex-grow-1">
             <FormFull
               theme={"dark"}
               fields={profileFields}

@@ -7,7 +7,7 @@ import CalendarPage from './components/pages/CalendarPage';
 import HomePage from './components/pages/HomePage';
 import ProfilePage from './components/pages/ProfilePage';
 import StatisticsPage from './components/pages/StatisticsPage';
-import { preloadAudio } from './helper-functions/playAudio';
+import { preloadAudio } from "./helper-functions/playAudio";
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import PublicRoute from './components/routes/PublicRoute';
 import NotFoundPage from './components/pages/NotFoundPage';
@@ -16,7 +16,15 @@ import SetupPage from './components/pages/SetupPage';
 function App() {
   // preload sounds
   useEffect(() => {
-    preloadAudio();
+    const preload = () => preloadAudio();
+
+    window.addEventListener("pointerdown", preload, { once: true });
+    window.addEventListener("keydown", preload, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", preload);
+      window.removeEventListener("keydown", preload);
+    };
   }, []);
 
   // normalize non-hash URLs

@@ -1,6 +1,7 @@
-import { Container, Row, Col, Button } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
 import ArrowButton from '../input/ArrowButton';
 import SegmentedProgressBar from '../input/SegmentedProgressBar';
+import { Spinner } from "react-bootstrap";
 
 export function Registration({
   numPage = 0,
@@ -10,55 +11,99 @@ export function Registration({
   nextDisabled,
   buttonError,
   shake,
+  saving,
   children
 }) {
-    var headerEle = <></>
+
+    let headerEle = <></>;
 
     // first page
-    if (numPage == 0) {
+    if (numPage === 0) {
         headerEle = <h1>Welcome!</h1>;
     }
     // last page
-    else if (numPage == numPages - 1) {
+    else if (numPage === numPages - 1) {
         headerEle = <h1>Thank You!</h1>;
     }
-    // middle page
+    // other
     else {
-        headerEle = <SegmentedProgressBar numPage={numPage-1} numPages={numPages-2} />;
+        headerEle = (
+            <SegmentedProgressBar
+                numPage={numPage - 1}
+                numPages={numPages - 2}
+            />
+        );
     }
 
     return (
         <Container
             fluid
-            className="vertical p-5 min-vh-100 text-center"
+            className="registration-container"
         >
-            <Row className="flex-grow-1">
-                <Col className="vertical-8 p-0">
-                    { headerEle }
+            <div className="registration-content">
+
+                {/* fixed header */}
+                <div className="registration-header">
+                    {headerEle}
                     <hr />
-                    { children }
-                    <p className="error-text-dark mt-auto">{buttonError}</p>
-                    <div className="horizontal-48 at-bottom-center mt-auto">
+                </div>
+
+                {/* scrollable middle */}
+                <div className="registration-body">
+                    {children}
+                </div>
+
+                {/* fixed footer */}
+                <div className="registration-footer">
+
+                    <p className="error-text-dark">
+                        {buttonError}
+                    </p>
+
+                    <div
+                        className="horizontal-48 at-bottom-center"
+                        style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center"
+                            }}
+                    >
+
                         {
-                            numPage != 0 && <ArrowButton
+                            numPage !== 0 && numPage !== numPages - 1 &&
+                            <ArrowButton
                                 className="button-dark btn-arrow"
                                 isBack={true}
                                 onClick={onBack}
-                            ></ArrowButton>
+                            />
                         }
+
                         {
-                            numPage != numPages - 1 && <ArrowButton
-                                className={`button-dark btn-arrow ${shake ? "shake" : ""}`}
-                                isBack={false}
-                                onClick={onNext}
-                                disabled={nextDisabled}
-                            ></ArrowButton>
+                            saving ? (
+                                <Spinner
+                                    animation="border"
+                                    role="status"
+                                    style={{
+                                        width: "48px",
+                                        height: "48px",
+                                        color: "var(--color-secondary)",
+                                    }}
+                                />
+                            ) : (
+                                <ArrowButton
+                                    className={`button-dark btn-arrow ${shake ? "shake" : ""}`}
+                                    isBack={false}
+                                    onClick={onNext}
+                                    disabled={nextDisabled}
+                                />
+                            )
                         }
+
                     </div>
-                </Col>
-            </Row>
-        </ Container>
-    )
+                </div>
+            </div>
+        </Container>
+    );
 }
 
 export default Registration;
