@@ -8,3 +8,11 @@ python-dotenv
 anthropic
 joblib
 httpx
+sqlalchemy
+psycopg2-binary
+python-jose[cryptography]
+bcrypt>=4.0.0
+email-validator
+google-generativeai
+pytest
+pytest-asyncio
