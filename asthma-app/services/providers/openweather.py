@@ -27,7 +27,7 @@ class OpenWeatherEnvProvider:
             weather = await self._fetch_weather(client, lat, lon, day)
             
             # Wire Google Pollen if API key available
-            google_key = os.getenv("GOOGLE_MAPS_API_KEY")
+            google_key = os.getenv("GOOGLE_POLLEN_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY")
             pollen = {}
             if google_key:
                 try:

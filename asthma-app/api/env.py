@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import HTTPException, Query
+from fastapi import Query
 from pydantic import BaseModel, Field
 
+from api.errors import api_error
 from services.env_fetcher import fetch_env_daily
 
 
@@ -29,7 +30,8 @@ async def get_env_daily(
     try:
         result = await fetch_env_daily(lat=lat, lon=lon, day=day, provider=provider)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise api_error(400, str(e), "VALIDATION_ERROR") from e
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Env provider error: {e}") from e
+        detail = str(e).strip() or type(e).__name__
+        raise api_error(502, f"Environment provider error: {detail}", "ENV_PROVIDER_ERROR") from e
     return EnvDailyResponse(**result)
