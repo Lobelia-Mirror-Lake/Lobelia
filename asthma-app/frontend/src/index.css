@@ -49,32 +49,32 @@
 
   /* Header — Libre Bodoni, Regular, 64 */
   --font-header-family: "Libre Bodoni", serif;
-  --font-header-size: 64px;
+  --font-header-size: clamp(40px, 6vw, 64px);
   --font-header-weight: 400;
 
   /* Section Header — Afacad, Bold, 48 */
   --font-section-header-family: "Afacad", sans-serif;
-  --font-section-header-size: 48px;
+  --font-section-header-size: clamp(30px, 4.5vw, 48px);
   --font-section-header-weight: 700;
 
   /* Section Text — Afacad, Regular, 40 */
   --font-section-text-family: "Afacad", sans-serif;
-  --font-section-text-size: 40px;
+  --font-section-text-size: clamp(25px, 4vw, 40px);
   --font-section-text-weight: 400;
 
   /* Text — Afacad, Regular, 20 */
   --font-body-family: "Afacad", sans-serif;
-  --font-body-size: 20px;
+  --font-body-size: clamp(12px, 4vw, 20px);
   --font-body-weight: 400;
 
   /* LargeButton_Text — Abril Fatface, Regular, 36 */
   --font-large-button-family: "Abril Fatface", serif;
-  --font-large-button-size: 36px;
+  --font-large-button-size: clamp(22px, 3.5vw, 36px);
   --font-large-button-weight: 400;
 
   /* MediumButton_Text — Abril Fatface, Regular, 24 */
   --font-medium-button-family: "Abril Fatface", serif;
-  --font-medium-button-size: 24px;
+  --font-medium-button-size: clamp(15px, 2.5vw, 24px);
   --font-medium-button-weight: 400;
 
   /* Spacing */
@@ -217,6 +217,10 @@ body {
 }
 
 .btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
   padding: clamp(0.5rem, 20vw, var(--space-16))
           clamp(1rem, 20vw, var(--space-144));
 
@@ -411,17 +415,38 @@ hr {
   border-color: var(--form-error-focus-secondary-contrast);
 }
 
+.form-control.dark:not(.is-invalid)::-webkit-calendar-picker-indicator {
+  filter: invert(97%) sepia(10%) saturate(200%) hue-rotate(350deg);
+  opacity: 1;
+}
+
+.form-control.dark.is-invalid::-webkit-calendar-picker-indicator {
+  filter: invert(76%) sepia(100%) saturate(1000%) hue-rotate(285deg);
+  opacity: 1;
+}
+
+.form-control.light:not(.is-invalid)::-webkit-calendar-picker-indicator {
+  filter: invert(15%) sepia(90%) saturate(1000%) hue-rotate(143deg);
+  opacity: 1;
+}
+
+.form-control.light.is-invalid::-webkit-calendar-picker-indicator {
+  filter: invert(23%) sepia(100%) saturate(1000%) hue-rotate(300deg);
+  opacity: 1;
+}
+
 .absolute-top-left {
   position: absolute;
-  top: 3rem;
-  left: 3rem;
+  top: clamp(2rem, 4vw, 3rem);
+  left: clamp(1.25rem, 4vw, 3rem);
 
   z-index: 10;
 }
+
 .absolute-top-right {
   position: absolute;
-  top: 2rem;
-  right: 2rem;
+  top: clamp(1.25rem, 3vw, 2rem);
+  right: clamp(1.25rem, 3vw, 2rem);
 
   z-index: 10;
 }

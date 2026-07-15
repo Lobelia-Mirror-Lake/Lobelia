@@ -19,7 +19,7 @@ export async function login(email, password) {
     return data.access_token; // JWT
   }
   catch (err) {
-    console.error(err);
+    return "Trouble Processing. Please try again later.";
   }
 }
 
@@ -50,10 +50,36 @@ export async function signUp(email, password) {
     return data.access_token; // JWT
   }
   catch (err) {
-    console.error(err);
+    return "Trouble Processing. Please try again later.";
   }
 }
 
 export function isJwt(token) {
-  return typeof token === "string" && token.split(".").length === 3;
+  if (typeof token !== "string") return false;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+
+  const [header, payload, signature] = parts;
+
+  // Basic base64url check
+  const base64urlRegex = /^[A-Za-z0-9\-_]+$/;
+  if (!base64urlRegex.test(header)) return false;
+  if (!base64urlRegex.test(payload)) return false;
+  if (!base64urlRegex.test(signature)) return false;
+
+  try {
+    // Convert base64url → base64
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+
+    // Decode
+    const decoded = atob(normalizedPayload);
+
+    // Payload must be valid JSON
+    JSON.parse(decoded);
+
+    return true;
+  } catch {
+    return false;
+  }
 }
