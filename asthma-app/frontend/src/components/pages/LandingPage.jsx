@@ -4,7 +4,7 @@ import LandingContent from "../landing/LandingContent";
 import AuthSlide from "../landing/AuthSlide";
 import useMediaQuery from "../../helper-functions/useMediaQuery";
 import { BREAKPOINTS, urls } from "../../lib/constants";
-import { Navigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 
 function LandingPage() {
@@ -20,10 +20,14 @@ function LandingPage() {
     setShowSignUp(false);
   }
 
+  const navigate = useNavigate();
+
   // if logged in, redirect to dashboard
-  if (user && token && !showSignUp && !showLogin) {
-    return <Navigate to={urls.home} replace />;
-  }
+  useEffect(() => {
+    if (user && token && !showSignUp && !showLogin) {
+      navigate(urls.home, { replace: true });
+    }
+  }, [user, token, showSignUp, showLogin]);
 
   // get lg breakpoint
   const isLargeScreen = useMediaQuery(`(min-width: ${BREAKPOINTS.lg}px)`);
