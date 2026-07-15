@@ -1,3 +1,27 @@
+@font-face {
+  font-family: "Libre Bodoni";
+  src: url("./assets/fonts/Libre_Bodoni/static/LibreBodoni-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Afacad";
+  src: url("./assets/fonts/Afacad/static/Afacad-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Afacad";
+  src: url("./assets/fonts/Afacad/static/Afacad-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Abril Fatface";
+  src: url("./assets/fonts/Abril_Fatface/AbrilFatface-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
 :root {
   /* Core brand */
   --color-primary: #FFFBF2;
@@ -18,6 +42,11 @@
   --color-error-dark: #8D0036;
   --color-error-darkest: #5F0024;
 
+  /* Title - Abril Fatface, Regular, 128 */
+  --font-title-family: "Abril Fatface", serif;
+  --font-title-size: clamp(80px, 12vw, 128px);
+  --font-title-weight: 400;
+
   /* Header — Libre Bodoni, Regular, 64 */
   --font-header-family: "Libre Bodoni", serif;
   --font-header-size: 64px;
@@ -33,6 +62,11 @@
   --font-section-text-size: 40px;
   --font-section-text-weight: 400;
 
+  /* Text — Afacad, Regular, 20 */
+  --font-body-family: "Afacad", sans-serif;
+  --font-body-size: 20px;
+  --font-body-weight: 400;
+
   /* LargeButton_Text — Abril Fatface, Regular, 36 */
   --font-large-button-family: "Abril Fatface", serif;
   --font-large-button-size: 36px;
@@ -42,11 +76,6 @@
   --font-medium-button-family: "Abril Fatface", serif;
   --font-medium-button-size: 24px;
   --font-medium-button-weight: 400;
-
-  /* Text — Afacad, Regular, 20 */
-  --font-body-family: "Afacad", sans-serif;
-  --font-body-size: 20px;
-  --font-body-weight: 400;
 
   /* Spacing */
   --space-8: 8px;
@@ -673,6 +702,15 @@ hr {
   margin: 0;
 
   color: var(--color-error-dark)
+}
+
+.title {
+  font-family: var(--font-title-family);
+  font-size: var(--font-title-size);
+  font-weight: var(--font-title-weight);
+  
+  line-height: var(--font-title-size);
+  margin: 0;
 }
 
 h1 {
