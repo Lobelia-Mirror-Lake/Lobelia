@@ -2,7 +2,11 @@
   "scripts": {
     "deploy": "cd asthma-app/frontend && npm run build && cd ../../ && git subtree push --prefix asthma-app/frontend/docs origin gh-pages",
     "dev": "cd asthma-app/frontend && npm run dev && cd ../../",
+    "frontend": "cd asthma-app/frontend && npm run dev && cd ../../",
     "build": "cd asthma-app/frontend && npm run build && cd ../../",
-    "done": "frontend-done.sh"
+    "done": "node ./scripts/frontend-done.js",
+    "backend-api": "python ./scripts/backend.py",
+    "backend-db": "cd asthma-app && docker compose up -d",
+    "backend-stop-db": "cd asthma-app && docker compose down"
   }
 }

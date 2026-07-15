@@ -8,10 +8,12 @@ import HomePage from './components/pages/HomePage';
 import ProfilePage from './components/pages/ProfilePage';
 import StatisticsPage from './components/pages/StatisticsPage';
 import { preloadAudio } from "./helper-functions/playAudio";
-import ProtectedRoute from './components/routes/ProtectedRoute';
+import DashboardRoute from './components/routes/DashboardRoute';
+import { SetupRoute } from './components/routes/SetupRoute';
 import PublicRoute from './components/routes/PublicRoute';
 import NotFoundPage from './components/pages/NotFoundPage';
 import SetupPage from './components/pages/SetupPage';
+import { urls } from './lib/constants';
 
 function App() {
   // preload sounds
@@ -42,19 +44,22 @@ function App() {
     <HashRouter>
       <Routes>
         <Route element={<PublicRoute />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/setup" element={<SetupPage />} />
+          <Route path={urls.landing} element={<LandingPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute />}>
+        <Route element={<SetupRoute />}>
+          <Route path={urls.setup} element={<SetupPage />} />
+        </Route>
+
+        <Route element={<DashboardRoute />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path={urls.home} element={<HomePage />} />
+            <Route path={urls.statistics} element={<StatisticsPage />} />
+            <Route path={urls.calendar} element={<CalendarPage />} />
+            <Route path={urls.profile} element={<ProfilePage />} />
           </Route>
         </Route>
-
+        
         <Route path="*" element={<NotFoundPage />} />
 
       </Routes>

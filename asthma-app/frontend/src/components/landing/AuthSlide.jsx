@@ -2,11 +2,12 @@ import { Container, Row, Col, Button, Form } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
 import ArrowButton from '../input/ArrowButton';
-import { loginFields, signUpFields, loginState, signUpState } from '../../lib/constants';
+import { loginFields, signUpFields, loginState, signUpState, urls } from '../../lib/constants';
 import { login, signUp, isJwt } from '../../helper-functions/authentication';
 import { useAuth } from '../../context/AuthContext';
 import playErrorResponse from '../../helper-functions/playErrorResponse';
 import { validate, hasErrors } from '../../helper-functions/validate';
+import { useNavigate } from "react-router";
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
@@ -23,7 +24,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   const [errors, setErrors] = useState(initialFormData);
 
   // authentication
-  const { storeToken } = useAuth();
+  const { storeToken, setupComplete, setSetupComplete } = useAuth();
 
   // button error handling
   const [buttonError, setButtonError] = useState("");
@@ -31,14 +32,29 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
 
   // validate errors immediately
   useEffect(() => {
-    validate(fields, formData, setErrors, setButtonError);
+    verifyFields();
   }, [])
 
-  // ********************* login or sign up is clicked *****************************
-  async function authButtonClick() {
+  // to navigate on button click
+  const navigate = useNavigate();
+
+  // navigate to home page when setupComplete changes to true
+    useEffect(() => {
+        if (setupComplete) {
+            navigate(urls.home);
+        }
+    }, [setupComplete]);
+
+  function verifyFields() {
     const newErrors = validate(fields, formData);
 
     setErrors(newErrors);
+    return newErrors;
+  }
+
+  // ********************* login or sign up is clicked *****************************
+  async function authButtonClick() {
+    const newErrors = verifyFields();
 
     // ensure there are no errors
     if (hasErrors(newErrors)) {
@@ -57,15 +73,20 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
       result = await signUp(formData["email"], formData["password"]);
     }
 
-    console.log("hi");
-
     // valid token: store it and navigate to next page
     if ( isJwt(result) ) {
+      if (showLogin) {
+        setSetupComplete(true);
+      }
+      else {
+        navigate(urls.setup);
+      }
+
       storeToken(result);
     }
     // invalid token: update errors
     else {
-      playErrorResponse();
+      setButtonError(result);
       playErrorResponse(setShake);
     }
 
