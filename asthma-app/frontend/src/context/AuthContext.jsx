@@ -6,6 +6,8 @@ export function AuthProvider({ children }) {
     // get token, if it exists
     const [token, setToken] = useState(() => localStorage.getItem("token"));
     const [user, setUser] = useState(null);
+    // setup complete or not
+    const [setupComplete, setSetupComplete] = useState(false);
 
     // extracts user info
     function decodeJwt(token) {
@@ -37,10 +39,11 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("token");
         setToken(null);
         setUser(null);
+        setSetupComplete(false);
     }
 
     return (
-        <AuthContext.Provider value={{ token, user, storeToken, logout }}>
+        <AuthContext.Provider value={{ token, user, storeToken, logout, setupComplete, setSetupComplete }}>
             {children}
         </AuthContext.Provider>
     );
