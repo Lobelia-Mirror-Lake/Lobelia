@@ -89,8 +89,8 @@ function EmergencyContactsStep({
             </div>
 
             <Button
-                className="button-dark btn-medium-text"
-                style={{ width: "max(40vw, 400px)" }}
+                className="button-dark btn-medium-text text-center"
+                style={{ width: "clamp(200px, 40vw, 400px)" }}
                 onClick={openAddModal}
             >
                 Add Contact

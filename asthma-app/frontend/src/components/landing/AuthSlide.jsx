@@ -1,4 +1,4 @@
-import { Container, Row, Col, Button, Form } from 'react-bootstrap';
+import { Container, Row, Col, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
 import ArrowButton from '../input/ArrowButton';
@@ -14,6 +14,8 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   if ((showLogin && showSignUp) || (!showLogin && !showSignUp)) {
     return <h1>Error in loading.</h1>
   }
+  // whether app is waiting for API call
+  const [loading, setLoading] = useState(false);
 
   // fields to use
   var fields = showLogin ? loginFields : signUpFields;
@@ -39,11 +41,11 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   const navigate = useNavigate();
 
   // navigate to home page when setupComplete changes to true
-    useEffect(() => {
-        if (setupComplete) {
-            navigate(urls.home);
-        }
-    }, [setupComplete]);
+  useEffect(() => {
+    if (setupComplete) {
+      navigate(urls.home);
+    }
+  }, [setupComplete]);
 
   function verifyFields() {
     const newErrors = validate(fields, formData);
@@ -58,19 +60,25 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
 
     // ensure there are no errors
     if (hasErrors(newErrors)) {
-        setButtonError("You have not met the requirements.");
-        playErrorResponse(setShake);
-        return;
+      setButtonError("You have not met the requirements.");
+      playErrorResponse(setShake);
+      return;
     }
     
-    var result;
+    // start spinner
+    setLoading(true);
+
+    var result = "Trouble Processing. Please try again later.";
 
     // validate with API
-    if ( showLogin ) {
-      result = await login(formData["email"], formData["password"]);
-    }
-    else {
-      result = await signUp(formData["email"], formData["password"]);
+    try {
+      if (showLogin) {
+        result = await login(formData.email, formData.password);
+      } else {
+        result = await signUp(formData.email, formData.password);
+      }
+    } finally {
+      setLoading(false); // stop spinner no matter what
     }
 
     // valid token: store it and navigate to next page
@@ -124,8 +132,27 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
           className="error-text-light at-middle-center"
           style={{height:48}}
         >{buttonError}</Row>
-        <Row>
-          <Button className={`button-light btn-large-text ${shake ? "shake" : ""}`} onClick={(e) => authButtonClick()} > { showLogin ? "Login" : "Sign Up" } </Button>
+        <Row className="at-middle-center">
+        {
+          loading ? (
+            <Spinner
+              animation="border"
+              role="status"
+              style={{
+                width: "48px",
+                height: "48px",
+                color: "var(--color-primary)",
+              }}
+            />
+          ) : (
+            <Button
+              className={`button-light btn-large-text ${shake ? "shake" : ""}`}
+              onClick={authButtonClick}
+            >
+              { showLogin ? "Login" : "Sign Up" }
+            </Button>
+          )
+        }
         </Row>
     </Container>
   )
