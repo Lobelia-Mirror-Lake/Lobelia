@@ -38,11 +38,6 @@
   --font-large-button-size: 36px;
   --font-large-button-weight: 400;
 
-  /* Button_Arrow — Alatsi, Regular, 36 */
-  --font-button-arrow-family: "Alatsi", sans-serif;
-  --font-button-arrow-size: 36px;
-  --font-button-arrow-weight: 400;
-
   /* MediumButton_Text — Abril Fatface, Regular, 24 */
   --font-medium-button-family: "Abril Fatface", serif;
   --font-medium-button-size: 24px;
@@ -645,16 +640,6 @@ hr {
   font-weight: var(--font-medium-button-weight);
   
   line-height: var(--font-medium-button-size);
-  margin: 0;
-}
-
-/* Button Arrow */
-.btn-arrow-text {
-  font-family: var(--font-button-arrow-family);
-  font-size: var(--font-button-arrow-size);
-  font-weight: var(--font-button-arrow-weight);
-  
-  line-height: var(--font-button-arrow-size);
   margin: 0;
 }
 
