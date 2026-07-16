@@ -1,7 +1,7 @@
-const API = "http://127.0.0.1:8000";
+import { API_URL } from "../config"
 
 export async function updateProfile(data, token) {
-    const response = await fetch(`${API}/v1/users/me`, {
+    const response = await fetch(`${API_URL}/v1/users/me`, {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",

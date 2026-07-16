@@ -22,6 +22,21 @@ from api.users import router as users_router
 from api.wearables import router as wearables_router
 from db.database import init_db
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173"
+)
+
+
+def _cors_origins() -> list[str]:
+    """Browser origins allowed to call this API (comma-separated CORS_ORIGINS)."""
+    raw = os.getenv("CORS_ORIGINS", _DEFAULT_CORS_ORIGINS)
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -82,6 +97,13 @@ app.include_router(wearables_router, prefix="/v1")
 app.include_router(forecast_router, prefix="/v1")
 app.include_router(advice_router, prefix="/v1")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/predict/classifier")
 async def predict_classifier_endpoint(
@@ -103,15 +125,6 @@ async def predict_classifier_endpoint(
     return result
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.post("/predict")
 async def predict(

@@ -1,5 +1,5 @@
 import CheckboxList from "../../input/CheckboxList";
-import { asthmaSymptoms } from "../../../constants.jsx";
+import { asthmaSymptoms } from "../../../constants";
 
 export function SymptomsStep({
     formData,

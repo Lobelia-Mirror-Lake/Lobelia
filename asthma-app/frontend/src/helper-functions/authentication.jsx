@@ -1,6 +1,8 @@
+import { API_URL } from "../config"
+
 export async function login(email, password) {
   try {
-    const res = await fetch("http://127.0.0.1:8000/v1/auth/login", {
+    const res = await fetch(`${API_URL}/v1/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -25,7 +27,7 @@ export async function login(email, password) {
 
 export async function signUp(email, password) {
   try {
-    const res = await fetch("http://127.0.0.1:8000/v1/auth/register", {
+    const res = await fetch(`${API_URL}/v1/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

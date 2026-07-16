@@ -1,5 +1,5 @@
 import CheckboxList from "../../input/CheckboxList";
-import { asthmaTriggers } from "../../../constants.jsx";
+import { asthmaTriggers } from "../../../constants";
 
 export function TriggersStep({
     formData,

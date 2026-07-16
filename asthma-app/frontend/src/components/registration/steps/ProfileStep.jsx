@@ -1,4 +1,4 @@
-import { profileFields, profileState } from '../../../constants.jsx';
+import { profileFields, profileState } from '../../../constants';
 import { useEffect } from 'react';
 import FormFull from "../../input/FormFull";
 import { validate } from '../../../helper-functions/validate';

@@ -12,8 +12,8 @@ function run(cmd) {
   execSync(cmd, { stdio: "inherit" });
 }
 
-console.log("Building frontend...");
-run("cd asthma-app/frontend && npm run build");
+console.log("Building frontend (production mode)...");
+run("npm run build");
 
 console.log("Pushing docs/ to gh-pages...");
 run("git subtree push --prefix asthma-app/frontend/docs origin gh-pages");

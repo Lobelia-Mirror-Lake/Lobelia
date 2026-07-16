@@ -4,7 +4,7 @@ function LandingContent({ onLogin, onSignUp, onBack, authSlideOpen}) {
     return (
         <Container
             fluid
-            className="green-body p-5 vertical min-vh-100"
+            className="green-body vertical min-vh-100"
             style={{ justifyContent: "space-between" }}
         >
             <Row className="at-middle-center text-center">

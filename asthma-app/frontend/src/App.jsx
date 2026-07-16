@@ -12,7 +12,7 @@ import { SetupRoute } from './components/routes/SetupRoute';
 import PublicRoute from './components/routes/PublicRoute';
 import NotFoundPage from './components/pages/NotFoundPage';
 import SetupPage from './components/pages/SetupPage';
-import { urls } from './constants.jsx';
+import { urls } from './constants';
 
 function App() {
   // preload sounds
