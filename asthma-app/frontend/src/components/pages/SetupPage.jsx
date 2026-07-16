@@ -17,8 +17,6 @@ function SetupPage() {
     // get user token
     const { token, setupComplete, setSetupComplete, logout } = useAuth();
 
-    logout();
-
     // number of pages to go through
     const numPages = 7;
     const [numPage, setNumPage] = useState(0);
