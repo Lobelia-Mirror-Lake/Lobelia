@@ -65,6 +65,7 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
                             value={formData[data.name] ?? ""}
                             onAccept={(value) => handleChange(data.name, value)}
                             isInvalid={!!errors[data.name]}
+                            className={`${theme}`}
                         />
                         ) : (
                         <Form.Control
@@ -74,6 +75,7 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
                             onChange={(e) => handleChange(data.name, e.target.value)}
                             onBlur={(e) => handleChange(data.name, e.target.value.trim())}
                             isInvalid={!!errors[data.name]}
+                            className={`${theme}`}
                         />
                         )
                     }

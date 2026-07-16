@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.advice import router as advice_router
 from api.auth import router as auth_router
@@ -21,6 +22,21 @@ from api.users import router as users_router
 from api.wearables import router as wearables_router
 from db.database import init_db
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173"
+)
+
+
+def _cors_origins() -> list[str]:
+    """Browser origins allowed to call this API (comma-separated CORS_ORIGINS)."""
+    raw = os.getenv("CORS_ORIGINS", _DEFAULT_CORS_ORIGINS)
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -81,6 +97,13 @@ app.include_router(wearables_router, prefix="/v1")
 app.include_router(forecast_router, prefix="/v1")
 app.include_router(advice_router, prefix="/v1")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/predict/classifier")
 async def predict_classifier_endpoint(
@@ -100,6 +123,7 @@ async def predict_classifier_endpoint(
             result["advice_error"] = str(exc)
 
     return result
+
 
 
 @app.post("/predict")
