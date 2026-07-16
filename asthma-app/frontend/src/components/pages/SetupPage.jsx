@@ -15,7 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 
 function SetupPage() {
     // get user token
-    const { token, setupComplete, setSetupComplete, logout } = useAuth();
+    const { token, setupComplete, setSetupComplete } = useAuth();
 
     // number of pages to go through
     const numPages = 7;
