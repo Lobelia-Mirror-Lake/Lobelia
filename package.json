@@ -8,6 +8,7 @@
     "done": "node ./scripts/frontend-done.js",
     "backend-api": "python ./scripts/backend.py",
     "backend-db": "cd asthma-app && docker compose up -d",
+    "backend": "npm run backend-db && npm run backend-api",
     "backend-stop-db": "cd asthma-app && docker compose down"
   }
 }
