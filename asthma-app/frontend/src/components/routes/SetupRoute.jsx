@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router";
 import { useAuth } from "../../context/AuthContext";
-import { urls } from "../../constants.jsx";
+import { urls } from "../../constants";
 
 export function SetupRoute() {
   const { user, token, setupComplete } = useAuth();

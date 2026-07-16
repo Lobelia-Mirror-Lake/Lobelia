@@ -10,32 +10,32 @@ function ContactCard({
 
     return (
         <Container className="contact-card position-relative">
-            <div
-                className="horizontal-8 absolute-top-right"
-                style={{
-                    top: "0.75rem",
-                    right: "0.75rem"
-                }}
-            >
-                <EditButton
-                    className="button-light button-small"
-                    width="25"
-                    height="25"
-                    onClick={onEdit}
-                />
-
-                <CancelButton
-                    className="button-light button-small"
-                    width="25"
-                    height="25"
-                    onClick={onDelete}
-                />
-            </div>
-
             <Row className="vertical">
                 <Col className="horizontal-16">
-                    <div>{contact.firstName}</div>
-                    <div>{contact.lastName}</div>
+                    <div
+                        style={{ minWidth: 0, flexShrink: 1, overflowWrap: "break-word" }}
+                    >{contact.firstName}</div>
+                    <div
+                        style={{ minWidth: 0, flexShrink: 1, overflowWrap: "break-word" }}
+                    >{contact.lastName}</div>
+                    <div style={{ flexGrow: 1 }} />
+               
+
+                    <div className="horizontal-8" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
+                        <EditButton
+                            className="button-light button-small"
+                            width="25"
+                            height="25"
+                            onClick={onEdit}
+                        />
+
+                        <CancelButton
+                            className="button-light button-small"
+                            width="25"
+                            height="25"
+                            onClick={onDelete}
+                        />
+                    </div>
                 </Col>
 
                 <Col
@@ -45,7 +45,9 @@ function ContactCard({
                     }}
                 >
                     <div>{contact.phone}</div>
-                    <div>{contact.email}</div>
+                    <div
+                        style={{ minWidth: 0, flexShrink: 1, overflowWrap: "break-word" }}
+                    >{contact.email}</div>
                 </Col>
             </Row>
         </Container>

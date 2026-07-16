@@ -30,6 +30,8 @@ function EmergencyContactsStep({
     }
 
     function saveContact(contact) {
+        const safeId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+
         // Add
         if (!editingContact) {
             setFormData({
@@ -38,7 +40,7 @@ function EmergencyContactsStep({
                     ...contacts,
                     {
                         ...contact,
-                        id: crypto.randomUUID()
+                        id: safeId
                     }
                 ]
             });
@@ -77,7 +79,10 @@ function EmergencyContactsStep({
                 Who are your Emergency Contacts?
             </p>
 
-            <div className="vertical-16 scrollable">
+            <div
+                className="vertical-16 scrollable"
+                style={{width: "100%"}}
+            >
                 {contacts.map(contact => (
                     <ContactCard
                         key={contact.id}

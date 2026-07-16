@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import FormModal from "../input/FormModal";
 import FormFull from "../input/FormFull";
-import { contactFields, contactState } from "../../constants.jsx";
+import { contactFields, contactState } from "../../constants";
 import { validate, hasErrors } from "../../helper-functions/validate";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
 
