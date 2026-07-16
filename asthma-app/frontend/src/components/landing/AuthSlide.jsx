@@ -2,7 +2,7 @@ import { Container, Row, Col, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
 import ArrowButton from '../input/ArrowButton';
-import { loginFields, signUpFields, loginState, signUpState, urls } from '../../lib/constants';
+import { loginFields, signUpFields, loginState, signUpState, urls } from '../../constants';
 import { login, signUp, isJwt } from '../../helper-functions/authentication';
 import { useAuth } from '../../context/AuthContext';
 import playErrorResponse from '../../helper-functions/playErrorResponse';
