@@ -7,7 +7,7 @@ import TriggersStep from "../registration/steps/TriggersStep";
 import SymptomsStep from "../registration/steps/SymptomsStep";
 import TrackingStep from "../registration/steps/TrackingStep";
 import FinishStep from "../registration/steps/FinishStep";
-import { profileState, urls } from "../../lib/constants";
+import { profileState, urls } from "../../constants.jsx";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
 import { useNavigate } from "react-router";
 import { updateProfile } from "../../helper-functions/updateProfile";
