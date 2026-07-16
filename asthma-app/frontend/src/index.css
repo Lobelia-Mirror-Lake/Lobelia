@@ -206,14 +206,22 @@ body {
   color: var(--color-secondary);
 }
 
+.cream-body {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  padding: clamp(1rem, 4vw, 3rem);
+}
+
 .green-body {
   background-color: var(--color-tertiary);
   color: var(--color-secondary);
+  padding: clamp(1rem, 4vw, 3rem);
 }
 
 .dark-green-body {
   background-color: var(--color-secondary);
   color: var(--color-primary);
+  padding: clamp(1rem, 4vw, 3rem);
 }
 
 .btn {
@@ -615,7 +623,7 @@ hr {
 .registration-container {
   height: 100vh;
   overflow: hidden;
-  padding: var(--space-64);
+  padding: clamp(1rem, 4vw, 3rem);
 }
 
 .registration-content {
