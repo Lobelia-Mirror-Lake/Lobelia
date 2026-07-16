@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import LandingContent from "../landing/LandingContent";
 import AuthSlide from "../landing/AuthSlide";
 import useMediaQuery from "../../helper-functions/useMediaQuery";
-import { BREAKPOINTS, urls } from "../../lib/constants";
+import { BREAKPOINTS, urls } from "../../constants";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 

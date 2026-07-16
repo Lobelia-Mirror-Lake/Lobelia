@@ -7,7 +7,7 @@ import TriggersStep from "../registration/steps/TriggersStep";
 import SymptomsStep from "../registration/steps/SymptomsStep";
 import TrackingStep from "../registration/steps/TrackingStep";
 import FinishStep from "../registration/steps/FinishStep";
-import { profileState, urls } from "../../lib/constants";
+import { profileState, urls } from "../../constants";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
 import { useNavigate } from "react-router";
 import { updateProfile } from "../../helper-functions/updateProfile";
@@ -15,7 +15,9 @@ import { useAuth } from "../../context/AuthContext";
 
 function SetupPage() {
     // get user token
-    const { token, setupComplete, setSetupComplete } = useAuth();
+    const { token, setupComplete, setSetupComplete, logout } = useAuth();
+
+    logout();
 
     // number of pages to go through
     const numPages = 7;
