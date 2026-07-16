@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router";
 import { useAuth } from "../../context/AuthContext";
-import { urls } from "../../lib/constants"
+import { urls } from "../../constants.jsx"
 
 // any routes within this route require being logged in
 export function DashboardRoute() {
