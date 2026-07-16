@@ -9,7 +9,7 @@ function LandingContent({ onLogin, onSignUp, onBack, authSlideOpen}) {
         >
             <Row className="at-middle-center text-center">
                 <Col xs="auto">
-                <h1>Lobelia</h1>
+                <h1 className="title">Lobelia</h1>
                 <h2 className="section-text">
                     AI-Powered Asthma Risk Forecasting
                 </h2>

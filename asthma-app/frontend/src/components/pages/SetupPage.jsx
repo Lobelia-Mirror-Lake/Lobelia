@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Registration from "../registration/Registration";
 import WelcomeStep from "../registration/steps/WelcomeStep";
 import ProfileStep from "../registration/steps/ProfileStep";
@@ -7,7 +7,7 @@ import TriggersStep from "../registration/steps/TriggersStep";
 import SymptomsStep from "../registration/steps/SymptomsStep";
 import TrackingStep from "../registration/steps/TrackingStep";
 import FinishStep from "../registration/steps/FinishStep";
-import { profileState } from "../../lib/constants";
+import { profileState, urls } from "../../constants";
 import playErrorResponse from "../../helper-functions/playErrorResponse";
 import { useNavigate } from "react-router";
 import { updateProfile } from "../../helper-functions/updateProfile";
@@ -15,7 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 
 function SetupPage() {
     // get user token
-    const { token } = useAuth();
+    const { token, setupComplete, setSetupComplete, logout } = useAuth();
 
     // number of pages to go through
     const numPages = 7;
@@ -33,6 +33,13 @@ function SetupPage() {
     // final setup
     const navigate = useNavigate();
     const [saving, setSaving] = useState(false);
+
+    // navigate to home page when setupComplete changes to true
+    useEffect(() => {
+        if (setupComplete) {
+            navigate(urls.home);
+        }
+    }, [setupComplete]);
 
     // error handling
     const [errors, setErrors] = useState({});
@@ -86,7 +93,7 @@ function SetupPage() {
 
         // Leaving FinishStep
         if (numPage === numPages - 1) {
-            navigate("/home");
+            setSetupComplete(true);
             return;
         }
 

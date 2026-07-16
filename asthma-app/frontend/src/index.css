@@ -1,3 +1,27 @@
+@font-face {
+  font-family: "Libre Bodoni";
+  src: url("./assets/fonts/Libre_Bodoni/static/LibreBodoni-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Afacad";
+  src: url("./assets/fonts/Afacad/static/Afacad-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Afacad";
+  src: url("./assets/fonts/Afacad/static/Afacad-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Abril Fatface";
+  src: url("./assets/fonts/Abril_Fatface/AbrilFatface-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
 :root {
   /* Core brand */
   --color-primary: #FFFBF2;
@@ -18,40 +42,40 @@
   --color-error-dark: #8D0036;
   --color-error-darkest: #5F0024;
 
+  /* Title - Abril Fatface, Regular, 128 */
+  --font-title-family: "Abril Fatface", serif;
+  --font-title-size: clamp(80px, 12vw, 128px);
+  --font-title-weight: 400;
+
   /* Header — Libre Bodoni, Regular, 64 */
   --font-header-family: "Libre Bodoni", serif;
-  --font-header-size: 64px;
+  --font-header-size: clamp(40px, 6vw, 64px);
   --font-header-weight: 400;
 
   /* Section Header — Afacad, Bold, 48 */
   --font-section-header-family: "Afacad", sans-serif;
-  --font-section-header-size: 48px;
+  --font-section-header-size: clamp(30px, 4.5vw, 48px);
   --font-section-header-weight: 700;
 
   /* Section Text — Afacad, Regular, 40 */
   --font-section-text-family: "Afacad", sans-serif;
-  --font-section-text-size: 40px;
+  --font-section-text-size: clamp(25px, 4vw, 40px);
   --font-section-text-weight: 400;
-
-  /* LargeButton_Text — Abril Fatface, Regular, 36 */
-  --font-large-button-family: "Abril Fatface", serif;
-  --font-large-button-size: 36px;
-  --font-large-button-weight: 400;
-
-  /* Button_Arrow — Alatsi, Regular, 36 */
-  --font-button-arrow-family: "Alatsi", sans-serif;
-  --font-button-arrow-size: 36px;
-  --font-button-arrow-weight: 400;
-
-  /* MediumButton_Text — Abril Fatface, Regular, 24 */
-  --font-medium-button-family: "Abril Fatface", serif;
-  --font-medium-button-size: 24px;
-  --font-medium-button-weight: 400;
 
   /* Text — Afacad, Regular, 20 */
   --font-body-family: "Afacad", sans-serif;
-  --font-body-size: 20px;
+  --font-body-size: clamp(12px, 4vw, 20px);
   --font-body-weight: 400;
+
+  /* LargeButton_Text — Abril Fatface, Regular, 36 */
+  --font-large-button-family: "Abril Fatface", serif;
+  --font-large-button-size: clamp(22px, 3.5vw, 36px);
+  --font-large-button-weight: 400;
+
+  /* MediumButton_Text — Abril Fatface, Regular, 24 */
+  --font-medium-button-family: "Abril Fatface", serif;
+  --font-medium-button-size: clamp(15px, 2.5vw, 24px);
+  --font-medium-button-weight: 400;
 
   /* Spacing */
   --space-8: 8px;
@@ -193,6 +217,10 @@ body {
 }
 
 .btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
   padding: clamp(0.5rem, 20vw, var(--space-16))
           clamp(1rem, 20vw, var(--space-144));
 
@@ -387,17 +415,38 @@ hr {
   border-color: var(--form-error-focus-secondary-contrast);
 }
 
+.form-control.dark:not(.is-invalid)::-webkit-calendar-picker-indicator {
+  filter: invert(97%) sepia(10%) saturate(200%) hue-rotate(350deg);
+  opacity: 1;
+}
+
+.form-control.dark.is-invalid::-webkit-calendar-picker-indicator {
+  filter: invert(76%) sepia(100%) saturate(1000%) hue-rotate(285deg);
+  opacity: 1;
+}
+
+.form-control.light:not(.is-invalid)::-webkit-calendar-picker-indicator {
+  filter: invert(15%) sepia(90%) saturate(1000%) hue-rotate(143deg);
+  opacity: 1;
+}
+
+.form-control.light.is-invalid::-webkit-calendar-picker-indicator {
+  filter: invert(23%) sepia(100%) saturate(1000%) hue-rotate(300deg);
+  opacity: 1;
+}
+
 .absolute-top-left {
   position: absolute;
-  top: 3rem;
-  left: 3rem;
+  top: clamp(2rem, 4vw, 3rem);
+  left: clamp(1.25rem, 4vw, 3rem);
 
   z-index: 10;
 }
+
 .absolute-top-right {
   position: absolute;
-  top: 2rem;
-  right: 2rem;
+  top: clamp(1.25rem, 3vw, 2rem);
+  right: clamp(1.25rem, 3vw, 2rem);
 
   z-index: 10;
 }
@@ -648,16 +697,6 @@ hr {
   margin: 0;
 }
 
-/* Button Arrow */
-.btn-arrow-text {
-  font-family: var(--font-button-arrow-family);
-  font-size: var(--font-button-arrow-size);
-  font-weight: var(--font-button-arrow-weight);
-  
-  line-height: var(--font-button-arrow-size);
-  margin: 0;
-}
-
 /* Body Text */
 .body-text {
   font-family: var(--font-body-family);
@@ -688,6 +727,15 @@ hr {
   margin: 0;
 
   color: var(--color-error-dark)
+}
+
+.title {
+  font-family: var(--font-title-family);
+  font-size: var(--font-title-size);
+  font-weight: var(--font-title-weight);
+  
+  line-height: var(--font-title-size);
+  margin: 0;
 }
 
 h1 {

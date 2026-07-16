@@ -1,18 +1,21 @@
-import { Container, Row, Col, Button, Form } from 'react-bootstrap';
+import { Container, Row, Col, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import FormFull from '../input/FormFull';
 import ArrowButton from '../input/ArrowButton';
-import { loginFields, signUpFields, loginState, signUpState } from '../../lib/constants';
+import { loginFields, signUpFields, loginState, signUpState, urls } from '../../constants';
 import { login, signUp, isJwt } from '../../helper-functions/authentication';
 import { useAuth } from '../../context/AuthContext';
 import playErrorResponse from '../../helper-functions/playErrorResponse';
 import { validate, hasErrors } from '../../helper-functions/validate';
+import { useNavigate } from "react-router";
 
 function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   // must have only one be true
   if ((showLogin && showSignUp) || (!showLogin && !showSignUp)) {
     return <h1>Error in loading.</h1>
   }
+  // whether app is waiting for API call
+  const [loading, setLoading] = useState(false);
 
   // fields to use
   var fields = showLogin ? loginFields : signUpFields;
@@ -23,7 +26,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   const [errors, setErrors] = useState(initialFormData);
 
   // authentication
-  const { storeToken } = useAuth();
+  const { storeToken, setupComplete, setSetupComplete } = useAuth();
 
   // button error handling
   const [buttonError, setButtonError] = useState("");
@@ -31,41 +34,67 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
 
   // validate errors immediately
   useEffect(() => {
-    validate(fields, formData, setErrors, setButtonError);
+    verifyFields();
   }, [])
 
-  // ********************* login or sign up is clicked *****************************
-  async function authButtonClick() {
+  // to navigate on button click
+  const navigate = useNavigate();
+
+  // navigate to home page when setupComplete changes to true
+  useEffect(() => {
+    if (setupComplete) {
+      navigate(urls.home);
+    }
+  }, [setupComplete]);
+
+  function verifyFields() {
     const newErrors = validate(fields, formData);
 
     setErrors(newErrors);
+    return newErrors;
+  }
+
+  // ********************* login or sign up is clicked *****************************
+  async function authButtonClick() {
+    const newErrors = verifyFields();
 
     // ensure there are no errors
     if (hasErrors(newErrors)) {
-        setButtonError("You have not met the requirements.");
-        playErrorResponse(setShake);
-        return;
+      setButtonError("You have not met the requirements.");
+      playErrorResponse(setShake);
+      return;
     }
     
-    var result;
+    // start spinner
+    setLoading(true);
+
+    var result = "Trouble Processing. Please try again later.";
 
     // validate with API
-    if ( showLogin ) {
-      result = await login(formData["email"], formData["password"]);
+    try {
+      if (showLogin) {
+        result = await login(formData.email, formData.password);
+      } else {
+        result = await signUp(formData.email, formData.password);
+      }
+    } finally {
+      setLoading(false); // stop spinner no matter what
     }
-    else {
-      result = await signUp(formData["email"], formData["password"]);
-    }
-
-    console.log("hi");
 
     // valid token: store it and navigate to next page
     if ( isJwt(result) ) {
+      if (showLogin) {
+        setSetupComplete(true);
+      }
+      else {
+        navigate(urls.setup);
+      }
+
       storeToken(result);
     }
     // invalid token: update errors
     else {
-      playErrorResponse();
+      setButtonError(result);
       playErrorResponse(setShake);
     }
 
@@ -103,8 +132,27 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
           className="error-text-light at-middle-center"
           style={{height:48}}
         >{buttonError}</Row>
-        <Row>
-          <Button className={`button-light btn-large-text ${shake ? "shake" : ""}`} onClick={(e) => authButtonClick()} > { showLogin ? "Login" : "Sign Up" } </Button>
+        <Row className="at-middle-center">
+        {
+          loading ? (
+            <Spinner
+              animation="border"
+              role="status"
+              style={{
+                width: "48px",
+                height: "48px",
+                color: "var(--color-primary)",
+              }}
+            />
+          ) : (
+            <Button
+              className={`button-light btn-large-text ${shake ? "shake" : ""}`}
+              onClick={authButtonClick}
+            >
+              { showLogin ? "Login" : "Sign Up" }
+            </Button>
+          )
+        }
         </Row>
     </Container>
   )
