@@ -1,6 +1,5 @@
-import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router';
+import { HashRouter, Route, Routes } from 'react-router';
 import { useEffect } from 'react';
-import AuthSlide from './components/landing/AuthSlide';
 import DashboardLayout from './components/DashboardLayout';
 import LandingPage from './components/pages/LandingPage';
 import CalendarPage from './components/pages/CalendarPage';
@@ -34,7 +33,12 @@ function App() {
     const base = "/Mirror-Lake";
     const { pathname, search, hash } = window.location;
 
-    if (!hash && pathname.startsWith(base) && pathname !== base && pathname !== `${base}/`) {
+    if (
+      !hash &&
+      pathname.startsWith(base) &&
+      pathname !== base &&
+      pathname !== `${base}/`
+    ) {
       const path = pathname.slice(base.length);
       window.location.replace(`${base}/#${path}${search}`);
     }
@@ -59,12 +63,11 @@ function App() {
             <Route path={urls.profile} element={<ProfilePage />} />
           </Route>
         </Route>
-        
-        <Route path="*" element={<NotFoundPage />} />
 
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </HashRouter>
-  )
+  );
 }
 
-export default App
+export default App;
