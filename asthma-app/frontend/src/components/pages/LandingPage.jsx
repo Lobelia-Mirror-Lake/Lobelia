@@ -7,7 +7,6 @@ import AuthSlide from "../landing/AuthSlide";
 import useMediaQuery from "../../helper-functions/useMediaQuery";
 import { BREAKPOINTS, urls } from "../../constants";
 
-
 function LandingPage() {
 
   const ANIMATION_DURATION = 0.45;
@@ -68,12 +67,10 @@ function LandingPage() {
     (v) => `${v}vw`
   );
 
-
   const totalWidth = useTransform(
     total,
     (v) => `${v}vw`
   );
-
 
   const xOffset = useTransform(
     offset,
@@ -83,31 +80,23 @@ function LandingPage() {
 
 
   useEffect(() => {
-
     const opening =
       (showLogin || showSignUp) &&
       authSlideOpen &&
       !isClosing;
 
-
     let animation;
 
-
-
     if (opening) {
-
       setIsAnimating(true);
-
 
       animate(panel, isLargeScreen ? 50 : 100, {
         duration: ANIMATION_DURATION,
       });
 
-
       animate(total, isLargeScreen ? 100 : 200, {
         duration: ANIMATION_DURATION,
       });
-
 
       animation = animate(
         offset,
@@ -119,22 +108,16 @@ function LandingPage() {
 
     }
 
-
-
     if (isClosing) {
-
       setIsAnimating(true);
-
 
       animate(panel, 100, {
         duration: ANIMATION_DURATION,
       });
 
-
       animate(total, 200, {
         duration: ANIMATION_DURATION,
       });
-
 
       animation = animate(
         offset,
@@ -146,27 +129,18 @@ function LandingPage() {
 
     }
 
-
-
     if (!animation) return;
-
-
 
     animation.finished
       .then(() => {
-
         setIsAnimating(false);
 
-
         if (isClosing) {
-
           setIsClosing(false);
-
         }
 
       })
       .catch(() => {});
-
 
   }, [
     showLogin,
@@ -177,9 +151,7 @@ function LandingPage() {
   ]);
 
 
-
   return (
-
     <div
       style={{
         overflowX: "hidden",
@@ -187,78 +159,49 @@ function LandingPage() {
         height: "100dvh",
       }}
     >
-
       <motion.div
-
         className="d-flex flex-row"
-
         style={{
           width: totalWidth,
           height: "100dvh",
           x: xOffset,
         }}
-
       >
 
-
         {/* Landing panel */}
-
         <motion.div
           style={{
             width: panelWidth,
             height: "100dvh",
           }}
         >
-
           <LandingContent
-
             onLogin={onLogin}
             onSignUp={onSignUp}
             onBack={onBack}
-
             authSlideOpen={authSlideOpen}
-
             buttonsDisabled={isAnimating}
-
             animationDuration={ANIMATION_DURATION}
-
           />
-
         </motion.div>
 
-
-
         {/* Auth panel */}
-
         <motion.div
-
           style={{
             width: panelWidth,
             height: "100dvh",
           }}
-
         >
-
           <AuthSlide
-
             showLogin={showLogin}
             showSignUp={showSignUp}
-
             onBack={onBack}
-
             landingVisible={isLargeScreen}
-
           />
-
         </motion.div>
-
-
       </motion.div>
-
     </div>
-
   );
 }
-
 
 export default LandingPage;
