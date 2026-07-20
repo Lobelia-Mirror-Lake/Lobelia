@@ -1,73 +1,264 @@
-import { Button, Container, Row, Col } from "react-bootstrap";
 import { useState, useEffect } from "react";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+
 import LandingContent from "../landing/LandingContent";
 import AuthSlide from "../landing/AuthSlide";
+
 import useMediaQuery from "../../helper-functions/useMediaQuery";
 import { BREAKPOINTS, urls } from "../../constants";
-import { useNavigate } from "react-router";
-import { useAuth } from "../../context/AuthContext";
+
 
 function LandingPage() {
-  const { user, token } = useAuth();
 
+  const ANIMATION_DURATION = 0.45;
+
+  // Auth states
   const [showLogin, setShowLogin] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
 
-  const onLogin = () => setShowLogin(true);
-  const onSignUp = () => setShowSignUp(true);
-  const onBack = () => {
-    setShowLogin(false);
+  // Slide states
+  const [authSlideOpen, setAuthSlideOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Disable buttons while animation is running
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const isLargeScreen = useMediaQuery(
+    `(min-width: ${BREAKPOINTS.lg}px)`
+  );
+
+
+  const onLogin = () => {
+    if (isAnimating) return;
+
+    setShowLogin(true);
     setShowSignUp(false);
-  }
 
-  const navigate = useNavigate();
+    setAuthSlideOpen(true);
+    setIsClosing(false);
+  };
 
-  // if logged in, redirect to dashboard
+  const onSignUp = () => {
+    if (isAnimating) return;
+
+    setShowLogin(false);
+    setShowSignUp(true);
+
+    setAuthSlideOpen(true);
+    setIsClosing(false);
+  };
+
+  const onBack = () => {
+    if (isAnimating) return;
+
+    setAuthSlideOpen(false);
+    setIsClosing(true);
+  };
+
+
+  // Motion values
+
+  const panel = useMotionValue(100);
+  const total = useMotionValue(200);
+  const offset = useMotionValue(0);
+
+
+  const panelWidth = useTransform(
+    panel,
+    (v) => `${v}vw`
+  );
+
+
+  const totalWidth = useTransform(
+    total,
+    (v) => `${v}vw`
+  );
+
+
+  const xOffset = useTransform(
+    offset,
+    (v) => `${v}vw`
+  );
+
+
+
   useEffect(() => {
-    if (user && token && !showSignUp && !showLogin) {
-      navigate(urls.home, { replace: true });
-    }
-  }, [user, token, showSignUp, showLogin]);
 
-  // get lg breakpoint
-  const isLargeScreen = useMediaQuery(`(min-width: ${BREAKPOINTS.lg}px)`);
+    const opening =
+      (showLogin || showSignUp) &&
+      authSlideOpen &&
+      !isClosing;
+
+
+    let animation;
+
+
+
+    if (opening) {
+
+      setIsAnimating(true);
+
+
+      animate(panel, isLargeScreen ? 50 : 100, {
+        duration: ANIMATION_DURATION,
+      });
+
+
+      animate(total, isLargeScreen ? 100 : 200, {
+        duration: ANIMATION_DURATION,
+      });
+
+
+      animation = animate(
+        offset,
+        isLargeScreen ? 0 : -100,
+        {
+          duration: ANIMATION_DURATION,
+        }
+      );
+
+    }
+
+
+
+    if (isClosing) {
+
+      setIsAnimating(true);
+
+
+      animate(panel, 100, {
+        duration: ANIMATION_DURATION,
+      });
+
+
+      animate(total, 200, {
+        duration: ANIMATION_DURATION,
+      });
+
+
+      animation = animate(
+        offset,
+        0,
+        {
+          duration: ANIMATION_DURATION,
+        }
+      );
+
+    }
+
+
+
+    if (!animation) return;
+
+
+
+    animation.finished
+      .then(() => {
+
+        setIsAnimating(false);
+
+
+        if (isClosing) {
+
+          setIsClosing(false);
+
+        }
+
+      })
+      .catch(() => {});
+
+
+  }, [
+    showLogin,
+    showSignUp,
+    authSlideOpen,
+    isClosing,
+    isLargeScreen
+  ]);
+
+
 
   return (
-    <Container fluid className="min-vh-100 p-0">
-      <Row className="g-0 min-vh-100">
-      {!showSignUp && !showLogin ? (
-        <Col xs={12}>
+
+    <div
+      style={{
+        overflowX: "hidden",
+        width: "100vw",
+        height: "100dvh",
+      }}
+    >
+
+      <motion.div
+
+        className="d-flex flex-row"
+
+        style={{
+          width: totalWidth,
+          height: "100dvh",
+          x: xOffset,
+        }}
+
+      >
+
+
+        {/* Landing panel */}
+
+        <motion.div
+          style={{
+            width: panelWidth,
+            height: "100dvh",
+          }}
+        >
+
           <LandingContent
+
             onLogin={onLogin}
             onSignUp={onSignUp}
             onBack={onBack}
-            authSlideOpen={false}
-          />
-        </Col>
-      ) : (
-        <>
-          <Col lg={6} className="d-none d-lg-flex">
-            <LandingContent
-              onLogin={onLogin}
-              onSignUp={onSignUp}
-              onBack={onBack}
-              authSlideOpen={true}
-            />
-          </Col>
 
-          <Col xs={12} lg={6}>
-            <AuthSlide
-              showLogin={showLogin}
-              showSignUp={showSignUp}
-              onBack={onBack}
-              landingVisible={isLargeScreen}
-            />
-          </Col>
-        </>
-      )}
-    </Row>
-    </Container>
+            authSlideOpen={authSlideOpen}
+
+            buttonsDisabled={isAnimating}
+
+            animationDuration={ANIMATION_DURATION}
+
+          />
+
+        </motion.div>
+
+
+
+        {/* Auth panel */}
+
+        <motion.div
+
+          style={{
+            width: panelWidth,
+            height: "100dvh",
+          }}
+
+        >
+
+          <AuthSlide
+
+            showLogin={showLogin}
+            showSignUp={showSignUp}
+
+            onBack={onBack}
+
+            landingVisible={isLargeScreen}
+
+          />
+
+        </motion.div>
+
+
+      </motion.div>
+
+    </div>
+
   );
 }
+
 
 export default LandingPage;
