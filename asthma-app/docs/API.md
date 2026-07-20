@@ -389,7 +389,8 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
   "lat": 42.36,
   "lon": -71.06,
   "date": "2026-07-03",
-  "llm_provider": "gemini"
+  "llm_provider": "gemini",
+  "advice_type": "daily"
 }
 ```
 
@@ -398,6 +399,7 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 | `lat`, `lon` | yes | Device GPS |
 | `date` | no | Anchor date (default today); forecast is for **anchor + 1 day** |
 | `llm_provider` | no | `"claude"` or `"gemini"` (default from server config) |
+| `advice_type` | no | Patient advice mode (default `"daily"`). Allowed: `"daily"`, `"emergency"`, `"action_plan"`, `"air_quality"`, `"wildfire"`, `"adherence"`, `"exercise"` |
 
 ### Response
 
@@ -426,7 +428,13 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
     ],
     "disclaimer": "This information is for educational purposes only...",
     "llm_provider": "gemini",
-    "knowledge_sources_used": ["GINA", "CDC", "user_history"]
+    "knowledge_sources_used": ["local_knowledge", "user_history"]
+  },
+  "data_quality": {
+    "unavailable_context": ["wearables", "calendar"],
+    "missing_fields": [],
+    "imputed_fields": [],
+    "warnings": []
   }
 }
 ```
@@ -435,7 +443,9 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 |-------|-------------|
 | `risk_level` | `"Low"` \| `"Medium"` \| `"High"` |
 | `contributing_factors` | Human-readable list for UI chips |
-| `advice` | Always included on forecast — no separate call required for Home |
+| `advice` | Bundled Copilot advice for Home, or `null` when all LLM providers fail (ML forecast is still returned) |
+| `warnings` | Classifier warnings plus advice/outage notes (e.g. advice temporarily unavailable) |
+| `data_quality` | `{ unavailable_context, missing_fields, imputed_fields, warnings }` — e.g. `wearables` / `calendar` when absent |
 
 **Errors**
 
@@ -444,8 +454,9 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 | 400 | `CHECK_IN_REQUIRED` | No check-in / puff today |
 | 401 | `UNAUTHORIZED` | Missing or invalid JWT |
 | 502 | `ENV_PROVIDER_ERROR` | Weather/pollen fetch failed |
-| 502 | `LLM_PROVIDER_ERROR` | Advice generation failed |
 | 503 | `CLASSIFIER_UNAVAILABLE` | Model artifact missing |
+
+LLM advice failure does **not** fail the forecast: HTTP stays **200**, `advice` is `null`, and a message is added to `warnings` / `data_quality.warnings`.
 
 Result is persisted in PostgreSQL for advice regeneration.
 
@@ -455,16 +466,23 @@ Result is persisted in PostgreSQL for advice regeneration.
 
 Re-run the LLM advice pipeline **without** re-running the classifier. Requires a prior forecast for the same date.
 
+**Check-in is optional.** Advice can still use the cached risk score, stored environment (AQI, pollen, etc.), history, and medical knowledge — e.g. recommend a mask when air quality is poor even if today's symptoms were never logged. Missing check-in is reported in `data_quality.unavailable_context` and `warnings`; the API does **not** invent “no symptoms.”
+
 `POST /v1/advice` → **200**
 
 ```json
 {
   "date": "2026-07-03",
-  "llm_provider": "gemini"
+  "llm_provider": "gemini",
+  "advice_type": "air_quality"
 }
 ```
 
-Both fields optional (default: today, server `LLM_PROVIDER`).
+| Field | Required | Description |
+|-------|----------|-------------|
+| `date` | no | Anchor date (default today) |
+| `llm_provider` | no | `"claude"` or `"gemini"` (default from server config) |
+| `advice_type` | no | Same patient modes as forecast (default `"daily"`) |
 
 **Response**
 
@@ -474,12 +492,23 @@ Both fields optional (default: today, server `LLM_PROVIDER`).
   "forecast_for": "2026-07-04",
   "risk_level": "Medium",
   "flare_probability": 0.68,
-  "contributing_factors": ["..."],
-  "advice": { /* same shape as forecast.advice */ }
+  "contributing_factors": ["Elevated air quality index"],
+  "advice": { /* same shape as forecast.advice; may be null if LLM providers fail */ },
+  "warnings": [
+    "Generated without today's symptom check-in; advice is based on the cached forecast, environment, and medical knowledge."
+  ],
+  "data_quality": {
+    "unavailable_context": ["check_in", "calendar"],
+    "missing_fields": [],
+    "imputed_fields": [],
+    "warnings": ["..."]
+  }
 }
 ```
 
-**Errors:** `404 FORECAST_NOT_FOUND` if `POST /v1/forecast` was not run for that date.
+**Errors:** `404 FORECAST_NOT_FOUND` if `POST /v1/forecast` was not run for that date. Advice LLM outages return **200** with `advice: null` and a warning (stored ML forecast is unchanged).
+
+Manual `calendar_event` on a check-in is passed into the Copilot calendar node (`source: "manual"`).
 
 ---
 
@@ -570,8 +599,9 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `FORECAST_NOT_FOUND` | 404 | No forecast for advice regeneration |
 | `EMAIL_EXISTS` | 409 | Register with existing email |
 | `ENV_PROVIDER_ERROR` | 502 | Environment API failure |
-| `LLM_PROVIDER_ERROR` | 502 | LLM failure |
 | `CLASSIFIER_UNAVAILABLE` | 503 | Model file missing |
+
+LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated error code: the response stays **200** with `advice: null` and a warning string.
 
 ---
 
