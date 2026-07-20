@@ -151,13 +151,16 @@ def mock_env_fetch() -> Callable[..., AsyncMock]:
 @pytest.fixture
 def mock_advice() -> Callable[..., AsyncMock]:
     async def _generate_advice(**kwargs):
-        return {
+        payload = {
             "summary": "Test advice summary.",
             "sections": [{"title": "Tonight", "body": "Rest and monitor symptoms."}],
             "disclaimer": "Educational only.",
             "llm_provider": kwargs.get("llm_provider") or "gemini",
             "knowledge_sources_used": ["GINA", "CDC", "user_history"],
         }
+        if kwargs.get("return_warnings"):
+            return payload, []
+        return payload
 
     return AsyncMock(side_effect=_generate_advice)
 

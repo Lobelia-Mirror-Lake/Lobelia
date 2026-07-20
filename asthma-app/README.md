@@ -100,7 +100,88 @@ Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If Po
 
 **If you see `ModuleNotFoundError: No module named 'api'`** you started uvicorn from the repo root (`Mirror-Lake/`). `cd asthma-app` first, or use `./run_api.sh` (macOS/Linux) / the uvicorn command above (Windows).
 
-Open http://127.0.0.1:8000/docs for interactive API docs.
+Open http://127.0.0.1:8000/docs for interactive API docs. Full contract details live in [`docs/API.md`](docs/API.md).
+
+### Example API calls (`curl`)
+
+With the API running at `http://127.0.0.1:8000` (see Quick start above):
+
+**macOS / Linux**
+
+```bash
+# Register
+curl -s -X POST http://127.0.0.1:8000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"demo-pass-123","name":"Demo"}'
+
+# Login and save JWT
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"demo-pass-123"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+
+# Today's check-in (required before forecast)
+curl -s -X POST http://127.0.0.1:8000/v1/check-ins \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "daily_day_symp": false,
+    "daily_night_symp": true,
+    "daily_limit_activity": false,
+    "puffs_today": 1,
+    "calendar_event": "Outdoor walk",
+    "triggers": ["pollen"]
+  }'
+
+# Forecast + bundled advice (Boston lat/lon)
+curl -s -X POST http://127.0.0.1:8000/v1/forecast \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"lat": 42.36, "lon": -71.06, "advice_type": "daily"}' \
+  | python3 -m json.tool
+
+# Regenerate advice only (uses cached forecast; check-in optional)
+curl -s -X POST http://127.0.0.1:8000/v1/advice \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"advice_type": "air_quality"}' \
+  | python3 -m json.tool
+
+# Health / env / profile
+curl -s http://127.0.0.1:8000/health | python3 -m json.tool
+curl -s "http://127.0.0.1:8000/v1/env/daily?lat=42.36&lon=-71.06" | python3 -m json.tool
+curl -s http://127.0.0.1:8000/v1/users/me \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+**Windows (PowerShell)**
+
+```powershell
+# Register
+curl.exe -s -X POST http://127.0.0.1:8000/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -d '{"email":"demo@example.com","password":"demo-pass-123","name":"Demo"}'
+
+# Login
+$login = curl.exe -s -X POST http://127.0.0.1:8000/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"demo@example.com","password":"demo-pass-123"}' | ConvertFrom-Json
+$TOKEN = $login.access_token
+
+# Check-in
+curl.exe -s -X POST http://127.0.0.1:8000/v1/check-ins `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{\"daily_night_symp\":true,\"puffs_today\":1,\"calendar_event\":\"Outdoor walk\"}'
+
+# Forecast + advice
+curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{\"lat\":42.36,\"lon\":-71.06,\"advice_type\":\"daily\"}'
+```
+
+Typical daily flow: register/login → optional wearables → check-in and/or inhaler puff → `POST /v1/forecast` → optional `POST /v1/advice` to refresh advice without re-running the classifier.
 
 ### Check LLM advice manually
 
@@ -126,6 +207,29 @@ python scripts/check_llm_advice.py --json | Out-File -Encoding utf8 advice.json
 ```
 
 Direct mode skips the server and calls Gemini/Claude with a sample scenario. `--api` registers a temp user, logs a puff, and runs `POST /v1/forecast` with real env data.
+
+### Copilot recommendation workflow
+
+`POST /v1/forecast` and `POST /v1/advice` use a typed LangGraph workflow:
+
+1. Keep the ML forecast immutable.
+2. Load calendar, environment, profile, and relevant historical context.
+3. Compute personal insights (patterns, trends, and statistics) in Python.
+4. Retrieve medical knowledge from the local JSON provider.
+5. Apply prompt guardrails, invoke Gemini, and fall back to Claude when configured.
+6. Validate the response before returning it.
+
+History searches 8 weeks by default (maximum one year) and sends only the most relevant examples and compact metric windows to the LLM. Calendar access is a provider protocol; tests use `MockCalendarProvider` until the external calendar API adapter is available. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+
+Provider/model selection is configured with `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `GEMINI_MODEL`, and `CLAUDE_MODEL`.
+
+To build provenance-rich knowledge chunks from allowlisted CDC, EPA AirNow, and NHLBI sources:
+
+```bash
+python -m copilot.ingest
+```
+
+The source manifest is `knowledge/sources.json`. Every source and generated chunk declares an `audience`, allowed `advice_types`, and `medication_change_allowed` (currently always `false`). Patient retrieval derives search terms from anticipated forecast/environment triggers, applies chunk-level topic metadata, and returns no evidence rather than unrelated zero-score matches. The multi-column EXHALE PDF is disabled because its extracted columns interleave; cleaner CDC HTML sources provide the patient material. Clinician-oriented NHLBI material is retained solely for future `clinical_reference` use. GINA and American Lung Association entries accept approved local files only. Generated documents/chunks are ignored by Git. Chroma is intentionally deferred; `MedicalKnowledgeProvider` keeps retrieval storage replaceable.
 
 ### Classifier prediction (`POST /predict/classifier`)
 

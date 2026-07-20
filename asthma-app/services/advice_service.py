@@ -5,10 +5,17 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+
+from copilot.providers import CalendarProvider, ManualCalendarProvider
+from copilot.state import AdviceType
+from db.models import User
 
 load_dotenv()
 
@@ -175,8 +182,47 @@ async def generate_advice(
     puffs_today: int,
     layer3_summary: str,
     llm_provider: str | None = None,
-) -> dict:
-    provider = (llm_provider or os.getenv("LLM_PROVIDER", "claude")).lower()
+    db: Session | None = None,
+    user: User | None = None,
+    anchor_date: date | None = None,
+    forecast: dict[str, Any] | None = None,
+    environment: dict[str, Any] | None = None,
+    question: str | None = None,
+    advice_type: AdviceType = "daily",
+    calendar_provider: CalendarProvider | None = None,
+    return_warnings: bool = False,
+) -> dict | None | tuple[dict | None, list[str]]:
+    if db is not None and user is not None and anchor_date is not None:
+        from copilot.workflow import generate_copilot_advice
+
+        resolved_calendar = calendar_provider
+        if resolved_calendar is None and calendar_event:
+            resolved_calendar = ManualCalendarProvider(calendar_event, anchor_date)
+
+        advice, warnings = await generate_copilot_advice(
+            db=db,
+            user=user,
+            anchor_date=anchor_date,
+            forecast=forecast
+            or {
+                "risk_level": risk_level,
+                "contributing_factors": contributing_factors,
+            },
+            environment=environment or {},
+            symptoms_summary=symptoms_summary,
+            puffs_today=puffs_today,
+            question=question,
+            requested_provider=llm_provider,
+            advice_type=advice_type,
+            calendar_provider=resolved_calendar,
+        )
+        if return_warnings:
+            return advice, warnings
+        if advice is None:
+            raise RuntimeError("LLM provider error")
+        return advice
+
+    provider = (llm_provider or os.getenv("LLM_PROVIDER", "gemini")).lower()
     layer1 = _select_chunks(_load_chunks("layer1.json"), contributing_factors)
     layer2 = _select_chunks(_load_chunks("layer2.json"), contributing_factors)
 
@@ -199,7 +245,7 @@ async def generate_advice(
     except Exception as exc:
         raise RuntimeError("LLM provider error") from exc
 
-    sources = ["GINA", "CDC"]
+    sources = ["local_knowledge"]
     if "Personalized Patient History" in layer3_summary:
         sources.append("user_history")
 

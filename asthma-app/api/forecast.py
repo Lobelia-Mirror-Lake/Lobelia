@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
+from copilot.state import PatientAdviceType
 from db.database import get_db
 from db.models import User
 from services.forecast_service import run_forecast
@@ -22,6 +23,7 @@ class ForecastRequest(BaseModel):
     lon: float = Field(..., ge=-180, le=180)
     date: Optional[Date] = None
     llm_provider: Optional[Literal["claude", "gemini"]] = None
+    advice_type: PatientAdviceType = "daily"
 
 
 @router.post("")
@@ -37,4 +39,5 @@ async def create_forecast(
         lon=body.lon,
         anchor_date=body.date,
         llm_provider=body.llm_provider,
+        advice_type=body.advice_type,
     )

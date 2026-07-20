@@ -1,0 +1,194 @@
+"""LangGraph workflow, guardrail, and LLM fallback tests."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from types import SimpleNamespace
+
+from sqlalchemy.orm import Session
+
+from copilot.llm import LLMRegistry
+from copilot.providers import MockCalendarProvider
+from copilot.state import CalendarEvent
+from copilot.workflow import _knowledge_query_terms, generate_copilot_advice
+from db.models import User
+
+
+VALID_ADVICE = (
+    '{"summary":"Your forecast has relevant environmental signals.",'
+    '"sections":[{"title":"Today","body":"Monitor symptoms and follow your action plan."}],'
+    '"disclaimer":"Educational only; follow your clinician-authored action plan."}'
+)
+
+
+def test_knowledge_query_uses_forecast_and_elevated_environment_triggers():
+    terms = _knowledge_query_terms(
+        {
+            "forecast": {
+                "contributing_factors": ["Elevated particulate pollution"],
+                "top_features": [{"feature": "tree_pollen"}],
+            },
+            "environment": {
+                "aqi": 4,
+                "pm2_5": 42,
+                "tree_pollen": "High",
+                "grass_pollen": "Low",
+            },
+            "profile": {"known_triggers": ["exercise"]},
+            "question": None,
+            "advice_type": "daily",
+        }
+    )
+
+    assert "AQI air quality pollution" in terms
+    assert "PM2.5 air pollution wildfire smoke" in terms
+    assert "tree pollen" in terms
+    assert "grass pollen" not in terms
+    assert "exercise" in terms
+
+
+class FakeModel:
+    def __init__(self, *, content: str | None = None, error: Exception | None = None, calls=None):
+        self.content = content
+        self.error = error
+        self.calls = calls
+
+    async def ainvoke(self, messages):
+        if self.calls is not None:
+            self.calls.append(messages)
+        if self.error is not None:
+            raise self.error
+        return SimpleNamespace(content=self.content)
+
+
+def _user(db_session: Session, email: str) -> User:
+    user = User(email=email, password_hash="test", trigger_preferences=["pollen"])
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
+async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: Session):
+    user = _user(db_session, "workflow@example.com")
+    calendar = MockCalendarProvider(
+        [CalendarEvent(title="Friday Meeting", start=datetime(2026, 1, 30, 9))]
+    )
+    calls: list = []
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(error=RuntimeError("down")),
+            "claude": lambda: FakeModel(content=VALID_ADVICE, calls=calls),
+        },
+        retries_per_provider=2,
+    )
+
+    advice, warnings = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={
+            "risk_level": "High",
+            "flare_probability": 0.82,
+            "contributing_factors": ["High pollen"],
+        },
+        environment={"aqi": 4, "tree_pollen": "High"},
+        symptoms_summary="nighttime symptoms",
+        puffs_today=1,
+        calendar_provider=calendar,
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    assert advice["llm_provider"] == "claude"
+    assert advice["summary"].startswith("Your forecast")
+    assert any("gemini attempt 2 failed" in warning for warning in warnings)
+    assert calls
+    system_text = calls[0][0].content
+    user_text = calls[0][1].content
+    assert "Never recalculate" in system_text
+    assert "Never recommend starting, stopping, switching" in system_text
+    assert "Friday Meeting" in user_text
+    assert "<CONTEXT_DATA>" in user_text
+
+
+async def test_workflow_returns_forecast_warning_when_all_models_fail(db_session: Session):
+    user = _user(db_session, "outage@example.com")
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(error=RuntimeError("down")),
+            "claude": lambda: FakeModel(error=RuntimeError("down")),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, warnings = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Medium", "contributing_factors": []},
+        environment={},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        llm_registry=registry,
+    )
+
+    assert advice is None
+    assert warnings[-1] == "Advice is temporarily unavailable; the ML forecast is still valid."
+
+
+async def test_invalid_gemini_output_retries_and_uses_claude(db_session: Session):
+    user = _user(db_session, "invalid-output@example.com")
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(content='{"summary":""}'),
+            "claude": lambda: FakeModel(content=VALID_ADVICE),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, warnings = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Low", "contributing_factors": []},
+        environment={},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    assert advice["llm_provider"] == "claude"
+    assert any("gemini attempt 1 failed" in warning for warning in warnings)
+
+
+async def test_medication_dosage_instruction_is_rejected_and_falls_back(db_session: Session):
+    user = _user(db_session, "unsafe-medication@example.com")
+    unsafe_advice = (
+        '{"summary":"Change your treatment.",'
+        '"sections":[{"title":"Medication","body":"Increase your inhaler dose to 4 puffs."}],'
+        '"disclaimer":"Educational only."}'
+    )
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(content=unsafe_advice),
+            "claude": lambda: FakeModel(content=VALID_ADVICE),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, warnings = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Medium", "contributing_factors": []},
+        environment={},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    assert advice["llm_provider"] == "claude"
+    assert "4 puffs" not in str(advice)
+    assert any("gemini attempt 1 failed" in warning for warning in warnings)
