@@ -100,7 +100,105 @@ Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If Po
 
 **If you see `ModuleNotFoundError: No module named 'api'`** you started uvicorn from the repo root (`Mirror-Lake/`). `cd asthma-app` first, or use `./run_api.sh` (macOS/Linux) / the uvicorn command above (Windows).
 
-Open http://127.0.0.1:8000/docs for interactive API docs.
+Open http://127.0.0.1:8000/docs for interactive API docs. Full contract details live in [`docs/API.md`](docs/API.md).
+
+### Seed six months of demo history
+
+Create or refresh an idempotent demo account with 180 days of correlated symptom and
+rescue-inhaler logs:
+
+```bash
+# Local Python environment
+python scripts/seed_demo_history.py
+
+# Or entirely through Docker
+docker compose run --rm --build api python scripts/seed_demo_history.py
+```
+
+Log in with `history-demo@example.com` / `demo-pass-123`. The script only writes to
+local database hosts by default; remote demo databases require the explicit
+`--allow-remote` option. Use `--days` or `--seed` to customize the generated history.
+
+### Example API calls (`curl`)
+
+With the API running at `http://127.0.0.1:8000` (see Quick start above):
+
+**macOS / Linux**
+
+```bash
+# Register
+curl -s -X POST http://127.0.0.1:8000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"demo-pass-123","name":"Demo"}'
+
+# Login and save JWT
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"demo-pass-123"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+
+# Today's check-in (required before forecast)
+curl -s -X POST http://127.0.0.1:8000/v1/check-ins \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "daily_day_symp": false,
+    "daily_night_symp": true,
+    "daily_limit_activity": false,
+    "puffs_today": 1,
+    "calendar_event": "Outdoor walk",
+    "triggers": ["pollen"]
+  }'
+
+# Forecast + bundled advice (Boston lat/lon)
+curl -s -X POST http://127.0.0.1:8000/v1/forecast \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"lat": 42.36, "lon": -71.06, "advice_type": "daily"}' \
+  | python3 -m json.tool
+
+# Regenerate advice only (uses cached forecast; check-in optional)
+curl -s -X POST http://127.0.0.1:8000/v1/advice \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"advice_type": "air_quality"}' \
+  | python3 -m json.tool
+
+# Health / env / profile
+curl -s http://127.0.0.1:8000/health | python3 -m json.tool
+curl -s "http://127.0.0.1:8000/v1/env/daily?lat=42.36&lon=-71.06" | python3 -m json.tool
+curl -s http://127.0.0.1:8000/v1/users/me \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+**Windows (PowerShell)**
+
+```powershell
+# Register
+curl.exe -s -X POST http://127.0.0.1:8000/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -d '{"email":"demo@example.com","password":"demo-pass-123","name":"Demo"}'
+
+# Login
+$login = curl.exe -s -X POST http://127.0.0.1:8000/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"demo@example.com","password":"demo-pass-123"}' | ConvertFrom-Json
+$TOKEN = $login.access_token
+
+# Check-in
+curl.exe -s -X POST http://127.0.0.1:8000/v1/check-ins `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{\"daily_night_symp\":true,\"puffs_today\":1,\"calendar_event\":\"Outdoor walk\"}'
+
+# Forecast + advice
+curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{\"lat\":42.36,\"lon\":-71.06,\"advice_type\":\"daily\"}'
+```
+
+Typical daily flow: register/login → optional wearables → check-in and/or inhaler puff → `POST /v1/forecast` → optional `POST /v1/advice` to refresh advice without re-running the classifier.
 
 ### Check LLM advice manually
 

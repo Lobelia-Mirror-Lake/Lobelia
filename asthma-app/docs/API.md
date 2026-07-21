@@ -211,6 +211,7 @@ Returns today's row, creating an empty one if needed.
   "daily_limit_activity": false,
   "symptoms_logged": true,
   "puffs_today": 2,
+  "symptom_burden_score": 2,
   "notes": null,
   "triggers": ["Pollen"],
   "calendar_event": "Morning run tomorrow",
@@ -222,6 +223,7 @@ Returns today's row, creating an empty one if needed.
 | Field | Meaning |
 |-------|---------|
 | `symptoms_logged` | User submitted `POST /v1/check-ins` for this day |
+| `symptom_burden_score` | Non-clinical 0–5 trend score: one point per symptom flag, plus 0 points for 0 puffs, 1 for 1–2 puffs, or 2 for 3+ puffs |
 | `is_flare_up_threshold` | `puffs_today >= 3` |
 | `is_flare_up` | Model label: threshold **or** all three symptom flags true |
 
