@@ -18,6 +18,7 @@ def test_check_in_defaults_and_puff(client: TestClient, auth_headers: dict):
     assert body["daily_limit_activity"] is False
     assert body["symptoms_logged"] is True
     assert body["puffs_today"] == 0
+    assert body["symptom_burden_score"] == 0
 
     puff = client.post("/v1/check-ins/inhaler/puff", headers=auth_headers)
     assert puff.status_code == 200
@@ -60,4 +61,31 @@ def test_list_check_ins_with_date_range(client: TestClient, auth_headers: dict):
     dates = {item["date"] for item in items}
     assert yesterday.isoformat() in dates
     assert today.isoformat() in dates
+    scores = {item["date"]: item["symptom_burden_score"] for item in items}
+    assert scores[yesterday.isoformat()] == 1
+    assert scores[today.isoformat()] == 1
+
+
+def test_symptom_burden_score_caps_inhaler_points(client: TestClient, auth_headers: dict):
+    check_in = client.post(
+        "/v1/check-ins",
+        json={
+            "daily_day_symp": True,
+            "daily_night_symp": True,
+            "daily_limit_activity": True,
+        },
+        headers=auth_headers,
+    )
+    assert check_in.status_code == 201
+
+    inhaler = client.put(
+        "/v1/check-ins/inhaler",
+        json={"puffs_today": 10},
+        headers=auth_headers,
+    )
+    assert inhaler.status_code == 200
+
+    today = client.get("/v1/check-ins/today", headers=auth_headers)
+    assert today.status_code == 200
+    assert today.json()["symptom_burden_score"] == 5
 
