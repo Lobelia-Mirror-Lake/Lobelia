@@ -16,7 +16,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from db.database import DATABASE_URL, SessionLocal, init_db
+from db.database import DATABASE_URL, SessionLocal, database_reachable
 from db.models import CheckIn, User
 from services.auth_service import hash_password
 
@@ -70,8 +70,11 @@ def generate_log(rng: random.Random, day: date, index: int) -> dict:
 
 
 def seed_history(days: int, seed: int) -> tuple[User, date, date, int]:
-    if not init_db():
-        raise RuntimeError("Could not connect to the database.")
+    if not database_reachable():
+        raise RuntimeError(
+            "Could not connect to the database. "
+            "Start Postgres and run: alembic upgrade head"
+        )
 
     rng = random.Random(seed)
     end_date = date.today() - timedelta(days=1)
