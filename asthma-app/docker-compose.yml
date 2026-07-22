@@ -80,6 +80,7 @@ services:
         condition: service_healthy
 
   # Run tests in Docker — enable with: docker compose --profile test run --rm test
+  # Uses create_all in pytest fixtures (not Alembic) against mirror_lake_test.
   test:
     profiles: ["test"]
     build:
@@ -92,7 +93,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["/app/scripts/docker-entrypoint.sh"]
+    entrypoint: ["sh", "-c", "python scripts/wait_for_db.py && exec \"$@\"", "--"]
     command: ["pytest", "tests/", "-q", "-m", "not live"]
 
 volumes:
