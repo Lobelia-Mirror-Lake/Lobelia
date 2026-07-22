@@ -29,8 +29,9 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # edit keys as needed
 
-# 3. Create tables
-python scripts/init_db.py
+# 3. Apply migrations (creates tables)
+alembic upgrade head
+# (same as: python scripts/init_db.py)
 
 # 4. Run API
 ./run_api.sh
@@ -50,8 +51,9 @@ python -m venv .venv
 pip install -r requirements.txt
 Copy-Item .env.example .env   # edit keys as needed
 
-# 3. Create tables
-python scripts/init_db.py
+# 3. Apply migrations (creates tables)
+alembic upgrade head
+# (same as: python scripts/init_db.py)
 
 # 4. Run API
 $env:PYTHONPATH = (Get-Location).Path
@@ -69,9 +71,17 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | Environment | Setup |
 |-------------|--------|
 | **Local dev** | `docker compose up -d` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` |
-| **Staging / demo** | Supabase project → paste the pooler connection string into `DATABASE_URL` in `.env` |
+| **Staging / demo (Neon)** | Neon project → pooled URL in `DATABASE_URL`, direct URL in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
+| **Staging / demo (Supabase)** | Pooler in `DATABASE_URL`, direct DB host in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
 
-The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work.
+Schema changes use **Alembic**, not SQLAlchemy `create_all`. After model edits:
+
+```bash
+alembic revision --autogenerate -m "describe_change"
+alembic upgrade head
+```
+
+The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work. Docker entrypoint runs `alembic upgrade head` before uvicorn.
 
 ### Run tests
 

@@ -20,7 +20,7 @@ from api.predict import PatientInput, health_status, run_classifier_prediction, 
 from api.schemas import ClassifierInput
 from api.users import router as users_router
 from api.wearables import router as wearables_router
-from db.database import init_db
+from db.database import database_reachable
 
 import os
 from dotenv import load_dotenv
@@ -40,10 +40,11 @@ def _cors_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if not init_db():
+    # Schema changes are applied with Alembic (`alembic upgrade head`), not create_all.
+    if not database_reachable():
         print(
-            "Warning: database init failed. DB routes will error until PostgreSQL is available. "
-            "Run: docker compose up -d"
+            "Warning: database unreachable. DB routes will error until PostgreSQL is available. "
+            "Run: docker compose up -d && alembic upgrade head"
         )
     yield
 
