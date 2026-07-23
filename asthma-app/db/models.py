@@ -40,6 +40,7 @@ class User(Base):
     name: Mapped[Optional[str]] = mapped_column(String(255))
     date_of_birth: Mapped[Optional[date]] = mapped_column(Date)
     emergency_contact: Mapped[Optional[str]] = mapped_column(Text)
+    emergency_contacts: Mapped[Optional[list]] = mapped_column(JSONB, default=list)
     preferred_reminder: Mapped[Optional[str]] = mapped_column(String(16))
     contact_method: Mapped[Optional[str]] = mapped_column(String(32))
     preferred_environment: Mapped[Optional[str]] = mapped_column(String(64))
@@ -47,6 +48,11 @@ class User(Base):
     accessibility_needs: Mapped[Optional[str]] = mapped_column(Text)
     trigger_preferences: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
     trigger_sensitivities: Mapped[dict] = mapped_column(JSONB, default=dict)
+    symptoms: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
+    tracking: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
+    google_calendar_refresh_token: Mapped[Optional[str]] = mapped_column(Text)
+    google_calendar_email: Mapped[Optional[str]] = mapped_column(String(255))
+    google_calendar_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -71,6 +77,7 @@ class CheckIn(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text)
     triggers: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
     calendar_event: Mapped[Optional[str]] = mapped_column(Text)
+    calendar_events: Mapped[Optional[list]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -137,4 +144,5 @@ class Forecast(Base):
     risk_level: Mapped[Optional[str]] = mapped_column(String(16))
     contributing_factors: Mapped[Optional[list]] = mapped_column(JSONB)
     advice: Mapped[Optional[dict]] = mapped_column(JSONB)
+    calendar_events: Mapped[Optional[list]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
