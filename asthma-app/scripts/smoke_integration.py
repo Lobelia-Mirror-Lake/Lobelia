@@ -61,7 +61,7 @@ def main() -> int:
     if status != 200:
         return 1
 
-    print("4. PATCH /v1/users/me (emergency_contacts)")
+    print("4. PATCH /v1/users/me (setup-wizard fields)")
     status, patched = request(
         "PATCH",
         "/v1/users/me",
@@ -76,18 +76,34 @@ def main() -> int:
                 }
             ],
             "trigger_preferences": ["Pollen"],
+            "symptoms": ["Wheezing", "Cough"],
+            "tracking": ["Wheezing"],
         },
         token=token,
     )
-    print(f"   {status} contacts={len(patched.get('emergency_contacts', []))}")
-    if status != 200 or not patched.get("emergency_contact"):
+    contacts = patched.get("emergency_contacts") or []
+    print(
+        f"   {status} contacts={len(contacts)} "
+        f"symptoms={patched.get('symptoms')} tracking={patched.get('tracking')}"
+    )
+    if status != 200:
         print(f"   FAIL {patched}")
         return 1
+    if len(contacts) != 1 or not patched.get("emergency_contact"):
+        print(f"   FAIL emergency_contacts not persisted: {patched}")
+        return 1
+    if patched.get("symptoms") != ["Wheezing", "Cough"]:
+        print(f"   FAIL symptoms not persisted: {patched}")
+        return 1
+    if patched.get("tracking") != ["Wheezing"]:
+        print(f"   FAIL tracking not persisted: {patched}")
+        return 1
 
-    print("5. GET /v1/forecasts (empty OK)")
+    print("5. GET /v1/forecasts (empty list OK)")
     status, forecasts = request("GET", "/v1/forecasts", token=token)
     print(f"   {status} items={len(forecasts.get('items', []))}")
     if status != 200:
+        print(f"   FAIL {forecasts}")
         return 1
 
     print("\nSmoke test passed.")

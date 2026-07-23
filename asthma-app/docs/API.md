@@ -21,6 +21,7 @@ Mirror Lake predicts **tomorrow's asthma flare risk** and returns **personalized
 | Daily check-ins & inhaler logging | **Shipped** |
 | Wearable daily sync | **Shipped** |
 | Environment data (`/v1/env/daily`) | **Shipped** |
+| Google Calendar (OAuth + structured events → LLM) | **Shipped** |
 | Forecast + bundled advice | **Shipped** |
 | Advice regeneration (`/v1/advice`) | **Shipped** |
 | Legacy `/predict/*` routes | **Shipped** (research / fallback; product uses `/v1/forecast`) |
@@ -539,13 +540,23 @@ Both support optional `?include_advice=true` (legacy Claude interpreter). See `/
 
 ### Calendar
 
-There is no calendar OAuth or iCal URL endpoint in v1. The client reads the device calendar (or user input) and sends a string on check-in:
+Backend can connect a user's Google Calendar (read-only OAuth) and automatically fetch **tomorrow's** events when running `POST /v1/forecast`.
+
+| Step | Endpoint |
+|------|----------|
+| Status | `GET /v1/calendar/status` |
+| Start OAuth | `GET /v1/calendar/connect` → open `auth_url` |
+| Google redirect | `GET /v1/calendar/callback` (stores refresh token) |
+| Preview events | `GET /v1/calendar/events?date=YYYY-MM-DD` |
+| Disconnect | `DELETE /v1/calendar/disconnect` |
+
+Setup details: [CALENDAR.md](./CALENDAR.md).
+
+Dev without Google: `POST /v1/calendar/manual-events`, or pass `calendar_events` on forecast. Legacy string still works on check-in:
 
 ```json
 { "calendar_event": "Outdoor soccer tomorrow" }
 ```
-
-That text is passed to the LLM for activity-specific advice.
 
 ### Location
 
@@ -594,7 +605,14 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `POST` | `/v1/check-ins/inhaler/puff` | Yes | Log +1 puff |
 | `PUT` | `/v1/check-ins/inhaler` | Yes | Set puff total |
 | `POST` | `/v1/wearables/daily` | Yes | Sync Health aggregates |
-| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice |
+| `GET` | `/v1/calendar/status` | Yes | Google Calendar connection status |
+| `GET` | `/v1/calendar/connect` | Yes | Start Google OAuth |
+| `GET` | `/v1/calendar/events` | Yes | Preview events for a day |
+| `POST` | `/v1/calendar/manual-events` | Yes | Dev: store structured events |
+| `DELETE` | `/v1/calendar/disconnect` | Yes | Disconnect Google Calendar |
+| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice (+ auto calendar) |
+| `GET` | `/v1/forecasts` | Yes | Forecast history |
+| `GET` | `/v1/forecasts/today` | Yes | Today's cached forecast |
 | `POST` | `/v1/advice` | Yes | Regenerate advice only |
 | `POST` | `/predict/classifier` | No | Legacy classifier |
 | `POST` | `/predict` | No | Legacy GINA cold start |
@@ -606,7 +624,6 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | Feature | Notes |
 |---------|-------|
 | **Edge AI** | Per-user on-device model training and routing |
-| Calendar iCal URL / server sync | Client-side calendar string is supported today |
 | `GET /v1/wearables/daily` | History read-back |
 | Peak flow (PEF) | Out of scope for classifier |
 
@@ -615,4 +632,5 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 ## Related documentation
 
 - [ENV_API_DESIGN.md](./ENV_API_DESIGN.md) — environment column definitions and providers
+- [CALENDAR.md](./CALENDAR.md) — Google Calendar OAuth setup
 - [README.md](../README.md) — local setup, Docker, tests
