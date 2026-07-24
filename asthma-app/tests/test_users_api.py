@@ -66,3 +66,36 @@ def test_patch_profile_image_url(client: TestClient, auth_headers: dict):
     me = client.get("/v1/users/me", headers=auth_headers)
     assert me.status_code == 200
     assert me.json()["profile_image_url"] == url
+
+
+def test_patch_setup_wizard_fields(client: TestClient, auth_headers: dict):
+    """Frontend SetupPage sends emergency_contacts + symptoms + tracking."""
+    payload = {
+        "name": "Alex Test",
+        "date_of_birth": "1998-03-15",
+        "emergency_contacts": [
+            {
+                "id": "c1",
+                "firstName": "Jamie",
+                "lastName": "Lee",
+                "phone": "(555) 123-4567",
+                "email": "jamie@example.com",
+            }
+        ],
+        "trigger_preferences": ["Pollen", "Exercise", "Cold air"],
+        "symptoms": ["Wheezing", "Cough", "Shortness of breath"],
+        "tracking": ["Wheezing", "Cough"],
+    }
+    response = client.patch("/v1/users/me", json=payload, headers=auth_headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["name"] == "Alex Test"
+    assert len(body["emergency_contacts"]) == 1
+    assert body["emergency_contacts"][0]["firstName"] == "Jamie"
+    assert "Jamie" in (body["emergency_contact"] or "")
+    assert body["symptoms"] == payload["symptoms"]
+    assert body["tracking"] == payload["tracking"]
+
+    me = client.get("/v1/users/me", headers=auth_headers)
+    assert me.status_code == 200
+    assert me.json()["tracking"] == ["Wheezing", "Cough"]

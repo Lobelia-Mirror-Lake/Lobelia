@@ -1,31 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { getForecast } from "../../helper-functions/getForecast";
 
-const mockForecast = {
-  flare_probability: 0.9,
-  risk_level: "High",
-  contributing_factors: [
-    "Cold weather",
-    "Predicted stress",
-    "Pollen",
-    "Exercise",
-    "Pet dander",
-    "Pollution",
-  ],
-  advice: {
-    summary: "Drink warm water before leaving for your job.",
-    sections: [
-      { body: "Take your inhaler." },
-      { body: "Drink warm water." },
-      { body: "Avoid gardens." },
-      { body: "Stay in well-ventilated areas." },
-      { body: "Meditate." },
-      { body: "Keep windows closed." },
-    ],
-    disclaimer:
-      "This forecast does not replace professional medical advice.",
-  },
+const FALLBACK_LOCATION = {
+  lat: 43.0731,
+  lon: -89.4012,
 };
+
+function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(FALLBACK_LOCATION);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        });
+      },
+      () => resolve(FALLBACK_LOCATION),
+      {
+        enableHighAccuracy: false,
+        timeout: 7000,
+        maximumAge: 300000,
+      }
+    );
+  });
+}
 
 function formatName(user) {
   return (
@@ -38,15 +42,57 @@ function formatName(user) {
 }
 
 function HomePage() {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
 
   const [forecast, setForecast] = useState(null);
   const [status, setStatus] = useState("loading");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    setForecast(mockForecast);
-    setStatus("success");
-  }, []);
+    let cancelled = false;
+
+    async function loadForecast() {
+      try {
+        setStatus("loading");
+        setErrorMessage("");
+
+        const location = await getUserLocation();
+
+        const data = await getForecast({
+          lat: location.lat,
+          lon: location.lon,
+          token,
+        });
+
+        if (!cancelled) {
+          setForecast(data);
+          setStatus("success");
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        if (error.code === "CHECK_IN_REQUIRED") {
+          setStatus("check-in-required");
+          setErrorMessage(
+            "Complete today’s check-in before generating your risk forecast."
+          );
+        } else {
+          setStatus("error");
+          setErrorMessage(
+            error.message || "Unable to load your forecast."
+          );
+        }
+      }
+    }
+
+    if (token) {
+      loadForecast();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const riskPercentage = useMemo(() => {
     const probability = Number(forecast?.flare_probability);
@@ -59,6 +105,7 @@ function HomePage() {
   }, [forecast]);
 
   const riskLevel = forecast?.risk_level || "Low";
+
   const riskClass = riskLevel.toLowerCase();
 
   const predictedTriggers =
@@ -91,7 +138,23 @@ function HomePage() {
       {status === "loading" && (
         <section className="home-state-card">
           <h2>Loading your forecast...</h2>
-          <p>We are combining your check-in and environmental data.</p>
+          <p>
+            We are combining your check-in and environmental data.
+          </p>
+        </section>
+      )}
+
+      {status === "check-in-required" && (
+        <section className="home-state-card">
+          <h2>Check-in required</h2>
+          <p>{errorMessage}</p>
+        </section>
+      )}
+
+      {status === "error" && (
+        <section className="home-state-card home-state-error">
+          <h2>Forecast unavailable</h2>
+          <p>{errorMessage}</p>
         </section>
       )}
 
