@@ -138,6 +138,7 @@ Authorization: Bearer <access_token>
   "id": "uuid",
   "email": "user@example.com",
   "name": "Elena M.",
+  "profile_image_url": "https://res.cloudinary.com/demo/image/upload/v1/profile.jpg",
   "date_of_birth": "1998-03-15",
   "emergency_contact": "Alex M. — 555-0100",
   "preferred_reminder": "08:00",
@@ -150,11 +151,25 @@ Authorization: Bearer <access_token>
 }
 ```
 
+| Field | Notes |
+|-------|--------|
+| `profile_image_url` | Optional HTTPS URL (e.g. Cloudinary `secure_url`). Frontend uploads to Cloudinary; backend only stores the URL. |
+
 ### Update profile
 
 `PATCH /v1/users/me` → **200**
 
 Send only fields to change (same shape as register profile fields). Returns updated profile.
+
+Example — save a Cloudinary avatar URL:
+
+```json
+{
+  "profile_image_url": "https://res.cloudinary.com/xxxxx/image/upload/v123/profile.jpg"
+}
+```
+
+No separate profile-image endpoint is required; use `PATCH /v1/users/me`.
 
 ---
 

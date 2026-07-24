@@ -51,3 +51,18 @@ def test_register_accepts_full_profile(client: TestClient):
 def test_patch_user_requires_auth(client: TestClient):
     response = client.patch("/v1/users/me", json={"name": "Nope"})
     assert response.status_code == 401
+
+
+def test_patch_profile_image_url(client: TestClient, auth_headers: dict):
+    url = "https://res.cloudinary.com/demo/image/upload/v1/avatar.jpg"
+    response = client.patch(
+        "/v1/users/me",
+        json={"profile_image_url": url},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["profile_image_url"] == url
+
+    me = client.get("/v1/users/me", headers=auth_headers)
+    assert me.status_code == 200
+    assert me.json()["profile_image_url"] == url

@@ -14,6 +14,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 _PROFILE_COLUMNS = (
     "name",
+    "profile_image_url",
     "date_of_birth",
     "emergency_contact",
     "preferred_reminder",
@@ -31,6 +32,7 @@ def _to_profile(user: User) -> UserProfile:
         id=str(user.id),
         email=user.email,
         name=user.name,
+        profile_image_url=user.profile_image_url,
         date_of_birth=user.date_of_birth,
         emergency_contact=user.emergency_contact,
         preferred_reminder=user.preferred_reminder,
