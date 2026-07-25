@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
-
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.advice import router as advice_router
 from api.auth import router as auth_router
+from api.calendar import router as calendar_router
 from api.check_ins import router as check_ins_router
 from api.env import EnvDailyResponse, get_env_daily
 from api.errors import APIError, api_error_handler
@@ -20,16 +22,14 @@ from api.predict import PatientInput, health_status, run_classifier_prediction, 
 from api.schemas import ClassifierInput
 from api.users import router as users_router
 from api.wearables import router as wearables_router
-from db.database import init_db
-
-import os
-from dotenv import load_dotenv
+from db.database import database_reachable
 
 load_dotenv()
 
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173,"
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173,"
+    "http://127.0.0.1:8000"
 )
 
 
@@ -38,12 +38,14 @@ def _cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", _DEFAULT_CORS_ORIGINS)
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if not init_db():
+    # Schema changes are applied with Alembic (`alembic upgrade head`), not create_all.
+    if not database_reachable():
         print(
-            "Warning: database init failed. DB routes will error until PostgreSQL is available. "
-            "Run: docker compose up -d"
+            "Warning: database unreachable. DB routes will error until PostgreSQL is available. "
+            "Run: docker compose up -d && alembic upgrade head"
         )
     yield
 
@@ -59,6 +61,14 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(APIError, api_error_handler)
@@ -94,16 +104,10 @@ app.include_router(auth_router, prefix="/v1")
 app.include_router(users_router, prefix="/v1")
 app.include_router(check_ins_router, prefix="/v1")
 app.include_router(wearables_router, prefix="/v1")
+app.include_router(calendar_router, prefix="/v1")
 app.include_router(forecast_router, prefix="/v1")
 app.include_router(advice_router, prefix="/v1")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.post("/predict/classifier")
 async def predict_classifier_endpoint(
@@ -123,7 +127,6 @@ async def predict_classifier_endpoint(
             result["advice_error"] = str(exc)
 
     return result
-
 
 
 @app.post("/predict")
