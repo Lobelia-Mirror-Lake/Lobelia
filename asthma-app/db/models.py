@@ -38,6 +38,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[Optional[str]] = mapped_column(String(255))
+    profile_image_url: Mapped[Optional[str]] = mapped_column(String(2048))
     date_of_birth: Mapped[Optional[date]] = mapped_column(Date)
     emergency_contact: Mapped[Optional[str]] = mapped_column(Text)
     emergency_contacts: Mapped[Optional[list]] = mapped_column(JSONB, default=list)
