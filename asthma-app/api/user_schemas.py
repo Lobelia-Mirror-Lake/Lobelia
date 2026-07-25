@@ -22,6 +22,11 @@ class EmergencyContact(BaseModel):
 
 class UserProfileFields(BaseModel):
     name: Optional[str] = None
+    profile_image_url: Optional[str] = Field(
+        default=None,
+        max_length=2048,
+        description="HTTPS URL for the profile image (e.g. Cloudinary secure_url)",
+    )
     date_of_birth: Optional[Date] = None
     emergency_contact: Optional[str] = None
     emergency_contacts: List[EmergencyContact] = Field(default_factory=list)
@@ -47,6 +52,7 @@ class UserProfileUpdate(UserProfileFields):
     """All fields optional for PATCH."""
 
     name: Optional[str] = None
+    profile_image_url: Optional[str] = Field(default=None, max_length=2048)
     date_of_birth: Optional[Date] = None
     emergency_contact: Optional[str] = None
     emergency_contacts: Optional[List[EmergencyContact]] = None
