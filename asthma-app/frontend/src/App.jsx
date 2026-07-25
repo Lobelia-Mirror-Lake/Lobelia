@@ -28,9 +28,11 @@ function App() {
     };
   }, []);
 
-  // normalize non-hash URLs
+  // normalize non-hash URLs when hosted under a subpath (e.g. GitHub Pages)
   useEffect(() => {
-    const base = "/Mirror-Lake";
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+    if (!base) return;
+
     const { pathname, search, hash } = window.location;
 
     if (
