@@ -154,7 +154,7 @@ function createWeeklyHistory(checkIns, from, to, graphType) {
   let weekStart = new Date(startDate);
 
   while (weekStart <= endDate) {
-    const weekEnd = new Date(weekStart);
+    let weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
     if (weekEnd > endDate) {
