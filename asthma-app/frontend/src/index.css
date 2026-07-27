@@ -731,7 +731,7 @@ hr {
 
 /* Outer fixed navbar container */
 .dashboard-navbar {
-  position: fixed;
+  position: sticky;
 
   top: 0;
   left: 0;
