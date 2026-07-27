@@ -45,29 +45,33 @@ function DashboardLayout() {
         className="dashboard-navbar"
         style={{ backgroundColor: "var(--color-tertiary-dark)" }}
       >
-        <Navbar>
-          <Nav className="w-100">
-            <Nav.Link as={NavLink} to={urls.home} end>
-              Home
-            </Nav.Link>
+        <Navbar expand="md">
+          <Navbar.Toggle aria-controls="dashboard-navbar-nav" />
 
-            <Nav.Link as={NavLink} to={urls.statistics}>
-              Statistics
-            </Nav.Link>
+          <Navbar.Collapse id="dashboard-navbar-nav">
+            <Nav className="w-100">
+              <Nav.Link as={NavLink} to={urls.home} end>
+                Home
+              </Nav.Link>
 
-            <Nav.Link as={NavLink} to={urls.calendar}>
-              Calendar
-            </Nav.Link>
+              <Nav.Link as={NavLink} to={urls.statistics}>
+                Statistics
+              </Nav.Link>
 
-            <Nav.Link as={NavLink} to={urls.profile}>
-              Profile
-            </Nav.Link>
-          </Nav>
+              <Nav.Link as={NavLink} to={urls.calendar}>
+                Calendar
+              </Nav.Link>
+
+              <Nav.Link as={NavLink} to={urls.profile}>
+                Profile
+              </Nav.Link>
+            </Nav>
+          </Navbar.Collapse>
         </Navbar>
       </div>
 
       {/* Spacer */}
-      <div style={{ height: "80px" }} />
+      <div style={{ height: "96px" }} />
 
       {/* Header */}
       <div className="p-4">
