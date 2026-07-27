@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { getProfile } from "../helper-functions/authentication";
 
 const AuthContext = createContext(null);
 
@@ -30,6 +31,28 @@ export function AuthProvider({ children }) {
         setUser(decodeJwt(token));
     }, [token]);
 
+    // call whenever get new result from API
+    function updateUser(updatedFields) {
+        setUser(prev => ({
+            ...prev,
+            ...updatedFields,
+        }));
+    }
+
+    // call whenever need to get current user data from API
+    async function refreshUserProfile() {
+        if (!token) return;
+
+        const result = await getProfile(token);
+
+        if (typeof result === "string") {
+            console.error(result);
+            return;
+        }
+
+        setUser(result);
+    }
+
     // stores token in React and localStorage
     function storeToken(jwt) {
         localStorage.setItem("token", jwt);
@@ -55,6 +78,8 @@ export function AuthProvider({ children }) {
         <AuthContext.Provider value={{
             token,
             user,
+            updateUser,
+            refreshUserProfile,
             storeToken,
             logout,
             setupComplete,
