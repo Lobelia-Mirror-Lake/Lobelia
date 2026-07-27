@@ -95,7 +95,8 @@ function LandingContent({
           }}
           style={{
             position: "absolute",
-            width: "100%"
+            width: "100%",
+            padding: "8px"
           }}
         >
           <Row className="at-middle-center g-3">
