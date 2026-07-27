@@ -36,7 +36,7 @@ function FormModal({
                 </Row>
 
                 <Row className="vertical-16 form-modal-footer">
-                    <div className="error-text-light at-middle-center">
+                    <div className="error-text-light at-middle-center mt-2">
                         {buttonError}
                     </div>
                     <Button
