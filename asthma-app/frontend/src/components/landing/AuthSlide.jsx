@@ -84,6 +84,15 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     playErrorResponse(setShake);
   }
 
+  // enter is pressed
+  function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      authButtonClick();
+    }
+  }
+
+
   // ********************* login or sign up is clicked *****************************
   async function authButtonClick() {
     const newErrors = verifyFields();
@@ -138,6 +147,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
           style={{
             overflowY: "auto",
           }}
+          onKeyDown={handleKeyDown}
       >
         {
           // back button will be placed in top-left corner absolutely (without affecting placement of other items)
