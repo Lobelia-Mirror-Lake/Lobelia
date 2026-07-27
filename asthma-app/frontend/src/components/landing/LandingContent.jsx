@@ -51,7 +51,7 @@ function LandingContent({
   return (
     <Container
       fluid
-      className="green-body vertical min-vh-100"
+      className="green-body vertical min-vh-100 h-100"
       style={{
         justifyContent: "space-between"
       }}

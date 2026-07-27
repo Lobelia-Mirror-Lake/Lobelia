@@ -134,7 +134,10 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
     <>
       <Container
           fluid
-          className="dark-green-body p-5 vertical min-vh-100 position-relative"
+          className="dark-green-body p-5 vertical min-vh-100 h-100 position-relative"
+          style={{
+            overflowY: "auto",
+          }}
       >
         {
           // back button will be placed in top-left corner absolutely (without affecting placement of other items)
@@ -160,8 +163,8 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
             </Col>
           </Row>
           <Row
-            className="error-text-light at-middle-center"
-            style={{height:48}}
+            className="error-text-light at-middle-center mt-4 mb-2"
+            style={{height: "48px"}}
           >{buttonError}</Row>
           <Row className="at-middle-center">
           {

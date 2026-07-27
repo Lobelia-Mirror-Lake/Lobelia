@@ -18,6 +18,8 @@ function LandingPage() {
   // Slide states
   const [authSlideOpen, setAuthSlideOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  // allows slide to reset
+  const [authKey, setAuthKey] = useState(0);
 
   // Disable buttons while animation is running
   const [isAnimating, setIsAnimating] = useState(false);
@@ -50,6 +52,7 @@ function LandingPage() {
   const onBack = () => {
     if (isAnimating) return;
 
+    setAuthKey(k => k + 1);
     setAuthSlideOpen(false);
     setIsClosing(true);
   };
@@ -193,6 +196,7 @@ function LandingPage() {
           }}
         >
           <AuthSlide
+            key={authKey}
             showLogin={showLogin}
             showSignUp={showSignUp}
             onBack={onBack}
