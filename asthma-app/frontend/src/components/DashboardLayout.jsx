@@ -70,9 +70,6 @@ function DashboardLayout() {
         </Navbar>
       </div>
 
-      {/* Spacer */}
-      <div style={{ height: "96px" }} />
-
       {/* Header */}
       <div className="p-4">
         <div
