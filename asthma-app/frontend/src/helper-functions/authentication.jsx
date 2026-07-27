@@ -2,6 +2,26 @@ import { API_URL } from "../config"
 
 const invalidCode = "The code you gave is either incorrect or has expired. Please try again."
 
+export async function getProfile(token) {
+  try {
+    const res = await fetch(`${API_URL}/v1/users/me`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      return "Unable to retrieve profile.";
+    }
+
+    return await res.json();
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
 export async function login(email, password) {
   try {
     const res = await fetch(`${API_URL}/v1/auth/login`, {
