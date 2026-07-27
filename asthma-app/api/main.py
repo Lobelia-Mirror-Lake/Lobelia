@@ -45,7 +45,7 @@ async def lifespan(_app: FastAPI):
     if not database_reachable():
         print(
             "Warning: database unreachable. DB routes will error until PostgreSQL is available. "
-            "Run: docker compose up -d && alembic upgrade head"
+            "Run: docker compose up -d postgres && alembic upgrade head"
         )
     yield
 

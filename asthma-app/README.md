@@ -21,8 +21,8 @@ The notebook and feature engineering modules expect files named like `anonym_aam
 ```bash
 cd asthma-app
 
-# 1. Start PostgreSQL locally (recommended)
-docker compose up -d
+# 1. Start PostgreSQL
+docker compose up -d postgres
 
 # 2. Python env + dependencies
 python -m venv .venv && source .venv/bin/activate
@@ -42,8 +42,8 @@ alembic upgrade head
 ```powershell
 cd asthma-app
 
-# 1. Start PostgreSQL locally (recommended)
-docker compose up -d
+# 1. Start PostgreSQL
+docker compose up -d postgres
 
 # 2. Python env + dependencies
 python -m venv .venv
@@ -70,7 +70,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 | Environment | Setup |
 |-------------|--------|
-| **Local dev** | `docker compose up -d` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` |
+| **Local dev** | `docker compose up -d postgres` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` → `alembic upgrade head` |
 | **Staging / demo (Neon)** | Neon project → pooled URL in `DATABASE_URL`, direct URL in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
 | **Staging / demo (Supabase)** | Pooler in `DATABASE_URL`, direct DB host in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
 
@@ -81,7 +81,7 @@ alembic revision --autogenerate -m "describe_change"
 alembic upgrade head
 ```
 
-The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work. Docker entrypoint runs `alembic upgrade head` before uvicorn.
+The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work. Schema changes use Alembic; the Docker API entrypoint runs `alembic upgrade head` before uvicorn.
 
 ### Run tests
 

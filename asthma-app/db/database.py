@@ -42,34 +42,3 @@ def database_reachable() -> bool:
         return True
     except Exception:
         return False
-
-
-def init_db() -> bool:
-    """Deprecated: use Alembic (`alembic upgrade head`). Kept for local test helpers."""
-    from db import models  # noqa: F401
-
-    try:
-        Base.metadata.create_all(bind=engine)
-        _migrate_schema()
-        return True
-    except Exception:
-        return False
-
-
-def _migrate_schema() -> None:
-    """Add columns introduced after initial create (no Alembic yet)."""
-    from sqlalchemy import text
-
-    statements = [
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contacts JSONB DEFAULT '[]'::jsonb",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS symptoms TEXT[]",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS tracking TEXT[]",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_calendar_refresh_token TEXT",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_calendar_email VARCHAR(255)",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_calendar_connected_at TIMESTAMPTZ",
-        "ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS calendar_events JSONB",
-        "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS calendar_events JSONB",
-    ]
-    with engine.begin() as conn:
-        for stmt in statements:
-            conn.execute(text(stmt))
