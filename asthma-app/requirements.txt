@@ -9,6 +9,7 @@ anthropic
 joblib
 httpx
 sqlalchemy
+alembic
 psycopg2-binary
 python-jose[cryptography]
 bcrypt>=4.0.0
@@ -21,5 +22,6 @@ langchain-anthropic
 pypdf
 beautifulsoup4
 typing-extensions
+resend
 pytest
 pytest-asyncio

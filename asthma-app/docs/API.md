@@ -21,6 +21,7 @@ Mirror Lake predicts **tomorrow's asthma flare risk** and returns **personalized
 | Daily check-ins & inhaler logging | **Shipped** |
 | Wearable daily sync | **Shipped** |
 | Environment data (`/v1/env/daily`) | **Shipped** |
+| Google Calendar (OAuth + structured events → LLM) | **Shipped** |
 | Forecast + bundled advice | **Shipped** |
 | Advice regeneration (`/v1/advice`) | **Shipped** |
 | Legacy `/predict/*` routes | **Shipped** (research / fallback; product uses `/v1/forecast`) |
@@ -138,6 +139,7 @@ Authorization: Bearer <access_token>
   "id": "uuid",
   "email": "user@example.com",
   "name": "Elena M.",
+  "profile_image_url": "https://res.cloudinary.com/demo/image/upload/v1/profile.jpg",
   "date_of_birth": "1998-03-15",
   "emergency_contact": "Alex M. — 555-0100",
   "preferred_reminder": "08:00",
@@ -150,11 +152,25 @@ Authorization: Bearer <access_token>
 }
 ```
 
+| Field | Notes |
+|-------|--------|
+| `profile_image_url` | Optional HTTPS URL (e.g. Cloudinary `secure_url`). Frontend uploads to Cloudinary; backend only stores the URL. |
+
 ### Update profile
 
 `PATCH /v1/users/me` → **200**
 
 Send only fields to change (same shape as register profile fields). Returns updated profile.
+
+Example — save a Cloudinary avatar URL:
+
+```json
+{
+  "profile_image_url": "https://res.cloudinary.com/xxxxx/image/upload/v123/profile.jpg"
+}
+```
+
+No separate profile-image endpoint is required; use `PATCH /v1/users/me`.
 
 ---
 
@@ -211,6 +227,7 @@ Returns today's row, creating an empty one if needed.
   "daily_limit_activity": false,
   "symptoms_logged": true,
   "puffs_today": 2,
+  "symptom_burden_score": 2,
   "notes": null,
   "triggers": ["Pollen"],
   "calendar_event": "Morning run tomorrow",
@@ -222,6 +239,7 @@ Returns today's row, creating an empty one if needed.
 | Field | Meaning |
 |-------|---------|
 | `symptoms_logged` | User submitted `POST /v1/check-ins` for this day |
+| `symptom_burden_score` | Non-clinical 0–5 trend score: one point per symptom flag, plus 0 points for 0 puffs, 1 for 1–2 puffs, or 2 for 3+ puffs |
 | `is_flare_up_threshold` | `puffs_today >= 3` |
 | `is_flare_up` | Model label: threshold **or** all three symptom flags true |
 
@@ -566,13 +584,23 @@ Both support optional `?include_advice=true` (legacy Claude interpreter). See `/
 
 ### Calendar
 
-There is no calendar OAuth or iCal URL endpoint in v1. The client reads the device calendar (or user input) and sends a string on check-in:
+Backend can connect a user's Google Calendar (read-only OAuth) and automatically fetch **tomorrow's** events when running `POST /v1/forecast`.
+
+| Step | Endpoint |
+|------|----------|
+| Status | `GET /v1/calendar/status` |
+| Start OAuth | `GET /v1/calendar/connect` → open `auth_url` |
+| Google redirect | `GET /v1/calendar/callback` (stores refresh token) |
+| Preview events | `GET /v1/calendar/events?date=YYYY-MM-DD` |
+| Disconnect | `DELETE /v1/calendar/disconnect` |
+
+Setup details: [CALENDAR.md](./CALENDAR.md).
+
+Dev without Google: `POST /v1/calendar/manual-events`, or pass `calendar_events` on forecast. Legacy string still works on check-in:
 
 ```json
 { "calendar_event": "Outdoor soccer tomorrow" }
 ```
-
-That text is passed to the LLM for activity-specific advice.
 
 ### Location
 
@@ -622,7 +650,14 @@ LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated e
 | `POST` | `/v1/check-ins/inhaler/puff` | Yes | Log +1 puff |
 | `PUT` | `/v1/check-ins/inhaler` | Yes | Set puff total |
 | `POST` | `/v1/wearables/daily` | Yes | Sync Health aggregates |
-| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice |
+| `GET` | `/v1/calendar/status` | Yes | Google Calendar connection status |
+| `GET` | `/v1/calendar/connect` | Yes | Start Google OAuth |
+| `GET` | `/v1/calendar/events` | Yes | Preview events for a day |
+| `POST` | `/v1/calendar/manual-events` | Yes | Dev: store structured events |
+| `DELETE` | `/v1/calendar/disconnect` | Yes | Disconnect Google Calendar |
+| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice (+ auto calendar) |
+| `GET` | `/v1/forecasts` | Yes | Forecast history |
+| `GET` | `/v1/forecasts/today` | Yes | Today's cached forecast |
 | `POST` | `/v1/advice` | Yes | Regenerate advice only |
 | `POST` | `/predict/classifier` | No | Legacy classifier |
 | `POST` | `/predict` | No | Legacy GINA cold start |
@@ -634,7 +669,6 @@ LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated e
 | Feature | Notes |
 |---------|-------|
 | **Edge AI** | Per-user on-device model training and routing |
-| Calendar iCal URL / server sync | Client-side calendar string is supported today |
 | `GET /v1/wearables/daily` | History read-back |
 | Peak flow (PEF) | Out of scope for classifier |
 
@@ -643,4 +677,5 @@ LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated e
 ## Related documentation
 
 - [ENV_API_DESIGN.md](./ENV_API_DESIGN.md) — environment column definitions and providers
+- [CALENDAR.md](./CALENDAR.md) — Google Calendar OAuth setup
 - [README.md](../README.md) — local setup, Docker, tests

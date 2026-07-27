@@ -98,7 +98,11 @@ async def run_forecast(
     anchor_date: date | None = None,
     llm_provider: str | None = None,
     advice_type: AdviceType = "daily",
+    calendar_events: list[dict] | None = None,
+    timezone_name: str = "America/Chicago",
 ) -> dict:
+    from services import google_calendar as gcal
+
     anchor_date = anchor_date or date.today()
     forecast_for = anchor_date + timedelta(days=1)
 
@@ -113,6 +117,33 @@ async def run_forecast(
             "Log today's symptoms or at least one rescue inhaler puff before generating a forecast.",
             "CHECK_IN_REQUIRED",
         )
+
+    # Structured calendar for tomorrow (forecast_for): override → Google → check-in cache
+    resolved_events: list[dict] = []
+    calendar_source = "none"
+    if calendar_events is not None:
+        resolved_events = calendar_events
+        calendar_source = "request"
+    elif user.google_calendar_refresh_token:
+        try:
+            resolved_events = await gcal.fetch_events_for_day(
+                user.google_calendar_refresh_token,
+                day=forecast_for,
+                timezone_name=timezone_name,
+            )
+            calendar_source = "google_calendar"
+        except Exception:
+            # Soft-fail: still forecast without calendar rather than 502 the whole request.
+            resolved_events = list(check_in.calendar_events or [])
+            calendar_source = "check_in_fallback" if resolved_events else "google_fetch_failed"
+    elif check_in.calendar_events:
+        resolved_events = list(check_in.calendar_events)
+        calendar_source = "check_in"
+
+    calendar_summary = gcal.events_to_summary(resolved_events) or check_in.calendar_event
+    if resolved_events:
+        check_in.calendar_events = resolved_events
+        check_in.calendar_event = calendar_summary
 
     yesterday = anchor_date - timedelta(days=1)
     wearable = db.scalar(
@@ -204,7 +235,8 @@ async def run_forecast(
         advice_result = await generate_advice(
             risk_level=prediction["risk_level"],
             contributing_factors=contributing_factors,
-            calendar_event=check_in.calendar_event,
+            calendar_event=calendar_summary,
+            calendar_events=resolved_events,
             symptoms_summary=_symptoms_summary(check_in) or "no significant symptoms reported",
             puffs_today=check_in.puffs_today,
             layer3_summary="",
@@ -236,6 +268,7 @@ async def run_forecast(
         risk_level=prediction.get("risk_level"),
         contributing_factors=contributing_factors,
         advice=advice,
+        calendar_events=resolved_events or None,
     )
     db.add(record)
     db.commit()
@@ -243,7 +276,7 @@ async def run_forecast(
     unavailable: list[str] = []
     if wearable is None:
         unavailable.append("wearables")
-    if not (check_in.calendar_event or "").strip():
+    if not resolved_events and not (calendar_summary or "").strip():
         unavailable.append("calendar")
 
     quality_warnings = list(advice_warnings)
@@ -264,6 +297,8 @@ async def run_forecast(
         "cold_start": prediction.get("cold_start", False),
         "missing_features": prediction.get("missing_features", []),
         "warnings": [*prediction.get("warnings", []), *advice_warnings],
+        "calendar_events": resolved_events,
+        "calendar_source": calendar_source,
         "advice": advice,
         "data_quality": _data_quality(
             unavailable_context=unavailable,
@@ -348,11 +383,28 @@ async def regenerate_advice(
     )
     puffs_today = check_in.puffs_today if check_in is not None else 0
 
+    from services import google_calendar as gcal
+
+    check_in_events = list(check_in.calendar_events or []) if check_in is not None else []
+    resolved_events: list[dict] = list(forecast.calendar_events or check_in_events or [])
+    if not resolved_events and user.google_calendar_refresh_token:
+        try:
+            resolved_events = await gcal.fetch_events_for_day(
+                user.google_calendar_refresh_token,
+                day=forecast.forecast_for,
+            )
+        except Exception:
+            resolved_events = []
+    calendar_summary = gcal.events_to_summary(resolved_events) or (
+        check_in.calendar_event if check_in is not None else None
+    )
+
     try:
         advice_result = await generate_advice(
             risk_level=forecast.risk_level or "Medium",
             contributing_factors=contributing_factors,
-            calendar_event=calendar_event,
+            calendar_event=calendar_summary or calendar_event,
+            calendar_events=resolved_events,
             symptoms_summary=symptoms_for_prompt,
             puffs_today=puffs_today,
             layer3_summary="",
@@ -378,6 +430,7 @@ async def regenerate_advice(
 
     if advice is not None:
         forecast.advice = advice
+    forecast.calendar_events = resolved_events or forecast.calendar_events
     db.commit()
     db.refresh(forecast)
 
@@ -387,6 +440,7 @@ async def regenerate_advice(
         "risk_level": forecast.risk_level,
         "flare_probability": forecast.flare_probability,
         "contributing_factors": contributing_factors,
+        "calendar_events": resolved_events,
         "advice": advice,
         "warnings": advice_warnings,
         "data_quality": _data_quality(
@@ -395,3 +449,50 @@ async def regenerate_advice(
             warnings=advice_warnings,
         ),
     }
+
+
+def forecast_to_dict(record: Forecast) -> dict:
+    return {
+        "date": record.date.isoformat(),
+        "forecast_for": record.forecast_for.isoformat(),
+        "flare_probability": record.flare_probability,
+        "predicted_flare_tomorrow": bool(record.flare_probability and record.flare_probability >= 0.5),
+        "risk_level": record.risk_level,
+        "contributing_factors": record.contributing_factors or [],
+        "calendar_events": record.calendar_events or [],
+        "advice": record.advice,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+    }
+
+
+def list_forecasts(
+    db: Session,
+    user_id,
+    *,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> list[dict]:
+    query = select(Forecast).where(Forecast.user_id == user_id).order_by(Forecast.date.desc())
+    if from_date:
+        query = query.where(Forecast.date >= from_date)
+    if to_date:
+        query = query.where(Forecast.date <= to_date)
+    rows = db.scalars(query).all()
+    seen: set[date] = set()
+    items: list[dict] = []
+    for row in rows:
+        if row.date in seen:
+            continue
+        seen.add(row.date)
+        items.append(forecast_to_dict(row))
+    return items
+
+
+def get_forecast_for_date(db: Session, user_id, anchor_date: date) -> dict | None:
+    record = db.scalar(
+        select(Forecast)
+        .where(Forecast.user_id == user_id, Forecast.date == anchor_date)
+        .order_by(Forecast.created_at.desc())
+    )
+    return forecast_to_dict(record) if record else None
+

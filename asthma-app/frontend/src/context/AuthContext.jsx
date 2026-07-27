@@ -7,7 +7,9 @@ export function AuthProvider({ children }) {
     const [token, setToken] = useState(() => localStorage.getItem("token"));
     const [user, setUser] = useState(null);
     // setup complete or not
-    const [setupComplete, setSetupComplete] = useState(false);
+    const [setupComplete, setSetupComplete] = useState(() => {
+        return localStorage.getItem("setupComplete") === "true";
+    });
 
     // extracts user info
     function decodeJwt(token) {
@@ -37,13 +39,27 @@ export function AuthProvider({ children }) {
     // clears all user data
     function logout() {
         localStorage.removeItem("token");
+        localStorage.removeItem("setupComplete");
         setToken(null);
         setUser(null);
         setSetupComplete(false);
     }
 
+    // updates whether user's account has been setup
+    function setSetupCompletePersisted(value) {
+        localStorage.setItem("setupComplete", value ? "true" : "false");
+        setSetupComplete(value);
+    }
+
     return (
-        <AuthContext.Provider value={{ token, user, storeToken, logout, setupComplete, setSetupComplete }}>
+        <AuthContext.Provider value={{
+            token,
+            user,
+            storeToken,
+            logout,
+            setupComplete,
+            setSetupComplete: setSetupCompletePersisted
+        }}>
             {children}
         </AuthContext.Provider>
     );
