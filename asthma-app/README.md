@@ -21,16 +21,17 @@ The notebook and feature engineering modules expect files named like `anonym_aam
 ```bash
 cd asthma-app
 
-# 1. Start PostgreSQL locally (recommended)
-docker compose up -d
+# 1. Start PostgreSQL
+docker compose up -d postgres
 
 # 2. Python env + dependencies
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # edit keys as needed
 
-# 3. Create tables
-python scripts/init_db.py
+# 3. Apply migrations (creates tables)
+alembic upgrade head
+# (same as: python scripts/init_db.py)
 
 # 4. Run API
 ./run_api.sh
@@ -41,8 +42,8 @@ python scripts/init_db.py
 ```powershell
 cd asthma-app
 
-# 1. Start PostgreSQL locally (recommended)
-docker compose up -d
+# 1. Start PostgreSQL
+docker compose up -d postgres
 
 # 2. Python env + dependencies
 python -m venv .venv
@@ -50,8 +51,9 @@ python -m venv .venv
 pip install -r requirements.txt
 Copy-Item .env.example .env   # edit keys as needed
 
-# 3. Create tables
-python scripts/init_db.py
+# 3. Apply migrations (creates tables)
+alembic upgrade head
+# (same as: python scripts/init_db.py)
 
 # 4. Run API
 $env:PYTHONPATH = (Get-Location).Path
@@ -68,10 +70,18 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 | Environment | Setup |
 |-------------|--------|
-| **Local dev** | `docker compose up -d` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` |
-| **Staging / demo** | Supabase project → paste the pooler connection string into `DATABASE_URL` in `.env` |
+| **Local dev** | `docker compose up -d postgres` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mirror_lake` → `alembic upgrade head` |
+| **Staging / demo (Neon)** | Neon project → pooled URL in `DATABASE_URL`, direct URL in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
+| **Staging / demo (Supabase)** | Pooler in `DATABASE_URL`, direct DB host in `DATABASE_URL_DIRECT`, then `alembic upgrade head` |
 
-The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work.
+Schema changes use **Alembic**, not SQLAlchemy `create_all`. After model edits:
+
+```bash
+alembic revision --autogenerate -m "describe_change"
+alembic upgrade head
+```
+
+The API starts even if PostgreSQL is down (warn-and-skip on startup). Check `GET /health` — `database.connected` shows whether DB routes will work. Schema changes use Alembic; the Docker API entrypoint runs `alembic upgrade head` before uvicorn.
 
 ### Run tests
 
@@ -101,6 +111,23 @@ Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If Po
 **If you see `ModuleNotFoundError: No module named 'api'`** you started uvicorn from the repo root (`Mirror-Lake/`). `cd asthma-app` first, or use `./run_api.sh` (macOS/Linux) / the uvicorn command above (Windows).
 
 Open http://127.0.0.1:8000/docs for interactive API docs. Full contract details live in [`docs/API.md`](docs/API.md).
+
+### Seed six months of demo history
+
+Create or refresh an idempotent demo account with 180 days of correlated symptom and
+rescue-inhaler logs:
+
+```bash
+# Local Python environment
+python scripts/seed_demo_history.py
+
+# Or entirely through Docker
+docker compose run --rm --build api python scripts/seed_demo_history.py
+```
+
+Log in with `history-demo@example.com` / `demo-pass-123`. The script only writes to
+local database hosts by default; remote demo databases require the explicit
+`--allow-remote` option. Use `--days` or `--seed` to customize the generated history.
 
 ### Example API calls (`curl`)
 

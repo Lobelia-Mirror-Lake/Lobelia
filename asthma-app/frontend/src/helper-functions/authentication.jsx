@@ -1,5 +1,7 @@
 import { API_URL } from "../config"
 
+const invalidCode = "The code you gave is either incorrect or has expired. Please try again."
+
 export async function login(email, password) {
   try {
     const res = await fetch(`${API_URL}/v1/auth/login`, {
@@ -50,6 +52,139 @@ export async function signUp(email, password) {
     const data = await res.json();
 
     return data.access_token; // JWT
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
+export async function requestSignupCode(email) {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/signup-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email })
+    });
+
+    if (!res.ok) {
+      if (res.status == 409) {
+        return "Email already exists.";
+      }
+
+      return "Trouble Processing. Please try again later.";
+    }
+
+    return true;
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
+export async function verifySignupCode(email, code) {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/signup-code/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, code })
+    });
+
+    if (!res.ok) {
+      if (res.status == 400) {
+        return invalidCode;
+      }
+
+      return "Trouble Processing. Please try again later.";
+    }
+
+    return true;
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
+export async function requestResetCode(email) {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/reset-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email })
+    });
+
+    if (!res.ok) {
+      if (res.status == 404) {
+        return "Email not found.";
+      }
+
+      return "Trouble Processing. Please try again later.";
+    }
+
+    return true;
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
+export async function verifyResetCode(email, code) {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/reset-code/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, code })
+    });
+
+    if (!res.ok) {
+      if (res.status == 400) {
+        return invalidCode;
+      }
+
+      return "Trouble Processing. Please try again later.";
+    }
+
+    return true;
+  }
+  catch (err) {
+    return "Trouble Processing. Please try again later.";
+  }
+}
+
+export async function resetPassword(email, password, code) {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        code
+      })
+    });
+
+    if (!res.ok) {
+      if (res.status == 400) {
+        return invalidCode;
+      }
+
+      if (res.status == 404) {
+        return "Email not found.";
+      }
+
+      return "Trouble Processing. Please try again later.";
+    }
+
+    return true;
   }
   catch (err) {
     return "Trouble Processing. Please try again later.";

@@ -64,20 +64,26 @@ def _build_prompt(
     risk_level: str,
     contributing_factors: list[str],
     calendar_event: str | None,
+    calendar_events: list[dict] | None,
     symptoms_summary: str,
     puffs_today: int,
     layer1: list[dict],
     layer2: list[dict],
     layer3_summary: str,
 ) -> str:
+    from services.google_calendar import format_events_for_prompt
+
     l1_text = "\n\n".join(f"[Layer 1 — {c['title']}]\n{c['body']}" for c in layer1)
     l2_text = "\n\n".join(f"[Layer 2 — {c['title']}]\n{c['body']}" for c in layer2)
+    events_block = format_events_for_prompt(calendar_events)
     return f"""You are an asthma management assistant.
 
 User context:
 - Risk level: {risk_level}
-- Contributing factors: {", ".join(contributing_factors)}
-- Calendar event: {calendar_event or "none"}
+- Contributing factors: {", ".join(contributing_factors) if contributing_factors else "none"}
+- Calendar summary: {calendar_event or "none"}
+- Tomorrow's calendar events (structured — use these for activity-specific advice):
+{events_block}
 - Symptoms today: {symptoms_summary}
 - Rescue inhaler today: {puffs_today} puffs
 
@@ -88,8 +94,8 @@ Retrieved knowledge:
 
 {layer3_summary}
 
-Task: Explain possible causes and provide recommendations.
-Do not provide a medical diagnosis.
+Task: Explain possible causes and provide recommendations tailored to tomorrow's scheduled activities
+(outdoor vs indoor, timing, location). Do not provide a medical diagnosis.
 Return ONLY valid JSON with keys: summary (string), sections (array of {{title, body}}), disclaimer (string).
 Use 2-3 sections with practical before/during/after activity guidance when relevant."""
 
@@ -182,6 +188,7 @@ async def generate_advice(
     puffs_today: int,
     layer3_summary: str,
     llm_provider: str | None = None,
+    calendar_events: list[dict] | None = None,
     db: Session | None = None,
     user: User | None = None,
     anchor_date: date | None = None,
@@ -194,9 +201,23 @@ async def generate_advice(
 ) -> dict | None | tuple[dict | None, list[str]]:
     if db is not None and user is not None and anchor_date is not None:
         from copilot.workflow import generate_copilot_advice
+        from copilot.providers import MockCalendarProvider
 
         resolved_calendar = calendar_provider
-        if resolved_calendar is None and calendar_event:
+        if resolved_calendar is None and calendar_events:
+            resolved_calendar = MockCalendarProvider(
+                [
+                    {
+                        "title": (event.get("title") or "Event").strip() or "Event",
+                        "start": event.get("start") or anchor_date,
+                        "end": event.get("end"),
+                        "source": "google_calendar",
+                    }
+                    for event in calendar_events
+                    if isinstance(event, dict)
+                ]
+            )
+        elif resolved_calendar is None and calendar_event:
             resolved_calendar = ManualCalendarProvider(calendar_event, anchor_date)
 
         advice, warnings = await generate_copilot_advice(
@@ -230,6 +251,7 @@ async def generate_advice(
         risk_level=risk_level,
         contributing_factors=contributing_factors,
         calendar_event=calendar_event,
+        calendar_events=calendar_events,
         symptoms_summary=symptoms_summary,
         puffs_today=puffs_today,
         layer1=layer1,
@@ -248,6 +270,8 @@ async def generate_advice(
     sources = ["local_knowledge"]
     if "Personalized Patient History" in layer3_summary:
         sources.append("user_history")
+    if calendar_events:
+        sources.append("google_calendar")
 
     return {
         "summary": parsed.get("summary", ""),
