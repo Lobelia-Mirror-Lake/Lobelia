@@ -18,7 +18,7 @@ function DashboardLayout() {
 
   const pageNames = {
     [urls.home]: `Hi, ${user?.name || "User"}!`,
-    [urls.statistics]: "Statistics",
+    [urls.statistics]: "Your Statistics",
     [urls.calendar]: "Calendar",
     [urls.profile]: "Profile",
   };
