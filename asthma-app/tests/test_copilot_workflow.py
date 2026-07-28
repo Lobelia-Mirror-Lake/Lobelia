@@ -70,8 +70,9 @@ def _user(db_session: Session, email: str) -> User:
 
 async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: Session):
     user = _user(db_session, "workflow@example.com")
+    # Calendar node loads tomorrow (forecast day) by default.
     calendar = MockCalendarProvider(
-        [CalendarEvent(title="Friday Meeting", start=datetime(2026, 1, 30, 9))]
+        [CalendarEvent(title="Friday Meeting", start=datetime(2026, 1, 31, 9))]
     )
     calls: list = []
     registry = LLMRegistry(
@@ -109,6 +110,54 @@ async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: 
     assert "Never recommend starting, stopping, switching" in system_text
     assert "Friday Meeting" in user_text
     assert "<CONTEXT_DATA>" in user_text
+
+
+
+async def test_workflow_uses_structured_google_calendar_events(db_session: Session):
+    """Resolved Google/manual events reach the LangGraph prompt with location."""
+    from copilot.providers import StructuredCalendarProvider
+
+    user = _user(db_session, "structured-cal@example.com")
+    calendar = StructuredCalendarProvider(
+        [
+            {
+                "title": "Outdoor soccer",
+                "start": "2026-07-18T09:00:00-05:00",
+                "end": "2026-07-18T10:30:00-05:00",
+                "all_day": False,
+                "location": "Madison park",
+                "description": "Scrimmage",
+                "source": "google_calendar",
+            }
+        ],
+        pre_scoped=True,
+    )
+    calls: list = []
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(content=VALID_ADVICE, calls=calls),
+            "claude": lambda: FakeModel(error=RuntimeError("unused")),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, _warnings = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 7, 17),
+        forecast={"risk_level": "High", "contributing_factors": ["High tree pollen"]},
+        environment={"aqi": 4, "tree_pollen": "High"},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        calendar_provider=calendar,
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    user_text = calls[0][1].content
+    assert "Outdoor soccer" in user_text
+    assert "Madison park" in user_text
+    assert "google_calendar" in user_text
 
 
 async def test_workflow_returns_forecast_warning_when_all_models_fail(db_session: Session):

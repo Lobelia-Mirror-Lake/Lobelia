@@ -112,22 +112,14 @@ Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If Po
 
 Open http://127.0.0.1:8000/docs for interactive API docs. Full contract details live in [`docs/API.md`](docs/API.md).
 
-### Seed six months of demo history
+### Date windows (important)
 
-Create or refresh an idempotent demo account with 180 days of correlated symptom and
-rescue-inhaler logs:
+| Window | Used for | Required? |
+|--------|----------|-----------|
+| **Today** (`date` / check-in day) | ML risk inputs: today's symptoms, inhaler, today's environment; **yesterday's** wearables as lags | Yes for `POST /v1/forecast` |
+| **Tomorrow** (`forecast_for`) | What the model predicts; Copilot calendar loads **tomorrow's** planned events | Calendar optional — empty schedule is fine |
 
-```bash
-# Local Python environment
-python scripts/seed_demo_history.py
-
-# Or entirely through Docker
-docker compose run --rm --build api python scripts/seed_demo_history.py
-```
-
-Log in with `history-demo@example.com` / `demo-pass-123`. The script only writes to
-local database hosts by default; remote demo databases require the explicit
-`--allow-remote` option. Use `--days` or `--seed` to customize the generated history.
+So: today's logged health data → tomorrow's risk score. Copilot advice can mention tomorrow's plans (soccer, etc.) when events exist; with no events it still advises from risk + environment + knowledge.
 
 ### Example API calls (`curl`)
 
@@ -156,11 +148,27 @@ curl -s -X POST http://127.0.0.1:8000/v1/check-ins \
     "daily_night_symp": true,
     "daily_limit_activity": false,
     "puffs_today": 1,
-    "calendar_event": "Outdoor walk",
     "triggers": ["pollen"]
   }'
 
-# Forecast + bundled advice (Boston lat/lon)
+# Optional: tomorrow's planned events for Copilot (not required for ML risk)
+TOMORROW=$(python3 -c 'from datetime import date,timedelta; print((date.today()+timedelta(days=1)).isoformat())')
+curl -s -X POST http://127.0.0.1:8000/v1/calendar/manual-events \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"date\": \"$(date +%Y-%m-%d)\",
+    \"events\": [{
+      \"title\": \"Outdoor soccer\",
+      \"start\": \"${TOMORROW}T09:00:00-05:00\",
+      \"end\": \"${TOMORROW}T10:30:00-05:00\",
+      \"all_day\": false,
+      \"location\": \"Campus field\",
+      \"description\": \"Scrimmage\"
+    }]
+  }" | python3 -m json.tool
+
+# Forecast + bundled advice — look for calendar_events, calendar_source, advice
 curl -s -X POST http://127.0.0.1:8000/v1/forecast \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -199,7 +207,14 @@ $TOKEN = $login.access_token
 curl.exe -s -X POST http://127.0.0.1:8000/v1/check-ins `
   -H "Authorization: Bearer $TOKEN" `
   -H "Content-Type: application/json" `
-  -d '{\"daily_night_symp\":true,\"puffs_today\":1,\"calendar_event\":\"Outdoor walk\"}'
+  -d '{\"daily_night_symp\":true,\"puffs_today\":1}'
+
+# Optional tomorrow calendar for Copilot
+$tomorrow = (Get-Date).AddDays(1).ToString("yyyy-MM-dd")
+curl.exe -s -X POST http://127.0.0.1:8000/v1/calendar/manual-events `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d "{`"events`":[{`"title`":`"Outdoor soccer`",`"start`":`"${tomorrow}T09:00:00`",`"end`":`"${tomorrow}T10:30:00`",`"location`":`"Campus field`"}]}"
 
 # Forecast + advice
 curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
@@ -208,7 +223,34 @@ curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
   -d '{\"lat\":42.36,\"lon\":-71.06,\"advice_type\":\"daily\"}'
 ```
 
-Typical daily flow: register/login → optional wearables → check-in and/or inhaler puff → `POST /v1/forecast` → optional `POST /v1/advice` to refresh advice without re-running the classifier.
+Typical daily flow: register/login → optional wearables → today's check-in and/or inhaler puff → optional tomorrow calendar events → `POST /v1/forecast` → optional `POST /v1/advice`.
+
+### How to verify Copilot + calendar locally
+
+Automated tests (already covering calendar → LangGraph prompt):
+
+```bash
+cd asthma-app
+docker compose up -d
+source .venv/bin/activate   # or: .venv\Scripts\Activate.ps1
+pytest tests/test_calendar_api.py tests/test_copilot_workflow.py tests/test_forecast_advice_api.py -q
+```
+
+Offline LangGraph demo (no API keys; prints each node + calendar state):
+
+```bash
+cd asthma-app
+docker compose up -d
+PYTHONPATH=. python scripts/trace_copilot_workflow.py
+PYTHONPATH=. python scripts/trace_copilot_workflow.py --no-calendar   # empty schedule still works
+PYTHONPATH=. python scripts/trace_copilot_workflow.py --live-llm      # real Gemini/Claude
+```
+
+In the forecast JSON, check:
+
+- `date` = today, `forecast_for` = tomorrow
+- `calendar_events` / `calendar_source` (`check_in`, `request`, `google_calendar`, or empty + `data_quality.unavailable_context` containing `calendar`)
+- `advice` mentions outdoor plans when events were provided
 
 ### Check LLM advice manually
 
@@ -246,7 +288,8 @@ Direct mode skips the server and calls Gemini/Claude with a sample scenario. `--
 5. Apply prompt guardrails, invoke Gemini, and fall back to Claude when configured.
 6. Validate the response before returning it.
 
-History searches 8 weeks by default (maximum one year) and sends only the most relevant examples and compact metric windows to the LLM. Calendar access is a provider protocol; tests use `MockCalendarProvider` until the external calendar API adapter is available. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+History searches 8 weeks by default (maximum one year) and sends only the most relevant examples and compact metric windows to the LLM. Calendar context comes from Google Calendar (when connected), `POST /v1/calendar/manual-events`, request overrides, or legacy `calendar_event` text — wired into LangGraph via `StructuredCalendarProvider` / `ManualCalendarProvider` for tomorrow's forecast day. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+
 
 Provider/model selection is configured with `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `GEMINI_MODEL`, and `CLAUDE_MODEL`.
 

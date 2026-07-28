@@ -131,6 +131,8 @@ async def run_forecast(
                 day=forecast_for,
                 timezone_name=timezone_name,
             )
+            for event in resolved_events:
+                event.setdefault("source", "google_calendar")
             calendar_source = "google_calendar"
         except Exception:
             # Soft-fail: still forecast without calendar rather than 502 the whole request.
@@ -139,6 +141,10 @@ async def run_forecast(
     elif check_in.calendar_events:
         resolved_events = list(check_in.calendar_events)
         calendar_source = "check_in"
+
+    for event in resolved_events:
+        if isinstance(event, dict):
+            event.setdefault("source", calendar_source if calendar_source != "none" else "check_in")
 
     calendar_summary = gcal.events_to_summary(resolved_events) or check_in.calendar_event
     if resolved_events:
@@ -370,8 +376,6 @@ async def regenerate_advice(
             "No stored environment snapshot for this date; advice may be less specific."
         )
     calendar_event = check_in.calendar_event if check_in is not None else None
-    if not (calendar_event or "").strip():
-        unavailable.append("calendar")
 
     symptoms = _symptoms_summary(check_in)
     # Prompt still needs a string; mark unknown explicitly so the LLM does not
@@ -395,9 +399,14 @@ async def regenerate_advice(
             )
         except Exception:
             resolved_events = []
+    for event in resolved_events:
+        if isinstance(event, dict):
+            event.setdefault(\"source\", event.get(\"source\") or \"check_in\")
     calendar_summary = gcal.events_to_summary(resolved_events) or (
         check_in.calendar_event if check_in is not None else None
     )
+    if not resolved_events and not (calendar_summary or \"\").strip():
+        unavailable.append(\"calendar\")
 
     try:
         advice_result = await generate_advice(

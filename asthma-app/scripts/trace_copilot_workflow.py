@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Print a compact preview of every Asthma Copilot LangGraph node update.
 
+Date windows (same as production):
+  - Today (anchor): ML inputs — check-in, today's env, yesterday's wearables
+  - Tomorrow (forecast_for): risk target day + optional planned calendar events
+
 Run from asthma-app:
+  docker compose up -d
   PYTHONPATH=. python scripts/trace_copilot_workflow.py
+  PYTHONPATH=. python scripts/trace_copilot_workflow.py --no-calendar
   PYTHONPATH=. python scripts/trace_copilot_workflow.py --rows 2 --prompt-chars 500
   PYTHONPATH=. python scripts/trace_copilot_workflow.py --live-llm
 
@@ -36,16 +42,16 @@ load_dotenv(ROOT / ".env", override=False)
 from copilot.llm import LLMRegistry  # noqa: E402
 from copilot.providers import (  # noqa: E402
     MedicalKnowledgeProvider,
-    MockCalendarProvider,
     PersonalInsightsProvider,
     PreloadedEnvironmentProvider,
     ProfileProvider,
     RelevantHistoryProvider,
+    StructuredCalendarProvider,
 )
-from copilot.state import CalendarEvent, CopilotState  # noqa: E402
+from copilot.state import CopilotState  # noqa: E402
 from copilot.trace import format_stage_update  # noqa: E402
 from copilot.workflow import WorkflowDependencies, build_recommendation_graph  # noqa: E402
-from db.database import SessionLocal, init_db  # noqa: E402
+from db.database import SessionLocal, database_reachable  # noqa: E402
 from db.models import CheckIn, EnvSnapshot, User, WearableDaily  # noqa: E402
 
 
@@ -74,12 +80,25 @@ DEMO_FORECAST = {
 }
 
 FAKE_ADVICE = {
-    "summary": "The demo forecast and context suggest avoiding the anticipated triggers today.",
+    "summary": (
+        "Tomorrow's High risk is driven by tree pollen and poor air quality; "
+        "your planned outdoor activity makes exposure more likely."
+    ),
     "sections": [
         {
-            "title": "Plan for today",
-            "body": "Monitor symptoms, reduce relevant exposure, and follow your clinician-authored action plan.",
-        }
+            "title": "Before tomorrow's outdoor plans",
+            "body": (
+                "Check pollen and AQI in the morning. Consider a mask outdoors and "
+                "follow your clinician-authored action plan before exercise."
+            ),
+        },
+        {
+            "title": "During activity",
+            "body": (
+                "Watch for cough, wheezing, or chest tightness. Reduce intensity or "
+                "move indoors if symptoms increase."
+            ),
+        },
     ],
     "disclaimer": (
         "This information is for educational purposes only and is not a medical diagnosis. "
@@ -172,18 +191,32 @@ def _initial_state(question: str | None) -> CopilotState:
 
 async def trace_workflow(args: argparse.Namespace) -> None:
     anchor_date = args.date or date.today()
+    # ML uses today's check-in/env (+ yesterday wearables) to score tomorrow.
+    # Copilot calendar uses tomorrow's planned events (optional; empty is fine).
+    calendar_day = anchor_date + timedelta(days=1)
     db = SessionLocal()
     try:
         user = _seed_demo_history(db, anchor_date)
-        calendar = MockCalendarProvider(
-            [
-                CalendarEvent(
-                    title="Morning Run",
-                    start=datetime.combine(anchor_date, time(hour=8)),
-                    source="trace_demo",
-                )
-            ]
-        )
+        if args.no_calendar:
+            calendar = StructuredCalendarProvider([], pre_scoped=True)
+            calendar_label = "none (empty schedule)"
+        else:
+            calendar = StructuredCalendarProvider(
+                [
+                    {
+                        "title": "Outdoor soccer",
+                        "start": datetime.combine(calendar_day, time(hour=9)).isoformat(),
+                        "end": datetime.combine(calendar_day, time(hour=10, minute=30)).isoformat(),
+                        "all_day": False,
+                        "location": "Campus field",
+                        "description": "Scrimmage",
+                        "source": "trace_demo",
+                    }
+                ],
+                default_source="trace_demo",
+                pre_scoped=True,
+            )
+            calendar_label = f"Outdoor soccer @ Campus field on {calendar_day.isoformat()}"
         registry = (
             LLMRegistry()
             if args.live_llm
@@ -199,6 +232,7 @@ async def trace_workflow(args: argparse.Namespace) -> None:
             db=db,
             user=user,
             anchor_date=anchor_date,
+            calendar_day=calendar_day,
             environment_provider=PreloadedEnvironmentProvider(DEMO_ENVIRONMENT),
             history_provider=RelevantHistoryProvider(db, user.id),
             calendar_provider=calendar,
@@ -213,9 +247,12 @@ async def trace_workflow(args: argparse.Namespace) -> None:
         accumulated_state: dict[str, Any] = dict(_initial_state(args.question))
 
         print("Asthma Copilot per-node trace")
-        print(f"Anchor date: {anchor_date.isoformat()}")
+        print(f"Today (anchor / ML inputs): {anchor_date.isoformat()}")
+        print(f"Tomorrow (forecast_for / calendar window): {calendar_day.isoformat()}")
+        print(f"Calendar demo events: {calendar_label}")
         print(f"LLM mode: {'LIVE configured providers' if args.live_llm else 'deterministic fake'}")
         print("Demo records are inside a transaction and will be rolled back.")
+        print()
 
         async for event in graph.astream(
             _initial_state(args.question),
@@ -243,6 +280,11 @@ async def trace_workflow(args: argparse.Namespace) -> None:
                 default=str,
             )
         )
+        calendar_in_state = accumulated_state.get("calendar") or []
+        print("\n" + "=" * 88)
+        print("CALENDAR STATE PASSED TO PROMPT")
+        print("-" * 88)
+        print(json.dumps(calendar_in_state, indent=2, ensure_ascii=False, default=str))
     finally:
         db.rollback()
         db.close()
@@ -264,13 +306,18 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--question",
-        default="How should I plan around pollen and poor air quality today?",
+        default="I have outdoor soccer tomorrow — how should I plan around pollen and poor air quality?",
         help="Optional demo question included in retrieval and the prompt.",
     )
     parser.add_argument(
         "--date",
         type=date.fromisoformat,
-        help="Anchor date in YYYY-MM-DD format (default: today).",
+        help="Anchor date (today) in YYYY-MM-DD format (default: today).",
+    )
+    parser.add_argument(
+        "--no-calendar",
+        action="store_true",
+        help="Run with an empty tomorrow schedule (calendar is optional).",
     )
     parser.add_argument(
         "--live-llm",
@@ -282,9 +329,10 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    if not init_db():
+    if not database_reachable():
         raise SystemExit(
-            "PostgreSQL is unavailable. Start it with `docker compose up -d` and retry."
+            "PostgreSQL is unavailable. Start it with `docker compose up -d`, "
+            "run `python scripts/init_db.py` (alembic upgrade), then retry."
         )
     try:
         asyncio.run(trace_workflow(args))

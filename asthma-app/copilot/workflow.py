@@ -6,7 +6,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -88,6 +88,7 @@ class WorkflowDependencies:
     db: Session
     user: User
     anchor_date: date
+    calendar_day: date
     environment_provider: PreloadedEnvironmentProvider
     history_provider: RelevantHistoryProvider
     calendar_provider: CalendarProvider
@@ -160,10 +161,11 @@ def _knowledge_query_terms(state: CopilotState) -> list[str]:
 
 def build_recommendation_graph(deps: WorkflowDependencies):
     async def load_calendar(_state: CopilotState) -> dict[str, Any]:
+        # Advice is about tomorrow's risk, so load the forecast-day calendar window.
         events = deps.calendar_provider.get_events(
             deps.user.id,
-            deps.anchor_date,
-            deps.anchor_date,
+            deps.calendar_day,
+            deps.calendar_day,
         )
         return {"calendar": [event.model_dump(mode="json") for event in events]}
 
@@ -339,12 +341,16 @@ async def generate_copilot_advice(
     advice_type: AdviceType = "daily",
     audience: KnowledgeAudience = "patient",
     calendar_provider: CalendarProvider | None = None,
+    calendar_day: date | None = None,
     llm_registry: LLMRegistry | None = None,
 ) -> tuple[dict[str, Any] | None, list[str]]:
+    # Default calendar window is tomorrow (the forecast target day).
+    resolved_calendar_day = calendar_day or (anchor_date + timedelta(days=1))
     deps = WorkflowDependencies(
         db=db,
         user=user,
         anchor_date=anchor_date,
+        calendar_day=resolved_calendar_day,
         environment_provider=PreloadedEnvironmentProvider(environment),
         history_provider=RelevantHistoryProvider(db, user.id),
         calendar_provider=calendar_provider or NullCalendarProvider(),
