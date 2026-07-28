@@ -288,8 +288,36 @@ Direct mode skips the server and calls Gemini/Claude with a sample scenario. `--
 5. Apply prompt guardrails, invoke Gemini, and fall back to Claude when configured.
 6. Validate the response before returning it.
 
-History searches 8 weeks by default (maximum one year) and sends only the most relevant examples and compact metric windows to the LLM. Calendar context comes from Google Calendar (when connected), `POST /v1/calendar/manual-events`, request overrides, or legacy `calendar_event` text — wired into LangGraph via `StructuredCalendarProvider` / `ManualCalendarProvider` for tomorrow's forecast day. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+### Lobelia Google Calendar + episode memory demo
 
+One script that uses your connected Google account, prints tomorrow’s events,
+and shows `debug.retrieved_episodes` (forces `COPILOT_DEBUG=1` for the process):
+
+```bash
+cd asthma-app
+# Fast path (fake LLM; still uses real Google Calendar)
+PYTHONPATH=. python scripts/demo_lobelia_calendar_memory.py \
+  --email lobelia-demo@example.com --password demo-pass-123 \
+  --seed-episodes --skip-llm
+
+# Full forecast + live advice
+PYTHONPATH=. python scripts/demo_lobelia_calendar_memory.py \
+  --email lobelia-demo@example.com --password demo-pass-123 \
+  --seed-episodes
+```
+
+`--seed-episodes` adds a few past outdoor days so retrieval isn’t empty on a new account.
+Without it you’ll still see Google calendar events, but `retrieved_episodes` may be `[]`.
+
+History uses hybrid episode memory (pgvector semantic similarity + Postgres full-text keyword search) over structured retrospective episodes — not raw calendar rows. Lookback defaults to 8 weeks (maximum one year) and sends only the most relevant examples plus compact metric windows to the LLM. Today's check-in and environment still reach the LLM through the normal Copilot nodes; empty episode memory is fine. Calendar context comes from Google Calendar (when connected), `POST /v1/calendar/manual-events`, request overrides, or legacy `calendar_event` text — wired into LangGraph via `StructuredCalendarProvider` / `ManualCalendarProvider` for tomorrow's forecast day. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+
+Backfill existing check-ins into episode memory:
+
+```bash
+EMBEDDING_PROVIDER=stub PYTHONPATH=. python scripts/backfill_episodes.py
+```
+
+Embeddings default to Gemini (`EMBEDDING_PROVIDER=gemini`, reuses `GEMINI_API_KEY`). Local Docker Postgres must use the `pgvector/pgvector:pg16` image (see `docker-compose.yml`).
 
 Provider/model selection is configured with `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `GEMINI_MODEL`, and `CLAUDE_MODEL`.
 

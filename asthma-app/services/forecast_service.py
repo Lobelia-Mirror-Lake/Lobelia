@@ -89,6 +89,16 @@ def _data_quality(
     }
 
 
+def _unpack_advice_result(advice_result) -> tuple[dict | None, list[str], dict | None]:
+    """Accept (advice, warnings) or (advice, warnings, debug) from generate_advice / mocks."""
+    if isinstance(advice_result, tuple):
+        advice = advice_result[0] if len(advice_result) > 0 else None
+        warnings = list(advice_result[1]) if len(advice_result) > 1 else []
+        debug = advice_result[2] if len(advice_result) > 2 else None
+        return advice, warnings, debug
+    return advice_result, [], None
+
+
 async def run_forecast(
     db: Session,
     user: User,
@@ -190,6 +200,16 @@ async def run_forecast(
         snapshot.features = env_features
         snapshot.missing = env_result.get("missing")
 
+    # Retrospective episode memory (best-effort; never blocks the ML forecast).
+    from services.episode_store import soft_upsert_episode_for_forecast
+
+    soft_upsert_episode_for_forecast(
+        db,
+        user.id,
+        anchor_date,
+        environment=env_features,
+    )
+
     # Tomorrow env for temp_diff when available
     temp_diff = None
     try:
@@ -237,6 +257,7 @@ async def run_forecast(
         "top_features": prediction.get("top_features", []),
     }
     advice_warnings: list[str] = []
+    advice_debug: dict | None = None
     try:
         advice_result = await generate_advice(
             risk_level=prediction["risk_level"],
@@ -255,11 +276,7 @@ async def run_forecast(
             environment=env_features,
             return_warnings=True,
         )
-        if isinstance(advice_result, tuple):
-            advice, advice_warnings = advice_result
-        else:
-            # Maintains compatibility with existing mocks and custom integrations.
-            advice = advice_result
+        advice, advice_warnings, advice_debug = _unpack_advice_result(advice_result)
     except Exception:
         advice = None
         advice_warnings.append(
@@ -291,7 +308,7 @@ async def run_forecast(
     if "calendar" in unavailable:
         quality_warnings.append("No calendar event was provided for today.")
 
-    return {
+    payload = {
         "date": anchor_date.isoformat(),
         "forecast_for": forecast_for.isoformat(),
         "prediction_mode": prediction.get("prediction_mode", "classifier"),
@@ -312,6 +329,9 @@ async def run_forecast(
             warnings=quality_warnings,
         ),
     }
+    if advice_debug is not None:
+        payload["debug"] = advice_debug
+    return payload
 
 
 async def regenerate_advice(
@@ -397,16 +417,18 @@ async def regenerate_advice(
                 user.google_calendar_refresh_token,
                 day=forecast.forecast_for,
             )
+            for event in resolved_events:
+                event.setdefault("source", "google_calendar")
         except Exception:
             resolved_events = []
     for event in resolved_events:
         if isinstance(event, dict):
-            event.setdefault(\"source\", event.get(\"source\") or \"check_in\")
+            event.setdefault("source", event.get("source") or "check_in")
     calendar_summary = gcal.events_to_summary(resolved_events) or (
         check_in.calendar_event if check_in is not None else None
     )
-    if not resolved_events and not (calendar_summary or \"\").strip():
-        unavailable.append(\"calendar\")
+    if not resolved_events and not (calendar_summary or "").strip():
+        unavailable.append("calendar")
 
     try:
         advice_result = await generate_advice(
@@ -426,13 +448,11 @@ async def regenerate_advice(
             environment=env_features,
             return_warnings=True,
         )
-        if isinstance(advice_result, tuple):
-            advice, provider_warnings = advice_result
-            advice_warnings.extend(provider_warnings)
-        else:
-            advice = advice_result
+        advice, provider_warnings, advice_debug = _unpack_advice_result(advice_result)
+        advice_warnings.extend(provider_warnings)
     except Exception:
         advice = None
+        advice_debug = None
         advice_warnings.append(
             "Advice is temporarily unavailable; the stored ML forecast is still valid."
         )
@@ -443,7 +463,7 @@ async def regenerate_advice(
     db.commit()
     db.refresh(forecast)
 
-    return {
+    payload = {
         "date": anchor_date.isoformat(),
         "forecast_for": forecast.forecast_for.isoformat(),
         "risk_level": forecast.risk_level,
@@ -458,6 +478,9 @@ async def regenerate_advice(
             warnings=advice_warnings,
         ),
     }
+    if advice_debug is not None:
+        payload["debug"] = advice_debug
+    return payload
 
 
 def forecast_to_dict(record: Forecast) -> dict:

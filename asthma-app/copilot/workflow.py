@@ -343,7 +343,7 @@ async def generate_copilot_advice(
     calendar_provider: CalendarProvider | None = None,
     calendar_day: date | None = None,
     llm_registry: LLMRegistry | None = None,
-) -> tuple[dict[str, Any] | None, list[str]]:
+) -> tuple[dict[str, Any] | None, list[str], dict[str, Any] | None]:
     # Default calendar window is tomorrow (the forecast target day).
     resolved_calendar_day = calendar_day or (anchor_date + timedelta(days=1))
     deps = WorkflowDependencies(
@@ -382,4 +382,20 @@ async def generate_copilot_advice(
         initial_state["llm_provider"] = requested_provider
     result = await graph.ainvoke(initial_state)
     advice = result.get("validated_response") or None
-    return advice, list(result.get("warnings", []))
+    warnings = list(result.get("warnings", []))
+    debug: dict[str, Any] | None = None
+    if _copilot_debug_enabled():
+        history = result.get("history") or {}
+        debug = {
+            "retrieved_episodes": history.get("episodes") or [],
+            "insights": result.get("insights") or {},
+            "calendar": result.get("calendar") or [],
+            "history_window_days": history.get("window_days"),
+        }
+    return advice, warnings, debug
+
+
+def _copilot_debug_enabled() -> bool:
+    import os
+
+    return os.getenv("COPILOT_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}

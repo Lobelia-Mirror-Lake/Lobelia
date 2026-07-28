@@ -202,7 +202,7 @@ async def generate_advice(
     advice_type: AdviceType = "daily",
     calendar_provider: CalendarProvider | None = None,
     return_warnings: bool = False,
-) -> dict | None | tuple[dict | None, list[str]]:
+) -> dict | None | tuple[dict | None, list[str]] | tuple[dict | None, list[str], dict | None]:
     if db is not None and user is not None and anchor_date is not None:
         from copilot.workflow import generate_copilot_advice
 
@@ -222,12 +222,16 @@ async def generate_advice(
         elif resolved_calendar is None and calendar_event:
             resolved_calendar = ManualCalendarProvider(calendar_event, calendar_day)
 
-        advice, warnings = await generate_copilot_advice(
+        advice, warnings, debug = await generate_copilot_advice(
             db=db,
             user=user,
             anchor_date=anchor_date,
-            forecast=forecast,
-            environment=environment,
+            forecast=forecast
+            or {
+                "risk_level": risk_level,
+                "contributing_factors": contributing_factors,
+            },
+            environment=environment or {},
             symptoms_summary=symptoms_summary,
             puffs_today=puffs_today,
             question=question,
@@ -237,7 +241,7 @@ async def generate_advice(
             calendar_day=calendar_day,
         )
         if return_warnings:
-            return advice, warnings
+            return advice, warnings, debug
         if advice is None:
             raise RuntimeError("LLM provider error")
         return advice
@@ -272,10 +276,13 @@ async def generate_advice(
     if calendar_events:
         sources.append("google_calendar")
 
-    return {
+    payload = {
         "summary": parsed.get("summary", ""),
         "sections": parsed.get("sections", []),
         "disclaimer": parsed.get("disclaimer", DEFAULT_DISCLAIMER),
         "llm_provider": provider,
         "knowledge_sources_used": sources,
     }
+    if return_warnings:
+        return payload, [], None
+    return payload

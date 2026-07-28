@@ -20,10 +20,13 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from pgvector.sqlalchemy import Vector
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
+
+EMBEDDING_DIM = 768
 
 
 class InhalerEventType(str, enum.Enum):
@@ -147,3 +150,27 @@ class Forecast(Base):
     advice: Mapped[Optional[dict]] = mapped_column(JSONB)
     calendar_events: Mapped[Optional[list]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Episode(Base):
+    """Retrospective asthma situation memory for hybrid (vector + keyword) retrieval.
+
+    Calendar events stay in check_ins; this table stores derived episode summaries
+    and embeddings — never raw calendar rows.
+    """
+
+    __tablename__ = "episodes"
+    __table_args__ = (UniqueConstraint("user_id", "episode_date", name="uq_episodes_user_date"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    episode_date: Mapped[date] = mapped_column(Date, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="retrospective")
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    search_tsv: Mapped[Optional[str]] = mapped_column(TSVECTOR)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    embedding: Mapped[Optional[list[float]]] = mapped_column(Vector(EMBEDDING_DIM))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

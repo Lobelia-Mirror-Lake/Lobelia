@@ -83,7 +83,7 @@ async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: 
         retries_per_provider=2,
     )
 
-    advice, warnings = await generate_copilot_advice(
+    advice, warnings, _debug = await generate_copilot_advice(
         db=db_session,
         user=user,
         anchor_date=date(2026, 1, 30),
@@ -111,6 +111,47 @@ async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: 
     assert "Friday Meeting" in user_text
     assert "<CONTEXT_DATA>" in user_text
 
+
+async def test_copilot_debug_includes_retrieved_episodes(db_session: Session, monkeypatch):
+    monkeypatch.setenv("COPILOT_DEBUG", "1")
+    user = _user(db_session, "debug-episodes@example.com")
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(content=VALID_ADVICE),
+            "claude": lambda: FakeModel(content=VALID_ADVICE),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, _warnings, debug = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Medium", "contributing_factors": []},
+        environment={},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    assert debug is not None
+    assert "retrieved_episodes" in debug
+    assert "insights" in debug
+    assert "calendar" in debug
+
+    monkeypatch.delenv("COPILOT_DEBUG", raising=False)
+    _advice2, _w2, debug_off = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Medium", "contributing_factors": []},
+        environment={},
+        symptoms_summary="no significant symptoms reported",
+        puffs_today=0,
+        llm_registry=registry,
+    )
+    assert debug_off is None
 
 
 async def test_workflow_uses_structured_google_calendar_events(db_session: Session):
@@ -141,7 +182,7 @@ async def test_workflow_uses_structured_google_calendar_events(db_session: Sessi
         retries_per_provider=1,
     )
 
-    advice, _warnings = await generate_copilot_advice(
+    advice, _warnings, _debug = await generate_copilot_advice(
         db=db_session,
         user=user,
         anchor_date=date(2026, 7, 17),
@@ -170,7 +211,7 @@ async def test_workflow_returns_forecast_warning_when_all_models_fail(db_session
         retries_per_provider=1,
     )
 
-    advice, warnings = await generate_copilot_advice(
+    advice, warnings, _debug = await generate_copilot_advice(
         db=db_session,
         user=user,
         anchor_date=date(2026, 1, 30),
@@ -195,7 +236,7 @@ async def test_invalid_gemini_output_retries_and_uses_claude(db_session: Session
         retries_per_provider=1,
     )
 
-    advice, warnings = await generate_copilot_advice(
+    advice, warnings, _debug = await generate_copilot_advice(
         db=db_session,
         user=user,
         anchor_date=date(2026, 1, 30),
@@ -226,7 +267,7 @@ async def test_medication_dosage_instruction_is_rejected_and_falls_back(db_sessi
         retries_per_provider=1,
     )
 
-    advice, warnings = await generate_copilot_advice(
+    advice, warnings, _debug = await generate_copilot_advice(
         db=db_session,
         user=user,
         anchor_date=date(2026, 1, 30),
