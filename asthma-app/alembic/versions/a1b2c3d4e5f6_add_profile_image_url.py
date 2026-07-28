@@ -8,7 +8,6 @@ Create Date: 2026-07-24 13:30:00.000000
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
@@ -18,8 +17,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("profile_image_url", sa.String(length=2048), nullable=True))
+    op.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR(2048)"
+    )
 
 
 def downgrade() -> None:
-    op.drop_column("users", "profile_image_url")
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS profile_image_url")
