@@ -5,6 +5,7 @@ import { urls } from "../constants";
 import { useAuth } from "../context/AuthContext";
 import ProfileCircle from "./input/ProfileCircle";
 import FormModal from "./input/FormModal";
+import Chatbot from './input/Chatbot';
 
 function DashboardLayout() {
   const location = useLocation();
@@ -69,6 +70,8 @@ function DashboardLayout() {
           </Navbar.Collapse>
         </Navbar>
       </div>
+
+      <Chatbot title="Chat" isFloating={true} />
 
       {/* Header */}
       <div className="p-4">
