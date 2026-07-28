@@ -528,6 +528,8 @@ Re-run the LLM advice pipeline **without** re-running the classifier. Requires a
 
 Manual `calendar_event` on a check-in is passed into the Copilot calendar node (`source: "manual"`).
 
+Structured events from Google Calendar, `POST /v1/calendar/manual-events`, or `calendar_events` on forecast are loaded into LangGraph via `StructuredCalendarProvider` for **tomorrow** (the forecast target day), including title, time, location, and description.
+
 ---
 
 ## Health check

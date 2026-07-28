@@ -37,6 +37,9 @@ class CalendarEvent(BaseModel):
     start: datetime | date
     end: datetime | date | None = None
     source: str = "calendar"
+    location: str | None = None
+    description: str | None = None
+    all_day: bool = False
 
 
 class HistoricalEpisode(BaseModel):

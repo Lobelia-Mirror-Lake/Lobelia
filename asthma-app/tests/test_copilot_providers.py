@@ -14,6 +14,7 @@ from copilot.providers import (
     MockCalendarProvider,
     PersonalInsightsProvider,
     RelevantHistoryProvider,
+    StructuredCalendarProvider,
 )
 from copilot.state import CalendarEvent
 from db.models import CheckIn, EnvSnapshot, User, WearableDaily
@@ -28,6 +29,31 @@ def test_manual_calendar_provider_uses_check_in_text():
     assert ManualCalendarProvider("  ", date(2026, 7, 17)).get_events(
         uuid.uuid4(), date(2026, 7, 17), date(2026, 7, 17)
     ) == []
+
+
+
+def test_structured_calendar_provider_preserves_google_fields():
+    provider = StructuredCalendarProvider(
+        [
+            {
+                "title": "Outdoor soccer",
+                "start": "2026-07-18T09:00:00-05:00",
+                "end": "2026-07-18T10:30:00-05:00",
+                "location": "Madison park",
+                "description": "Scrimmage",
+                "all_day": False,
+            }
+        ],
+        default_source="google_calendar",
+        pre_scoped=True,
+    )
+    events = provider.get_events(uuid.uuid4(), date(2026, 7, 17), date(2026, 7, 17))
+    assert len(events) == 1
+    assert events[0].title == "Outdoor soccer"
+    assert events[0].location == "Madison park"
+    assert events[0].description == "Scrimmage"
+    assert events[0].source == "google_calendar"
+    assert events[0].start.date() == date(2026, 7, 18)
 
 
 def test_medical_knowledge_filters_by_audience_and_advice_type(tmp_path):

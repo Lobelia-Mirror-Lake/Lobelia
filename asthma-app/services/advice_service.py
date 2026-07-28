@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +13,11 @@ from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
-from copilot.providers import CalendarProvider, ManualCalendarProvider
+from copilot.providers import (
+    CalendarProvider,
+    ManualCalendarProvider,
+    StructuredCalendarProvider,
+)
 from copilot.state import AdviceType
 from db.models import User
 
@@ -201,41 +205,36 @@ async def generate_advice(
 ) -> dict | None | tuple[dict | None, list[str]]:
     if db is not None and user is not None and anchor_date is not None:
         from copilot.workflow import generate_copilot_advice
-        from copilot.providers import MockCalendarProvider
 
+        # Advice targets tomorrow's forecast day — match the calendar window.
+        calendar_day = anchor_date + timedelta(days=1)
         resolved_calendar = calendar_provider
         if resolved_calendar is None and calendar_events:
-            resolved_calendar = MockCalendarProvider(
-                [
-                    {
-                        "title": (event.get("title") or "Event").strip() or "Event",
-                        "start": event.get("start") or anchor_date,
-                        "end": event.get("end"),
-                        "source": "google_calendar",
-                    }
-                    for event in calendar_events
-                    if isinstance(event, dict)
-                ]
+            # Forecast/advice already resolved Google / manual / request events.
+            default_source = "google_calendar"
+            if calendar_events and isinstance(calendar_events[0], dict):
+                default_source = str(calendar_events[0].get("source") or "google_calendar")
+            resolved_calendar = StructuredCalendarProvider(
+                calendar_events,
+                default_source=default_source,
+                pre_scoped=True,
             )
         elif resolved_calendar is None and calendar_event:
-            resolved_calendar = ManualCalendarProvider(calendar_event, anchor_date)
+            resolved_calendar = ManualCalendarProvider(calendar_event, calendar_day)
 
         advice, warnings = await generate_copilot_advice(
             db=db,
             user=user,
             anchor_date=anchor_date,
-            forecast=forecast
-            or {
-                "risk_level": risk_level,
-                "contributing_factors": contributing_factors,
-            },
-            environment=environment or {},
+            forecast=forecast,
+            environment=environment,
             symptoms_summary=symptoms_summary,
             puffs_today=puffs_today,
             question=question,
             requested_provider=llm_provider,
             advice_type=advice_type,
             calendar_provider=resolved_calendar,
+            calendar_day=calendar_day,
         )
         if return_warnings:
             return advice, warnings

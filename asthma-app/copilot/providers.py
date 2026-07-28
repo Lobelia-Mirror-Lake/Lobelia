@@ -6,7 +6,7 @@ import json
 import re
 import uuid
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -29,20 +29,20 @@ KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent / "knowledge"
 
 
 class CalendarProvider(Protocol):
-    """Boundary for the calendar API being developed separately."""
+    """Boundary for calendar context used by the Copilot calendar node."""
 
     def get_events(self, user_id: uuid.UUID, start: date, end: date) -> list[CalendarEvent]: ...
 
 
 class NullCalendarProvider:
-    """Production placeholder until an external calendar adapter is injected."""
+    """Empty calendar when no Google/manual/request events are available."""
 
     def get_events(self, user_id: uuid.UUID, start: date, end: date) -> list[CalendarEvent]:
         return []
 
 
 class ManualCalendarProvider:
-    """Uses the free-text calendar_event from today's check-in (v1 calendar input)."""
+    """Legacy free-text calendar_event from a check-in."""
 
     def __init__(self, calendar_event: str | None, event_date: date):
         title = (calendar_event or "").strip()
@@ -54,6 +54,33 @@ class ManualCalendarProvider:
 
     def get_events(self, user_id: uuid.UUID, start: date, end: date) -> list[CalendarEvent]:
         return [event for event in self._events if start <= _event_date(event) <= end]
+
+
+class StructuredCalendarProvider:
+    """Production calendar adapter for Google / manual-events / request overrides.
+
+    Accepts the same event dicts produced by ``services.google_calendar`` and
+    ``POST /v1/calendar/manual-events``. Events are returned to LangGraph with
+    title, times, location, and description so advice can reference real plans.
+    """
+
+    def __init__(
+        self,
+        events: list[CalendarEvent | dict[str, Any]] | None = None,
+        *,
+        default_source: str = "google_calendar",
+        pre_scoped: bool = False,
+    ):
+        self._pre_scoped = pre_scoped
+        self._events = [
+            event if isinstance(event, CalendarEvent) else _calendar_event_from_dict(event, default_source)
+            for event in (events or [])
+        ]
+
+    def get_events(self, user_id: uuid.UUID, start: date, end: date) -> list[CalendarEvent]:
+        if self._pre_scoped:
+            return list(self._events)
+        return [event for event in self._events if _event_overlaps_range(event, start, end)]
 
 
 class MockCalendarProvider:
@@ -88,7 +115,58 @@ class ProfileProvider:
 
 
 def _event_date(event: CalendarEvent) -> date:
-    return event.start if isinstance(event.start, date) and not hasattr(event.start, "date") else event.start.date()
+    start = event.start
+    return start.date() if isinstance(start, datetime) else start
+
+
+def _parse_event_instant(value: Any) -> datetime | date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            if "T" in text:
+                return datetime.fromisoformat(text)
+            return date.fromisoformat(text)
+        except ValueError:
+            return None
+    return None
+
+
+def _calendar_event_from_dict(raw: dict[str, Any], default_source: str) -> CalendarEvent:
+    start = _parse_event_instant(raw.get("start")) or date.today()
+    end = _parse_event_instant(raw.get("end"))
+    title = str(raw.get("title") or raw.get("summary") or "Event").strip() or "Event"
+    source = str(raw.get("source") or default_source)
+    location = raw.get("location")
+    description = raw.get("description")
+    return CalendarEvent(
+        title=title[:300],
+        start=start,
+        end=end,
+        source=source,
+        location=str(location) if location else None,
+        description=str(description) if description else None,
+        all_day=bool(raw.get("all_day", False)),
+    )
+
+
+def _event_overlaps_range(event: CalendarEvent, start: date, end: date) -> bool:
+    event_start = _event_date(event)
+    if event.end is None:
+        return start <= event_start <= end
+    event_end_raw = event.end
+    event_end = event_end_raw.date() if isinstance(event_end_raw, datetime) else event_end_raw
+    # Inclusive range: event overlaps [start, end] if it starts before end+1 and ends on/after start.
+    return event_start <= end and event_end >= start
 
 
 _SEARCH_STOPWORDS = {

@@ -30,7 +30,7 @@ running the next node.
 ## Workflow
 
 1. Receive an immutable forecast and request context.
-2. Load calendar, environment, and profile data.
+2. Load calendar (tomorrow's Google/manual events), environment, and profile data.
 3. Rank relevant historical episodes.
 4. Compute personal patterns and trends in Python.
 5. Retrieve trigger-matched medical knowledge.
@@ -140,7 +140,7 @@ Coverage is split across:
 
 ## Extension points
 
-- Implement `CalendarProvider` for production calendar access.
+- Google Calendar is already wired through `StructuredCalendarProvider`; inject a custom `CalendarProvider` only for alternate backends.
 - Add a LangChain-compatible factory to `LLMRegistry` for another model.
 - Add an allowlisted source, re-ingest it, and inspect extraction quality.
 - Replace lexical retrieval behind `MedicalKnowledgeProvider`.

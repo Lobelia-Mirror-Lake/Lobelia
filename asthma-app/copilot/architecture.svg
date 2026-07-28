@@ -46,7 +46,7 @@
 
   <rect class="input" x="50" y="225" width="260" height="65" rx="10"/>
   <text class="label blue" x="180" y="252">Calendar events</text>
-  <text class="small" x="180" y="274">empty until an adapter is supplied</text>
+  <text class="small" x="180" y="274">Google / manual / request for tomorrow</text>
 
   <rect class="input" x="50" y="315" width="260" height="65" rx="10"/>
   <text class="label blue" x="180" y="342">Environment snapshot</text>
