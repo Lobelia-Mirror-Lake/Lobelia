@@ -31,7 +31,11 @@ running the next node.
 
 1. Receive an immutable forecast and request context.
 2. Load calendar (tomorrow's Google/manual events), environment, and profile data.
-3. Rank relevant historical episodes.
+3. Rank relevant historical episodes via hybrid memory (pgvector semantic
+   similarity + Postgres full-text keyword search). The **retrieval query** is
+   built from calendar/life context only (events, locations, activity types) —
+   not pollen/AQI/ML contributing factors. Stored episodes still keep environment
+   and outcomes in metadata as evidence for insights/LLM.
 4. Compute personal patterns and trends in Python.
 5. Retrieve trigger-matched medical knowledge.
 6. Build a guarded prompt from the selected context.
@@ -40,7 +44,9 @@ running the next node.
 
 Only the five most relevant historical episodes enter the prompt. A larger
 private pool supports deterministic insight calculations. Historical patterns
-are described as associations, never causes.
+are described as associations, never causes. Episodes are structured summaries
+(activity, exposure factors, environment, symptoms/puffs) — raw calendar rows
+are never embedded.
 
 ## Package map
 
@@ -49,6 +55,9 @@ are described as associations, never causes.
 | `workflow.py` | Graph definition, prompt guardrails, validation, and `generate_copilot_advice()` |
 | `state.py` | Typed graph state and validated API contracts |
 | `providers.py` | Calendar, environment, profile, history, insights, and knowledge providers |
+| `episodes.py` | Structured episode builder (summary + metadata; no raw calendar embeds) |
+| `embeddings.py` | Gemini / stub embedding providers (`EMBEDDING_PROVIDER`) |
+| `retrieval.py` | Hybrid pgvector + full-text episode retrieval |
 | `llm.py` | Gemini/Claude registry, retries, fallback, parsing |
 | `ingest.py` | Builds approved knowledge chunks from `knowledge/sources.json` |
 | `trace.py` | Compact development trace of each graph stage |
@@ -101,6 +110,11 @@ weight, headings are next, and body text is lowest. Weak matches are omitted.
 changing the graph contract.
 
 ## Inspecting the workflow
+
+Set `COPILOT_DEBUG=1` to include a top-level `debug` object on `POST /v1/forecast`
+and `POST /v1/advice` with `retrieved_episodes`, `insights`, and `calendar`.
+Leave it unset/false for normal responses; debug is never written into the
+`forecasts.advice` column.
 
 Start PostgreSQL and run the deterministic trace:
 

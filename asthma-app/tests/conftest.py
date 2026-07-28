@@ -19,6 +19,7 @@ os.environ.setdefault(
     ),
 )
 os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("EMBEDDING_PROVIDER", "stub")
 
 from dotenv import load_dotenv
 
@@ -69,6 +70,11 @@ def db_engine():
             conn.execute(text("SELECT 1"))
     except Exception as exc:
         pytest.skip(f"PostgreSQL not available for tests: {exc}")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    except Exception as exc:
+        pytest.skip(f"pgvector extension not available (use pgvector/pgvector:pg16 image): {exc}")
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine

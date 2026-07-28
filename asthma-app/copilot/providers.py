@@ -87,7 +87,10 @@ class MockCalendarProvider:
     """Deterministic calendar provider for tests and local graph demos."""
 
     def __init__(self, events: list[CalendarEvent | dict[str, Any]]):
-        self._events = [event if isinstance(event, CalendarEvent) else CalendarEvent.model_validate(event) for event in events]
+        self._events = [
+            event if isinstance(event, CalendarEvent) else CalendarEvent.model_validate(event)
+            for event in events
+        ]
 
     def get_events(self, user_id: uuid.UUID, start: date, end: date) -> list[CalendarEvent]:
         return [event for event in self._events if start <= _event_date(event) <= end]
@@ -193,36 +196,12 @@ def _tokens(value: str) -> set[str]:
     }
 
 
-def _symptoms(row: CheckIn | None) -> list[str]:
-    if row is None:
-        return []
-    values: list[str] = []
-    if row.daily_day_symp:
-        values.append("daytime symptoms")
-    if row.daily_night_symp:
-        values.append("nighttime symptoms")
-    if row.daily_limit_activity:
-        values.append("activity limitation")
-    return values
-
-
-def _environment_matches(current: dict[str, Any], historical: dict[str, Any]) -> list[str]:
-    matches: list[str] = []
-    for key in ("tree_pollen", "grass_pollen", "weed_pollen"):
-        current_level = str(current.get(key, "")).lower()
-        previous_level = str(historical.get(key, "")).lower()
-        if current_level in {"high", "very high"} and previous_level in {"high", "very high"}:
-            matches.append(key)
-    current_aqi = current.get("aqi")
-    previous_aqi = historical.get("aqi")
-    if isinstance(current_aqi, (int, float)) and isinstance(previous_aqi, (int, float)):
-        if current_aqi >= 3 and previous_aqi >= 3:
-            matches.append("elevated_aqi")
-    return matches
-
-
 class RelevantHistoryProvider:
-    """Retrieve compact evidence for the prompt and a larger private analysis pool."""
+    """Hybrid episode memory (pgvector + FTS) for the Copilot history node.
+
+    Today's check-in/env still reach the LLM via other nodes. This provider only
+    retrieves similar *past* retrospective episodes. Empty memory is fine.
+    """
 
     def __init__(
         self,
@@ -232,12 +211,14 @@ class RelevantHistoryProvider:
         default_lookback_days: int = 56,
         maximum_lookback_days: int = 365,
         max_examples: int = 5,
+        embedder=None,
     ):
         self.db = db
         self.user_id = user_id
         self.default_lookback_days = default_lookback_days
         self.maximum_lookback_days = maximum_lookback_days
         self.max_examples = max_examples
+        self.embedder = embedder
 
     def get_relevant_history(
         self,
@@ -249,134 +230,54 @@ class RelevantHistoryProvider:
         question: str | None = None,
         lookback_days: int | None = None,
     ) -> tuple[HistoryContext, list[HistoricalEpisode]]:
+        from copilot.episodes import build_query_episode
+        from copilot.retrieval import HybridEpisodeRetriever, build_metric_windows
+
         days = min(max(1, lookback_days or self.default_lookback_days), self.maximum_lookback_days)
         since = anchor_date - timedelta(days=days)
-        check_ins = list(
-            self.db.scalars(
-                select(CheckIn)
-                .where(
-                    CheckIn.user_id == self.user_id,
-                    CheckIn.date >= since,
-                    CheckIn.date < anchor_date,
-                )
-                .order_by(CheckIn.date.asc())
-            ).all()
+        query = build_query_episode(
+            episode_date=anchor_date + timedelta(days=1),
+            calendar=calendar,
+            environment=environment,
+            forecast=forecast,
+            question=question,
         )
-        wearables = {
-            row.date: row
-            for row in self.db.scalars(
-                select(WearableDaily).where(
-                    WearableDaily.user_id == self.user_id,
-                    WearableDaily.date >= since - timedelta(days=1),
-                    WearableDaily.date < anchor_date,
-                )
-            ).all()
-        }
-        environments = {
-            row.date: row.features or {}
-            for row in self.db.scalars(
-                select(EnvSnapshot).where(
-                    EnvSnapshot.user_id == self.user_id,
-                    EnvSnapshot.date >= since,
-                    EnvSnapshot.date < anchor_date,
-                )
-            ).all()
-        }
-        by_date = {row.date: row for row in check_ins}
-
-        query_tokens: set[str] = set()
-        for factor in forecast.get("contributing_factors", []):
-            query_tokens |= _tokens(str(factor))
-        for event in calendar:
-            query_tokens |= _tokens(str(event.get("title", "")))
-        if question:
-            query_tokens |= _tokens(question)
-
-        analysis_pool: list[HistoricalEpisode] = []
-        for row in check_ins:
-            event_names = [row.calendar_event] if row.calendar_event else []
-            historical_env = environments.get(row.date, {})
-            matched_on: list[str] = []
-            score = max(0.0, 1.0 - ((anchor_date - row.date).days / days)) * 0.5
-
-            row_tokens = _tokens(" ".join(event_names + list(row.triggers or [])))
-            shared_tokens = sorted(query_tokens & row_tokens)
-            if shared_tokens:
-                matched_on.extend(f"term:{token}" for token in shared_tokens)
-                score += 3.0 * len(shared_tokens)
-
-            env_matches = _environment_matches(environment, historical_env)
-            if env_matches:
-                matched_on.extend(f"environment:{value}" for value in env_matches)
-                score += 2.0 * len(env_matches)
-
-            same_day = _symptoms(row)
-            next_day = _symptoms(by_date.get(row.date + timedelta(days=1)))
-            if same_day or next_day or row.puffs_today:
-                score += 0.5
-
-            wearable = wearables.get(row.date - timedelta(days=1))
-            analysis_pool.append(
-                HistoricalEpisode(
-                    date=row.date,
-                    events=event_names,
-                    environment=historical_env,
-                    sleep_minutes=wearable.sleep_minutes if wearable else None,
-                    symptoms_same_day=same_day,
-                    symptoms_next_day=next_day,
-                    puffs_today=row.puffs_today,
-                    triggers=list(row.triggers or []),
-                    matched_on=matched_on,
-                    relevance_score=round(score, 3),
-                )
-            )
-
-        ranked = sorted(
-            analysis_pool,
-            key=lambda episode: (episode.relevance_score, episode.date),
-            reverse=True,
-        )[: self.max_examples]
+        retriever = HybridEpisodeRetriever(
+            self.db,
+            self.user_id,
+            embedder=self.embedder,
+            default_lookback_days=self.default_lookback_days,
+            maximum_lookback_days=self.maximum_lookback_days,
+            max_examples=self.max_examples,
+        )
+        ranked, analysis_pool, window_days = retriever.retrieve(
+            query,
+            anchor_date=anchor_date,
+            lookback_days=days,
+        )
+        metrics = build_metric_windows(self.db, self.user_id, since=since, before=anchor_date)
+        # Keep the compact recent windows PersonalInsights expects.
+        for key, series in list(metrics.items()):
+            metrics[key] = series[-7:]
+            if key == "sleep":
+                metrics[key] = [
+                    {"date": item["date"], "minutes": item.get("sleep_minutes")}
+                    for item in metrics[key]
+                ]
+            elif key == "symptoms":
+                metrics[key] = [
+                    {
+                        "date": item["date"],
+                        "daytime": item.get("daytime"),
+                        "nighttime": item.get("nighttime"),
+                        "activity_limitation": item.get("limit_activity"),
+                    }
+                    for item in metrics[key]
+                ]
         return (
-            HistoryContext(
-                window_days=days,
-                episodes=ranked,
-                metric_windows=self._metric_windows(check_ins, wearables),
-            ),
+            HistoryContext(window_days=window_days, episodes=ranked, metric_windows=metrics),
             analysis_pool,
         )
-
-    @staticmethod
-    def _metric_windows(
-        check_ins: list[CheckIn],
-        wearables: dict[date, WearableDaily],
-    ) -> dict[str, list[dict[str, Any]]]:
-        recent = check_ins[-7:]
-        return {
-            "symptoms": [
-                {
-                    "date": row.date.isoformat(),
-                    "daytime": row.daily_day_symp,
-                    "nighttime": row.daily_night_symp,
-                    "activity_limitation": row.daily_limit_activity,
-                }
-                for row in recent
-            ],
-            "rescue_inhaler": [
-                {"date": row.date.isoformat(), "puffs": row.puffs_today}
-                for row in recent
-            ],
-            "sleep": [
-                {
-                    "date": row.date.isoformat(),
-                    "minutes": (
-                        wearables[row.date - timedelta(days=1)].sleep_minutes
-                        if row.date - timedelta(days=1) in wearables
-                        else None
-                    ),
-                }
-                for row in recent
-            ],
-        }
 
 
 class PersonalInsightsProvider:
