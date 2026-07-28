@@ -1031,6 +1031,21 @@ hr {
   transform: translateY(-50%);
 }
 
+.chatbot-floating {
+  position: fixed;
+
+  bottom: var(--space-24);
+  right: var(--space-24);
+
+  width: clamp(320px, 40vw, 600px);
+
+  z-index: 1050;
+
+  box-shadow:
+    0 16px 48px rgba(4, 12, 13, 0.4),
+    0 6px 18px rgba(4, 12, 13, 0.15);
+}
+
 /***************************************** TEXT ********************************************/
 /* Header */
 .header-text {
