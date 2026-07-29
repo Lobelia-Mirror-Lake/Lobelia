@@ -1,8 +1,11 @@
 import "./StatisticsPage.css";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { getForecast } from "../../helper-functions/getForecast";
 import { getCheckIns } from "../../helper-functions/checkIns";
+import {
+  loadCardPredictions,
+  statisticsReminderText,
+} from "../../helper-functions/getForecast";
 
 const FALLBACK_LOCATION = {
   lat: 43.0731,
@@ -257,6 +260,7 @@ function StatisticsPage() {
   const { token } = useAuth();
 
   const [forecast, setForecast] = useState(null);
+  const [tomorrowForecast, setTomorrowForecast] = useState(null);
   const [forecastStatus, setForecastStatus] = useState("loading");
   const [forecastErrorMessage, setForecastErrorMessage] = useState("");
 
@@ -276,21 +280,22 @@ function StatisticsPage() {
         setForecastErrorMessage("");
 
         const location = await getUserLocation();
-
-        const data = await getForecast({
+        const { today, tomorrow } = await loadCardPredictions({
           lat: location.lat,
           lon: location.lon,
           token,
         });
 
         if (!cancelled) {
-          setForecast(data);
+          setForecast(today);
+          setTomorrowForecast(tomorrow);
           setForecastStatus("success");
         }
       } catch (error) {
         if (cancelled) return;
 
         setForecastStatus("error");
+        setTomorrowForecast(null);
 
         if (error.code === "CHECK_IN_REQUIRED") {
           setForecastErrorMessage(
@@ -388,6 +393,27 @@ function StatisticsPage() {
     return `${earlierFactors}, and ${lastFactor} contributed to this prediction.`;
   }, [forecast]);
 
+  const tomorrowRiskPercentage = useMemo(() => {
+    const probability = Number(tomorrowForecast?.flare_probability);
+    if (Number.isNaN(probability)) return 0;
+    return Math.round(probability * 100);
+  }, [tomorrowForecast]);
+
+  const tomorrowRiskLevel = tomorrowForecast?.risk_level || "Unavailable";
+
+  const tomorrowReasoning = useMemo(() => {
+    const factors = tomorrowForecast?.contributing_factors;
+    if (!Array.isArray(factors) || factors.length === 0) {
+      return "Not enough recent information is available to explain the prediction.";
+    }
+    if (factors.length === 1) {
+      return `${factors[0]} contributed to this prediction.`;
+    }
+    const lastFactor = factors[factors.length - 1];
+    const earlierFactors = factors.slice(0, -1).join(", ");
+    return `${earlierFactors}, and ${lastFactor} contributed to this prediction.`;
+  }, [tomorrowForecast]);
+
   const selectedHistory = useMemo(() => {
     const { from, to } = getDateRange(selectedRange);
 
@@ -399,6 +425,22 @@ function StatisticsPage() {
       to
     );
   }, [checkIns, selectedRange, graphType]);
+
+  const predictionReminder = useMemo(() => {
+    const d = new Date();
+    const todayLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const todayCheckIn = checkIns.find((row) => row.date === todayLocal);
+    const todayCheckInComplete =
+      todayCheckIn &&
+      (Number(todayCheckIn.puffs_today || 0) > 0 ||
+        Boolean(todayCheckIn.symptoms_logged));
+
+    return statisticsReminderText({
+      todayForecast: forecast,
+      tomorrowForecast,
+      todayCheckInComplete: Boolean(todayCheckInComplete),
+    });
+  }, [checkIns, forecast, tomorrowForecast]);
 
   const graphTitle =
     graphType === "symptoms"
@@ -471,7 +513,9 @@ function StatisticsPage() {
 
       <section className="statistics-grid">
         <article className="statistics-panel prediction-panel">
-          <h2>Today’s Prediction</h2>
+          <h2>
+            {tomorrowForecast ? "Your Predictions" : "Today’s Prediction"}
+          </h2>
 
           {forecastStatus === "loading" && (
             <div className="statistics-message">
@@ -490,6 +534,21 @@ function StatisticsPage() {
             </div>
           )}
 
+          {forecastStatus === "success" && tomorrowForecast && (
+            <div className="prediction-content">
+              <div
+                className={`statistics-risk-circle risk-${tomorrowRiskLevel.toLowerCase()}`}
+              >
+                <span>{tomorrowRiskPercentage}%</span>
+              </div>
+
+              <div className="prediction-reasoning">
+                <h3>Tomorrow’s Prediction</h3>
+                <p>{tomorrowReasoning}</p>
+              </div>
+            </div>
+          )}
+
           {forecastStatus === "success" && forecast && (
             <div className="prediction-content">
               <div
@@ -499,15 +558,15 @@ function StatisticsPage() {
               </div>
 
               <div className="prediction-reasoning">
-                <h3>Reasoning</h3>
+                <h3>{tomorrowForecast ? "Today’s Prediction" : "Reasoning"}</h3>
                 <p>{reasoning}</p>
               </div>
             </div>
           )}
 
-          <p className="prediction-reminder">
-            Put in today’s symptoms to get a prediction for tomorrow.
-          </p>
+          {forecastStatus === "success" && predictionReminder && (
+            <p className="prediction-reminder">{predictionReminder}</p>
+          )}
         </article>
 
         <section className="statistics-right-column">
