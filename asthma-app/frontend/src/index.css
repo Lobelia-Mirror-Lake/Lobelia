@@ -1032,10 +1032,6 @@ hr {
 }
 
 .chatbot-floating {
-  position: fixed;
-
-  bottom: var(--space-24);
-  right: var(--space-24);
 
   width: clamp(320px, 40vw, 600px);
 
