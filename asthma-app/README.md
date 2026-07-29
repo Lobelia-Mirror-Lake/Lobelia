@@ -112,22 +112,14 @@ Tests use `mirror_lake_test` by default (`TEST_DATABASE_URL` to override). If Po
 
 Open http://127.0.0.1:8000/docs for interactive API docs. Full contract details live in [`docs/API.md`](docs/API.md).
 
-### Seed six months of demo history
+### Date windows (important)
 
-Create or refresh an idempotent demo account with 180 days of correlated symptom and
-rescue-inhaler logs:
+| Window | Used for | Required? |
+|--------|----------|-----------|
+| **Today** (`date` / check-in day) | ML risk inputs: today's symptoms, inhaler, today's environment; **yesterday's** wearables as lags | Yes for `POST /v1/forecast` |
+| **Tomorrow** (`forecast_for`) | What the model predicts; Copilot calendar loads **tomorrow's** planned events | Calendar optional — empty schedule is fine |
 
-```bash
-# Local Python environment
-python scripts/seed_demo_history.py
-
-# Or entirely through Docker
-docker compose run --rm --build api python scripts/seed_demo_history.py
-```
-
-Log in with `history-demo@example.com` / `demo-pass-123`. The script only writes to
-local database hosts by default; remote demo databases require the explicit
-`--allow-remote` option. Use `--days` or `--seed` to customize the generated history.
+So: today's logged health data → tomorrow's risk score. Copilot advice can mention tomorrow's plans (soccer, etc.) when events exist; with no events it still advises from risk + environment + knowledge.
 
 ### Example API calls (`curl`)
 
@@ -156,11 +148,27 @@ curl -s -X POST http://127.0.0.1:8000/v1/check-ins \
     "daily_night_symp": true,
     "daily_limit_activity": false,
     "puffs_today": 1,
-    "calendar_event": "Outdoor walk",
     "triggers": ["pollen"]
   }'
 
-# Forecast + bundled advice (Boston lat/lon)
+# Optional: tomorrow's planned events for Copilot (not required for ML risk)
+TOMORROW=$(python3 -c 'from datetime import date,timedelta; print((date.today()+timedelta(days=1)).isoformat())')
+curl -s -X POST http://127.0.0.1:8000/v1/calendar/manual-events \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"date\": \"$(date +%Y-%m-%d)\",
+    \"events\": [{
+      \"title\": \"Outdoor soccer\",
+      \"start\": \"${TOMORROW}T09:00:00-05:00\",
+      \"end\": \"${TOMORROW}T10:30:00-05:00\",
+      \"all_day\": false,
+      \"location\": \"Campus field\",
+      \"description\": \"Scrimmage\"
+    }]
+  }" | python3 -m json.tool
+
+# Forecast + bundled advice — look for calendar_events, calendar_source, advice
 curl -s -X POST http://127.0.0.1:8000/v1/forecast \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -199,7 +207,14 @@ $TOKEN = $login.access_token
 curl.exe -s -X POST http://127.0.0.1:8000/v1/check-ins `
   -H "Authorization: Bearer $TOKEN" `
   -H "Content-Type: application/json" `
-  -d '{\"daily_night_symp\":true,\"puffs_today\":1,\"calendar_event\":\"Outdoor walk\"}'
+  -d '{\"daily_night_symp\":true,\"puffs_today\":1}'
+
+# Optional tomorrow calendar for Copilot
+$tomorrow = (Get-Date).AddDays(1).ToString("yyyy-MM-dd")
+curl.exe -s -X POST http://127.0.0.1:8000/v1/calendar/manual-events `
+  -H "Authorization: Bearer $TOKEN" `
+  -H "Content-Type: application/json" `
+  -d "{`"events`":[{`"title`":`"Outdoor soccer`",`"start`":`"${tomorrow}T09:00:00`",`"end`":`"${tomorrow}T10:30:00`",`"location`":`"Campus field`"}]}"
 
 # Forecast + advice
 curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
@@ -208,7 +223,34 @@ curl.exe -s -X POST http://127.0.0.1:8000/v1/forecast `
   -d '{\"lat\":42.36,\"lon\":-71.06,\"advice_type\":\"daily\"}'
 ```
 
-Typical daily flow: register/login → optional wearables → check-in and/or inhaler puff → `POST /v1/forecast` → optional `POST /v1/advice` to refresh advice without re-running the classifier.
+Typical daily flow: register/login → optional wearables → today's check-in and/or inhaler puff → optional tomorrow calendar events → `POST /v1/forecast` → optional `POST /v1/advice`.
+
+### How to verify Copilot + calendar locally
+
+Automated tests (already covering calendar → LangGraph prompt):
+
+```bash
+cd asthma-app
+docker compose up -d
+source .venv/bin/activate   # or: .venv\Scripts\Activate.ps1
+pytest tests/test_calendar_api.py tests/test_copilot_workflow.py tests/test_forecast_advice_api.py -q
+```
+
+Offline LangGraph demo (no API keys; prints each node + calendar state):
+
+```bash
+cd asthma-app
+docker compose up -d
+PYTHONPATH=. python scripts/trace_copilot_workflow.py
+PYTHONPATH=. python scripts/trace_copilot_workflow.py --no-calendar   # empty schedule still works
+PYTHONPATH=. python scripts/trace_copilot_workflow.py --live-llm      # real Gemini/Claude
+```
+
+In the forecast JSON, check:
+
+- `date` = today, `forecast_for` = tomorrow
+- `calendar_events` / `calendar_source` (`check_in`, `request`, `google_calendar`, or empty + `data_quality.unavailable_context` containing `calendar`)
+- `advice` mentions outdoor plans when events were provided
 
 ### Check LLM advice manually
 
@@ -234,6 +276,58 @@ python scripts/check_llm_advice.py --json | Out-File -Encoding utf8 advice.json
 ```
 
 Direct mode skips the server and calls Gemini/Claude with a sample scenario. `--api` registers a temp user, logs a puff, and runs `POST /v1/forecast` with real env data.
+
+### Copilot recommendation workflow
+
+`POST /v1/forecast` and `POST /v1/advice` use a typed LangGraph workflow:
+
+1. Keep the ML forecast immutable.
+2. Load calendar, environment, profile, and relevant historical context.
+3. Compute personal insights (patterns, trends, and statistics) in Python.
+4. Retrieve medical knowledge from the local JSON provider.
+5. Apply prompt guardrails, invoke Gemini, and fall back to Claude when configured.
+6. Validate the response before returning it.
+
+### Lobelia Google Calendar + episode memory demo
+
+One script that uses your connected Google account, prints tomorrow’s events,
+and shows `debug.retrieved_episodes` (forces `COPILOT_DEBUG=1` for the process):
+
+```bash
+cd asthma-app
+# Fast path (fake LLM; still uses real Google Calendar)
+PYTHONPATH=. python scripts/demo_lobelia_calendar_memory.py \
+  --email lobelia-demo@example.com --password demo-pass-123 \
+  --seed-episodes --skip-llm
+
+# Full forecast + live advice
+PYTHONPATH=. python scripts/demo_lobelia_calendar_memory.py \
+  --email lobelia-demo@example.com --password demo-pass-123 \
+  --seed-episodes
+```
+
+`--seed-episodes` adds a few past outdoor days so retrieval isn’t empty on a new account.
+Without it you’ll still see Google calendar events, but `retrieved_episodes` may be `[]`.
+
+History uses hybrid episode memory (pgvector semantic similarity + Postgres full-text keyword search) over structured retrospective episodes — not raw calendar rows. Lookback defaults to 8 weeks (maximum one year) and sends only the most relevant examples plus compact metric windows to the LLM. Today's check-in and environment still reach the LLM through the normal Copilot nodes; empty episode memory is fine. Calendar context comes from Google Calendar (when connected), `POST /v1/calendar/manual-events`, request overrides, or legacy `calendar_event` text — wired into LangGraph via `StructuredCalendarProvider` / `ManualCalendarProvider` for tomorrow's forecast day. If both LLMs fail, the API still persists and returns the ML forecast with `advice: null` and a warning.
+
+Backfill existing check-ins into episode memory:
+
+```bash
+EMBEDDING_PROVIDER=stub PYTHONPATH=. python scripts/backfill_episodes.py
+```
+
+Embeddings default to Gemini (`EMBEDDING_PROVIDER=gemini`, reuses `GEMINI_API_KEY`). Local Docker Postgres must use the `pgvector/pgvector:pg16` image (see `docker-compose.yml`).
+
+Provider/model selection is configured with `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `GEMINI_MODEL`, and `CLAUDE_MODEL`.
+
+To build provenance-rich knowledge chunks from allowlisted CDC, EPA AirNow, and NHLBI sources:
+
+```bash
+python -m copilot.ingest
+```
+
+The source manifest is `knowledge/sources.json`. Every source and generated chunk declares an `audience`, allowed `advice_types`, and `medication_change_allowed` (currently always `false`). Patient retrieval derives search terms from anticipated forecast/environment triggers, applies chunk-level topic metadata, and returns no evidence rather than unrelated zero-score matches. The multi-column EXHALE PDF is disabled because its extracted columns interleave; cleaner CDC HTML sources provide the patient material. Clinician-oriented NHLBI material is retained solely for future `clinical_reference` use. GINA and American Lung Association entries accept approved local files only. Generated documents/chunks are ignored by Git. Chroma is intentionally deferred; `MedicalKnowledgeProvider` keeps retrieval storage replaceable.
 
 ### Classifier prediction (`POST /predict/classifier`)
 

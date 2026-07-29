@@ -19,6 +19,7 @@ os.environ.setdefault(
     ),
 )
 os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("EMBEDDING_PROVIDER", "stub")
 
 from dotenv import load_dotenv
 
@@ -69,6 +70,11 @@ def db_engine():
             conn.execute(text("SELECT 1"))
     except Exception as exc:
         pytest.skip(f"PostgreSQL not available for tests: {exc}")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    except Exception as exc:
+        pytest.skip(f"pgvector extension not available (use pgvector/pgvector:pg16 image): {exc}")
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine
@@ -151,13 +157,16 @@ def mock_env_fetch() -> Callable[..., AsyncMock]:
 @pytest.fixture
 def mock_advice() -> Callable[..., AsyncMock]:
     async def _generate_advice(**kwargs):
-        return {
+        payload = {
             "summary": "Test advice summary.",
             "sections": [{"title": "Tonight", "body": "Rest and monitor symptoms."}],
             "disclaimer": "Educational only.",
             "llm_provider": kwargs.get("llm_provider") or "gemini",
             "knowledge_sources_used": ["GINA", "CDC", "user_history"],
         }
+        if kwargs.get("return_warnings"):
+            return payload, []
+        return payload
 
     return AsyncMock(side_effect=_generate_advice)
 

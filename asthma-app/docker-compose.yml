@@ -3,7 +3,8 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector required for episode hybrid memory (semantic retrieval)
+    image: pgvector/pgvector:pg16
     container_name: mirror-lake-db
     restart: unless-stopped
     ports:

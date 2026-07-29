@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000";
+import { API_URL } from "../config";
 
 async function parseResponse(response, fallbackMessage) {
   const data = await response.json();
@@ -25,7 +25,7 @@ export async function getCheckIns({ from, to, token }) {
   if (to) params.set("to", to);
 
   const response = await fetch(
-    `${API_BASE_URL}/check-ins?${params.toString()}`,
+    `${API_URL}/v1/check-ins?${params.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -37,7 +37,7 @@ export async function getCheckIns({ from, to, token }) {
 }
 
 export async function saveCheckIn({ token, checkIn }) {
-  const response = await fetch(`${API_BASE_URL}/check-ins`, {
+  const response = await fetch(`${API_URL}/v1/check-ins`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
