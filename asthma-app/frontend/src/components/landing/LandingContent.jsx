@@ -1,6 +1,7 @@
 import { Button, Container, Row, Col } from "react-bootstrap";
 import { motion } from "framer-motion";
 import { useRef, useLayoutEffect, useState } from "react";
+import image from "../../assets/images/lungFlowers.png";
 
 function LandingContent({
   onLogin,
@@ -51,7 +52,7 @@ function LandingContent({
   return (
     <Container
       fluid
-      className="green-body vertical min-vh-100"
+      className="green-body vertical-16 min-vh-100 h-100"
       style={{
         justifyContent: "space-between"
       }}
@@ -67,6 +68,26 @@ function LandingContent({
           </h2>
         </Col>
       </Row>
+
+      <div
+        style={{
+          flex: 1,
+          position: "relative",
+        }}
+      >
+        <img
+          src={image}
+          alt=""
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
 
       <motion.div
         animate={{
@@ -95,7 +116,8 @@ function LandingContent({
           }}
           style={{
             position: "absolute",
-            width: "100%"
+            width: "100%",
+            padding: "8px"
           }}
         >
           <Row className="at-middle-center g-3">

@@ -189,7 +189,22 @@ async def list_calendar_events(
             timezone_name=timezone_name,
         )
     except Exception as exc:
-        raise api_error(502, "Failed to fetch Google Calendar events", "CALENDAR_FETCH_ERROR") from exc
+        # Surface a short Google/httpx reason so local debugging isn't a black box.
+        reason = str(exc).strip()
+        if hasattr(exc, "response") and getattr(exc, "response", None) is not None:
+            try:
+                payload = exc.response.json()
+                reason = (
+                    payload.get("error", {}).get("message")
+                    or payload.get("error_description")
+                    or reason
+                )
+            except Exception:
+                reason = (exc.response.text or reason)[:300]
+        detail = "Failed to fetch Google Calendar events"
+        if reason:
+            detail = f"{detail}: {reason}"
+        raise api_error(502, detail, "CALENDAR_FETCH_ERROR") from exc
 
     return {
         "date": target.isoformat(),
@@ -214,8 +229,13 @@ def save_manual_events(
 
     day = body.date or Date.today()
     check_in = get_or_create_check_in(db, user.id, day)
-    check_in.calendar_events = body.events
-    check_in.calendar_event = gcal.events_to_summary(body.events)
+    stamped = []
+    for event in body.events:
+        item = dict(event)
+        item.setdefault("source", "manual")
+        stamped.append(item)
+    check_in.calendar_events = stamped
+    check_in.calendar_event = gcal.events_to_summary(stamped)
     db.commit()
     db.refresh(check_in)
     return {

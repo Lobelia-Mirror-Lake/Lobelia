@@ -5,10 +5,21 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+
+from copilot.providers import (
+    CalendarProvider,
+    ManualCalendarProvider,
+    StructuredCalendarProvider,
+)
+from copilot.state import AdviceType
+from db.models import User
 
 load_dotenv()
 
@@ -182,8 +193,60 @@ async def generate_advice(
     layer3_summary: str,
     llm_provider: str | None = None,
     calendar_events: list[dict] | None = None,
-) -> dict:
-    provider = (llm_provider or os.getenv("LLM_PROVIDER", "claude")).lower()
+    db: Session | None = None,
+    user: User | None = None,
+    anchor_date: date | None = None,
+    forecast: dict[str, Any] | None = None,
+    environment: dict[str, Any] | None = None,
+    question: str | None = None,
+    advice_type: AdviceType = "daily",
+    calendar_provider: CalendarProvider | None = None,
+    return_warnings: bool = False,
+) -> dict | None | tuple[dict | None, list[str]] | tuple[dict | None, list[str], dict | None]:
+    if db is not None and user is not None and anchor_date is not None:
+        from copilot.workflow import generate_copilot_advice
+
+        # Advice targets tomorrow's forecast day — match the calendar window.
+        calendar_day = anchor_date + timedelta(days=1)
+        resolved_calendar = calendar_provider
+        if resolved_calendar is None and calendar_events:
+            # Forecast/advice already resolved Google / manual / request events.
+            default_source = "google_calendar"
+            if calendar_events and isinstance(calendar_events[0], dict):
+                default_source = str(calendar_events[0].get("source") or "google_calendar")
+            resolved_calendar = StructuredCalendarProvider(
+                calendar_events,
+                default_source=default_source,
+                pre_scoped=True,
+            )
+        elif resolved_calendar is None and calendar_event:
+            resolved_calendar = ManualCalendarProvider(calendar_event, calendar_day)
+
+        advice, warnings, debug = await generate_copilot_advice(
+            db=db,
+            user=user,
+            anchor_date=anchor_date,
+            forecast=forecast
+            or {
+                "risk_level": risk_level,
+                "contributing_factors": contributing_factors,
+            },
+            environment=environment or {},
+            symptoms_summary=symptoms_summary,
+            puffs_today=puffs_today,
+            question=question,
+            requested_provider=llm_provider,
+            advice_type=advice_type,
+            calendar_provider=resolved_calendar,
+            calendar_day=calendar_day,
+        )
+        if return_warnings:
+            return advice, warnings, debug
+        if advice is None:
+            raise RuntimeError("LLM provider error")
+        return advice
+
+    provider = (llm_provider or os.getenv("LLM_PROVIDER", "gemini")).lower()
     layer1 = _select_chunks(_load_chunks("layer1.json"), contributing_factors)
     layer2 = _select_chunks(_load_chunks("layer2.json"), contributing_factors)
 
@@ -207,16 +270,19 @@ async def generate_advice(
     except Exception as exc:
         raise RuntimeError("LLM provider error") from exc
 
-    sources = ["GINA", "CDC"]
+    sources = ["local_knowledge"]
     if "Personalized Patient History" in layer3_summary:
         sources.append("user_history")
     if calendar_events:
         sources.append("google_calendar")
 
-    return {
+    payload = {
         "summary": parsed.get("summary", ""),
         "sections": parsed.get("sections", []),
         "disclaimer": parsed.get("disclaimer", DEFAULT_DISCLAIMER),
         "llm_provider": provider,
         "knowledge_sources_used": sources,
     }
+    if return_warnings:
+        return payload, [], None
+    return payload

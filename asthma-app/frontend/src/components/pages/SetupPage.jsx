@@ -15,7 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 
 function SetupPage() {
     // get user token
-    const { token, setupComplete, setSetupComplete } = useAuth();
+    const { token, setupComplete, setSetupComplete, updateUser } = useAuth();
 
     // number of pages to go through
     const numPages = 7;
@@ -58,7 +58,7 @@ function SetupPage() {
             try {
                 setSaving(true);
 
-                await updateProfile({
+                const updatedUser = await updateProfile({
                     name: setupData.name,
                     date_of_birth: setupData.date_of_birth,
 
@@ -70,6 +70,9 @@ function SetupPage() {
 
                     tracking: setupData.tracking,
                 }, token);
+
+                // update context
+                updateUser(updatedUser);
 
                 setNumPage(numPage + 1);
                 setButtonError("");
