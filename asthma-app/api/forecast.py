@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
 from api.errors import api_error
+from copilot.state import PatientAdviceType
 from db.database import get_db
 from db.models import User
 from services.forecast_service import get_forecast, list_forecasts, run_forecast
@@ -23,6 +24,7 @@ class ForecastRequest(BaseModel):
     lon: float = Field(..., ge=-180, le=180)
     date: Optional[Date] = None
     llm_provider: Optional[Literal["claude", "gemini"]] = None
+    advice_type: PatientAdviceType = "daily"
     timezone: str = Field("America/Chicago", description="IANA timezone for Google Calendar day bounds")
     calendar_events: Optional[list[dict[str, Any]]] = Field(
         None,
@@ -43,6 +45,7 @@ async def create_forecast(
         lon=body.lon,
         anchor_date=body.date,
         llm_provider=body.llm_provider,
+        advice_type=body.advice_type,
         calendar_events=body.calendar_events,
         timezone_name=body.timezone,
     )
