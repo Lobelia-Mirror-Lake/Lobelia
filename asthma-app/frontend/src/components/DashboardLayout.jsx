@@ -71,7 +71,7 @@ function DashboardLayout() {
         </Navbar>
       </div>
 
-      <Chatbot title="Chat" isFloating={true} />
+      <Chatbot title="Chat" isFloating={true} beginClosed={false} />
 
       {/* Header */}
       <div className="p-4">
