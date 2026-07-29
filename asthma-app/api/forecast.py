@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date as Date
+from datetime import date as Date, timedelta
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -13,7 +13,7 @@ from api.deps import get_current_user
 from api.errors import api_error
 from db.database import get_db
 from db.models import User
-from services.forecast_service import get_forecast_for_date, list_forecasts, run_forecast
+from services.forecast_service import get_forecast, list_forecasts, run_forecast
 
 router = APIRouter(tags=["forecast"])
 
@@ -53,14 +53,23 @@ def get_today_forecast(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    record = get_forecast_for_date(db, user.id, Date.today())
-    if record is None:
+    """Stored predictions for the home/stats cards.
+
+    Returns whatever is already saved:
+    - ``today``: prediction targeting today (usually from yesterday's check-in)
+    - ``tomorrow``: prediction targeting tomorrow (from today's check-in)
+    """
+    today = Date.today()
+    tomorrow = today + timedelta(days=1)
+    for_today = get_forecast(db, user.id, targeting=today)
+    for_tomorrow = get_forecast(db, user.id, targeting=tomorrow)
+    if for_today is None and for_tomorrow is None:
         raise api_error(
             404,
-            "No forecast found for today. Run POST /v1/forecast first.",
+            "No prediction available yet. Complete a symptom check-in and run a forecast.",
             "FORECAST_NOT_FOUND",
         )
-    return record
+    return {"today": for_today, "tomorrow": for_tomorrow}
 
 
 @router.get("/forecasts")

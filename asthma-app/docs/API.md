@@ -627,7 +627,7 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `DELETE` | `/v1/calendar/disconnect` | Yes | Disconnect Google Calendar |
 | `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice (+ auto calendar) |
 | `GET` | `/v1/forecasts` | Yes | Forecast history |
-| `GET` | `/v1/forecasts/today` | Yes | Today's cached forecast |
+| `GET` | `/v1/forecasts/today` | Yes | Stored `{ today, tomorrow }` predictions for home/stats cards |
 | `POST` | `/v1/advice` | Yes | Regenerate advice only |
 | `POST` | `/predict/classifier` | No | Legacy classifier |
 | `POST` | `/predict` | No | Legacy GINA cold start |

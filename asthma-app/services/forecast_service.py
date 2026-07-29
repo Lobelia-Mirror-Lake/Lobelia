@@ -74,6 +74,11 @@ async def run_forecast(
     anchor_date = anchor_date or date.today()
     forecast_for = anchor_date + timedelta(days=1)
 
+    # Reuse a stored prediction for this check-in day (do not re-run ML/LLM).
+    existing = get_forecast(db, user.id, run_on=anchor_date)
+    if existing is not None:
+        return existing
+
     check_in = db.scalar(
         select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == anchor_date)
     )
@@ -370,11 +375,40 @@ def list_forecasts(
     return items
 
 
-def get_forecast_for_date(db: Session, user_id, anchor_date: date) -> dict | None:
-    record = db.scalar(
-        select(Forecast)
-        .where(Forecast.user_id == user_id, Forecast.date == anchor_date)
-        .order_by(Forecast.created_at.desc())
-    )
+def get_forecast(
+    db: Session,
+    user_id,
+    *,
+    run_on: date | None = None,
+    targeting: date | None = None,
+) -> dict | None:
+    """Fetch a cached forecast by run day and/or target day.
+
+    - ``run_on``: the check-in / POST day (``Forecast.date``)
+    - ``targeting``: the day being predicted (``Forecast.forecast_for``)
+
+    Provide at least one. If both are set, both filters apply.
+    """
+    if run_on is None and targeting is None:
+        raise ValueError("Provide run_on and/or targeting")
+
+    query = select(Forecast).where(Forecast.user_id == user_id)
+    if run_on is not None:
+        query = query.where(Forecast.date == run_on)
+    if targeting is not None:
+        query = query.where(Forecast.forecast_for == targeting)
+    record = db.scalar(query.order_by(Forecast.created_at.desc()))
     return forecast_to_dict(record) if record else None
 
+
+def get_current_prediction(db: Session, user_id, *, today: date | None = None) -> dict | None:
+    """Best prediction to show on Home / Statistics for ``today``.
+
+    Prefer a forecast already run today (predicts tomorrow). Otherwise fall
+    back to the prediction *for* today (usually from yesterday's check-in).
+    """
+    today = today or date.today()
+    from_today = get_forecast(db, user_id, run_on=today)
+    if from_today is not None:
+        return from_today
+    return get_forecast(db, user_id, targeting=today)
