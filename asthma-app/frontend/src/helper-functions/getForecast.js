@@ -1,24 +1,21 @@
 import { API_URL } from "../config";
 import {
-  isAfterSixPm,
-  localYmd,
   selectCardPredictions,
   selectHomeForecast,
-  yesterdayYmd,
 } from "./forecastDisplayLogic";
 
-export async function getForecast({ lat, lon, token, date }) {
-  const response = await fetch(`${API_URL}/v1/forecast`, {
+/**
+ * Single Home/Statistics API: get stored predictions, or calculate + store if missing.
+ * Also backfills advice when a stored forecast has none.
+ */
+export async function loadCardPredictions({ token, lat, lon, now = new Date() }) {
+  const response = await fetch(`${API_URL}/v1/forecasts/today`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      lat,
-      lon,
-      ...(date ? { date } : {}),
-    }),
+    body: JSON.stringify({ lat, lon }),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -35,78 +32,13 @@ export async function getForecast({ lat, lon, token, date }) {
     throw error;
   }
 
-  return data;
-}
-
-/** Read stored today/tomorrow predictions (no ML/LLM). */
-export async function getStoredPredictions({ token }) {
-  const response = await fetch(`${API_URL}/v1/forecasts/today`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : data?.detail?.message || "No prediction for today yet."
-    );
-    error.code = data?.detail?.code || data?.code;
-    error.status = response.status;
-    throw error;
-  }
-  return {
-    today: data.today || null,
-    tomorrow: data.tomorrow || null,
-  };
-}
-
-/**
- * Shared Home + Statistics loader.
- * Reads stored predictions first; generates (and stores) only when missing.
- * Applies the 6pm rule so tomorrow is not shown before 18:00.
- */
-export async function loadCardPredictions({ token, lat, lon, now = new Date() }) {
-  let today = null;
-  let tomorrow = null;
-
-  try {
-    const stored = await getStoredPredictions({ token });
-    today = stored.today;
-    tomorrow = stored.tomorrow;
-  } catch (error) {
-    if (error.code !== "FORECAST_NOT_FOUND" && error.status !== 404) {
-      throw error;
-    }
-  }
-
-  if (!today) {
-    try {
-      today = await getForecast({
-        lat,
-        lon,
-        token,
-        date: yesterdayYmd(now),
-      });
-    } catch {
-      today = null;
-    }
-  }
-
-  if (isAfterSixPm(now) && !tomorrow) {
-    try {
-      tomorrow = await getForecast({
-        lat,
-        lon,
-        token,
-        date: localYmd(now),
-      });
-    } catch {
-      tomorrow = null;
-    }
-  }
-
-  const visible = selectCardPredictions({ today, tomorrow }, now);
+  const visible = selectCardPredictions(
+    {
+      today: data.today || null,
+      tomorrow: data.tomorrow || null,
+    },
+    now
+  );
 
   if (!visible.today && !visible.tomorrow) {
     const error = new Error(
@@ -126,6 +58,7 @@ export async function loadDisplayForecast({ token, lat, lon, now = new Date() })
 }
 
 export {
+  forecastHasAdvice,
   homeRiskHeading,
   isAfterSixPm,
   localYmd,
