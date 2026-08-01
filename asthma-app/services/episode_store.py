@@ -36,6 +36,7 @@ def upsert_built_episode(
     built: BuiltEpisode,
     *,
     embedder: Embedder | None = None,
+    skip_embed: bool = False,
 ) -> Episode | None:
     """Insert/update a retrospective episode. Embedding failure stores NULL vector."""
     if built.kind != "retrospective":
@@ -59,10 +60,16 @@ def upsert_built_episode(
         row.metadata_ = built.metadata
 
     embedding: list[float] | None = None
-    try:
-        embedding = (embedder or get_embedder()).embed(built.summary_text)
-    except Exception as exc:
-        logger.warning("Episode embed failed for user=%s date=%s: %s", user_id, built.episode_date, exc)
+    if not skip_embed:
+        try:
+            embedding = (embedder or get_embedder()).embed(built.summary_text)
+        except Exception as exc:
+            logger.warning(
+                "Episode embed failed for user=%s date=%s: %s",
+                user_id,
+                built.episode_date,
+                exc,
+            )
     row.embedding = embedding
     db.flush()
     db.execute(
@@ -83,6 +90,7 @@ def upsert_retrospective_from_day(
     *,
     environment: dict[str, Any] | None = None,
     embedder: Embedder | None = None,
+    skip_embed: bool = False,
 ) -> Episode | None:
     """Build + store episode for a resolved day (check-in preferred; env optional)."""
     # Ensure pending check-ins/env rows in this session are queryable (autoflush=False).
@@ -113,7 +121,9 @@ def upsert_retrospective_from_day(
         triggers=list(check_in.triggers or []),
         symptoms_next_day=_symptoms_list(next_check_in),
     )
-    return upsert_built_episode(db, user_id, built, embedder=embedder)
+    return upsert_built_episode(
+        db, user_id, built, embedder=embedder, skip_embed=skip_embed
+    )
 
 
 def soft_upsert_episode_for_forecast(
@@ -123,8 +133,13 @@ def soft_upsert_episode_for_forecast(
     *,
     environment: dict[str, Any] | None = None,
     embedder: Embedder | None = None,
+    skip_embed: bool = True,
 ) -> None:
-    """Best-effort retrospective upsert; never raises to the forecast caller."""
+    """Best-effort retrospective upsert; never raises to the forecast caller.
+
+    Embedding is skipped on the forecast hot path by default so a slow/broken
+    Gemini embedding model cannot freeze the API worker.
+    """
     try:
         upsert_retrospective_from_day(
             db,
@@ -132,10 +147,13 @@ def soft_upsert_episode_for_forecast(
             day,
             environment=environment,
             embedder=embedder,
+            skip_embed=skip_embed,
         )
         # Refresh yesterday with next-day symptom linkage when available.
         yesterday = day - timedelta(days=1)
         if db.scalar(select(CheckIn).where(CheckIn.user_id == user_id, CheckIn.date == yesterday)):
-            upsert_retrospective_from_day(db, user_id, yesterday, embedder=embedder)
+            upsert_retrospective_from_day(
+                db, user_id, yesterday, embedder=embedder, skip_embed=skip_embed
+            )
     except Exception:
         logger.exception("Failed to upsert retrospective episode for user=%s day=%s", user_id, day)

@@ -176,7 +176,10 @@ def build_recommendation_graph(deps: WorkflowDependencies):
         return {"profile": deps.profile_provider.get_profile()}
 
     async def load_history(state: CopilotState) -> dict[str, Any]:
-        history, analysis_pool = deps.history_provider.get_relevant_history(
+        import asyncio
+
+        history, analysis_pool = await asyncio.to_thread(
+            deps.history_provider.get_relevant_history,
             anchor_date=deps.anchor_date,
             forecast=state["forecast"],
             calendar=state["calendar"],
