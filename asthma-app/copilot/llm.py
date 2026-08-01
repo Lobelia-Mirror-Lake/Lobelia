@@ -22,7 +22,7 @@ class LLMRegistry:
         self,
         factories: dict[str, Callable[[], Any]] | None = None,
         *,
-        retries_per_provider: int = 2,
+        retries_per_provider: int = 1,
     ):
         self.factories = factories or {}
         self.retries_per_provider = max(1, retries_per_provider)
@@ -85,6 +85,8 @@ class LLMRegistry:
                 model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
                 google_api_key=api_key,
                 temperature=0,
+                timeout=float(os.getenv("LLM_TIMEOUT_SECONDS", "45")),
+                max_retries=1,
             )
         if provider == "claude":
             api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -97,6 +99,8 @@ class LLMRegistry:
                 api_key=api_key,
                 temperature=0,
                 max_tokens=1024,
+                timeout=float(os.getenv("LLM_TIMEOUT_SECONDS", "45")),
+                max_retries=1,
             )
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
