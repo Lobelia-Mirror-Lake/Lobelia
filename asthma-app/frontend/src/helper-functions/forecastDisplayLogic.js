@@ -1,5 +1,20 @@
 /** Pure display rules for today vs tomorrow predictions (testable without fetch). */
 
+/** True when a forecast payload has a usable advice summary or section body. */
+export function forecastHasAdvice(forecast) {
+  const advice = forecast?.advice;
+  if (!advice || typeof advice !== "object") {
+    return false;
+  }
+  if (String(advice.summary || "").trim()) {
+    return true;
+  }
+  return (
+    Array.isArray(advice.sections) &&
+    advice.sections.some((section) => String(section?.body || "").trim())
+  );
+}
+
 export function localYmd(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  forecastHasAdvice,
   homeForecastDayLabel,
   homeRiskHeading,
   isAfterSixPm,
@@ -27,6 +28,31 @@ const tomorrowPred = {
   flare_probability: 0.5,
   risk_level: "Medium",
 };
+
+describe("forecastHasAdvice", () => {
+  it("is false when advice is missing or empty", () => {
+    assert.equal(forecastHasAdvice(null), false);
+    assert.equal(forecastHasAdvice({}), false);
+    assert.equal(forecastHasAdvice({ advice: null }), false);
+    assert.equal(forecastHasAdvice({ advice: { summary: "", sections: [] } }), false);
+  });
+
+  it("is true when summary or section body is present", () => {
+    assert.equal(
+      forecastHasAdvice({ advice: { summary: "Keep rescue nearby.", sections: [] } }),
+      true
+    );
+    assert.equal(
+      forecastHasAdvice({
+        advice: {
+          summary: "",
+          sections: [{ title: "Tonight", body: "Monitor nighttime symptoms." }],
+        },
+      }),
+      true
+    );
+  });
+});
 
 describe("local date helpers", () => {
   it("formats local YMD without UTC shift", () => {

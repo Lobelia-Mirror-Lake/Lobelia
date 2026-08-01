@@ -297,7 +297,7 @@ function StatisticsPage() {
         setForecastStatus("error");
         setTomorrowForecast(null);
 
-        if (error.code === "CHECK_IN_REQUIRED") {
+        if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
           setForecastErrorMessage(
             "Complete today’s symptom check-in to generate tomorrow’s prediction."
           );
