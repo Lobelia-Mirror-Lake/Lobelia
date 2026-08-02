@@ -99,6 +99,187 @@ def _unpack_advice_result(advice_result) -> tuple[dict | None, list[str], dict |
     return advice_result, [], None
 
 
+def forecast_has_advice(advice: Any) -> bool:
+    """True when stored advice has a usable summary or at least one section."""
+    if not isinstance(advice, dict):
+        return False
+    if str(advice.get("summary") or "").strip():
+        return True
+    sections = advice.get("sections") or []
+    return isinstance(sections, list) and any(
+        isinstance(section, dict) and str(section.get("body") or "").strip()
+        for section in sections
+    )
+
+
+async def ensure_forecast_advice(
+    db: Session,
+    user: User,
+    forecast: dict | None,
+    *,
+    llm_provider: str | None = None,
+    advice_type: AdviceType = "daily",
+) -> dict | None:
+    """If a stored forecast is missing advice, regenerate and merge it."""
+    if forecast is None or forecast_has_advice(forecast.get("advice")):
+        return forecast
+
+    anchor_date = date.fromisoformat(forecast["date"])
+    try:
+        regenerated = await regenerate_advice(
+            db,
+            user,
+            anchor_date=anchor_date,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+        )
+    except Exception:
+        return forecast
+
+    if not forecast_has_advice(regenerated.get("advice")):
+        return forecast
+
+    return {
+        **forecast,
+        "advice": regenerated["advice"],
+        "warnings": regenerated.get("warnings", forecast.get("warnings", [])),
+        "data_quality": regenerated.get("data_quality", forecast.get("data_quality")),
+        "contributing_factors": regenerated.get(
+            "contributing_factors", forecast.get("contributing_factors")
+        ),
+        "calendar_events": regenerated.get(
+            "calendar_events", forecast.get("calendar_events")
+        ),
+    }
+
+
+async def _try_run_forecast(
+    db: Session,
+    user: User,
+    *,
+    lat: float,
+    lon: float,
+    anchor_date: date,
+    llm_provider: str | None = None,
+    advice_type: AdviceType = "daily",
+    timezone_name: str = "America/Chicago",
+) -> dict | None:
+    """Run forecast for an anchor day; return None if check-in/other soft failure."""
+    from api.errors import APIError
+
+    try:
+        return await run_forecast(
+            db,
+            user,
+            lat=lat,
+            lon=lon,
+            anchor_date=anchor_date,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+            timezone_name=timezone_name,
+        )
+    except APIError as exc:
+        if exc.code in {
+            "CHECK_IN_REQUIRED",
+            "CLASSIFIER_UNAVAILABLE",
+            "FORECAST_NOT_FOUND",
+            "ENV_PROVIDER_ERROR",
+        }:
+            return None
+        raise
+    except Exception:
+        return None
+
+
+async def ensure_card_predictions(
+    db: Session,
+    user: User,
+    *,
+    lat: float,
+    lon: float,
+    today: date | None = None,
+    llm_provider: str | None = None,
+    advice_type: AdviceType = "daily",
+    timezone_name: str = "America/Chicago",
+) -> dict:
+    """Get-or-create Home/Statistics card predictions.
+
+    - ``today``: prediction targeting calendar today (usually from yesterday's check-in)
+    - ``tomorrow``: prediction targeting tomorrow (from today's check-in)
+
+    Returns stored rows when present; otherwise runs ML+advice. Also backfills
+    advice when a stored forecast has ``advice: null``.
+
+    Tomorrow is only *generated* after 18:00 local (matching the UI unlock rule).
+    """
+    from api.errors import api_error
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    today = today or date.today()
+    yesterday = today - timedelta(days=1)
+    tomorrow = today + timedelta(days=1)
+
+    try:
+        local_now = datetime.now(ZoneInfo(timezone_name))
+    except Exception:
+        local_now = datetime.now().astimezone()
+    after_six = local_now.hour >= 18
+
+    for_today = get_forecast(db, user.id, targeting=today)
+    for_tomorrow = get_forecast(db, user.id, targeting=tomorrow)
+
+    if for_today is None:
+        for_today = await _try_run_forecast(
+            db,
+            user,
+            lat=lat,
+            lon=lon,
+            anchor_date=yesterday,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+            timezone_name=timezone_name,
+        )
+    else:
+        for_today = await ensure_forecast_advice(
+            db,
+            user,
+            for_today,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+        )
+
+    if for_tomorrow is None:
+        if after_six:
+            for_tomorrow = await _try_run_forecast(
+                db,
+                user,
+                lat=lat,
+                lon=lon,
+                anchor_date=today,
+                llm_provider=llm_provider,
+                advice_type=advice_type,
+                timezone_name=timezone_name,
+            )
+    else:
+        for_tomorrow = await ensure_forecast_advice(
+            db,
+            user,
+            for_tomorrow,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+        )
+
+    if for_today is None and for_tomorrow is None:
+        raise api_error(
+            404,
+            "No prediction available yet. Complete a symptom check-in to generate a forecast.",
+            "FORECAST_NOT_FOUND",
+        )
+
+    return {"today": for_today, "tomorrow": for_tomorrow}
+
+
 async def run_forecast(
     db: Session,
     user: User,
@@ -116,10 +297,17 @@ async def run_forecast(
     anchor_date = anchor_date or date.today()
     forecast_for = anchor_date + timedelta(days=1)
 
-    # Reuse a stored prediction for this check-in day (do not re-run ML/LLM).
+    # Reuse a stored prediction for this check-in day (do not re-run ML).
+    # If advice was missing (LLM outage on first run), fill it in now.
     existing = get_forecast(db, user.id, run_on=anchor_date)
     if existing is not None:
-        return existing
+        return await ensure_forecast_advice(
+            db,
+            user,
+            existing,
+            llm_provider=llm_provider,
+            advice_type=advice_type,
+        ) or existing
 
     check_in = db.scalar(
         select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == anchor_date)
@@ -205,16 +393,6 @@ async def run_forecast(
         snapshot.features = env_features
         snapshot.missing = env_result.get("missing")
 
-    # Retrospective episode memory (best-effort; never blocks the ML forecast).
-    from services.episode_store import soft_upsert_episode_for_forecast
-
-    soft_upsert_episode_for_forecast(
-        db,
-        user.id,
-        anchor_date,
-        environment=env_features,
-    )
-
     # Tomorrow env for temp_diff when available
     temp_diff = None
     try:
@@ -264,22 +442,29 @@ async def run_forecast(
     advice_warnings: list[str] = []
     advice_debug: dict | None = None
     try:
-        advice_result = await generate_advice(
-            risk_level=prediction["risk_level"],
-            contributing_factors=contributing_factors,
-            calendar_event=calendar_summary,
-            calendar_events=resolved_events,
-            symptoms_summary=_symptoms_summary(check_in) or "no significant symptoms reported",
-            puffs_today=check_in.puffs_today,
-            layer3_summary="",
-            llm_provider=llm_provider,
-            advice_type=advice_type,
-            db=db,
-            user=user,
-            anchor_date=anchor_date,
-            forecast=forecast_context,
-            environment=env_features,
-            return_warnings=True,
+        import asyncio
+        import os
+
+        advice_timeout = float(os.getenv("LLM_TIMEOUT_SECONDS", "45")) * 3
+        advice_result = await asyncio.wait_for(
+            generate_advice(
+                risk_level=prediction["risk_level"],
+                contributing_factors=contributing_factors,
+                calendar_event=calendar_summary,
+                calendar_events=resolved_events,
+                symptoms_summary=_symptoms_summary(check_in) or "no significant symptoms reported",
+                puffs_today=check_in.puffs_today,
+                layer3_summary="",
+                llm_provider=llm_provider,
+                advice_type=advice_type,
+                db=db,
+                user=user,
+                anchor_date=anchor_date,
+                forecast=forecast_context,
+                environment=env_features,
+                return_warnings=True,
+            ),
+            timeout=advice_timeout,
         )
         advice, advice_warnings, advice_debug = _unpack_advice_result(advice_result)
     except Exception:
@@ -300,6 +485,20 @@ async def run_forecast(
     )
     db.add(record)
     db.commit()
+
+    # Episode memory after the forecast is saved so embedding never blocks the response path.
+    from services.episode_store import soft_upsert_episode_for_forecast
+
+    soft_upsert_episode_for_forecast(
+        db,
+        user.id,
+        anchor_date,
+        environment=env_features,
+    )
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
     unavailable: list[str] = []
     if wearable is None:
@@ -436,22 +635,29 @@ async def regenerate_advice(
         unavailable.append("calendar")
 
     try:
-        advice_result = await generate_advice(
-            risk_level=forecast.risk_level or "Medium",
-            contributing_factors=contributing_factors,
-            calendar_event=calendar_summary or calendar_event,
-            calendar_events=resolved_events,
-            symptoms_summary=symptoms_for_prompt,
-            puffs_today=puffs_today,
-            layer3_summary="",
-            llm_provider=llm_provider,
-            advice_type=advice_type,
-            db=db,
-            user=user,
-            anchor_date=anchor_date,
-            forecast=forecast_context,
-            environment=env_features,
-            return_warnings=True,
+        import asyncio
+        import os
+
+        advice_timeout = float(os.getenv("LLM_TIMEOUT_SECONDS", "45")) * 3
+        advice_result = await asyncio.wait_for(
+            generate_advice(
+                risk_level=forecast.risk_level or "Medium",
+                contributing_factors=contributing_factors,
+                calendar_event=calendar_summary or calendar_event,
+                calendar_events=resolved_events,
+                symptoms_summary=symptoms_for_prompt,
+                puffs_today=puffs_today,
+                layer3_summary="",
+                llm_provider=llm_provider,
+                advice_type=advice_type,
+                db=db,
+                user=user,
+                anchor_date=anchor_date,
+                forecast=forecast_context,
+                environment=env_features,
+                return_warnings=True,
+            ),
+            timeout=advice_timeout,
         )
         advice, provider_warnings, advice_debug = _unpack_advice_result(advice_result)
         advice_warnings.extend(provider_warnings)

@@ -74,7 +74,7 @@ function HomePage() {
       } catch (error) {
         if (cancelled) return;
 
-        if (error.code === "CHECK_IN_REQUIRED") {
+        if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
           setStatus("check-in-required");
           setErrorMessage(
             "Complete today’s check-in before generating your risk forecast."
