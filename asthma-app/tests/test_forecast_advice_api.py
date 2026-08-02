@@ -160,6 +160,44 @@ def test_forecast_survives_llm_outage(
 
 @patch("services.forecast_service.generate_advice")
 @patch("services.forecast_service.fetch_env_daily")
+def test_forecast_reuse_backfills_missing_advice(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+):
+    """If the first run stored ML without advice, a later POST fills advice in."""
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = RuntimeError("provider outage")
+    assert client.post("/v1/check-ins", json={}, headers=auth_headers).status_code == 201
+
+    first = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200, first.text
+    assert first.json()["advice"] is None
+    probability = first.json()["flare_probability"]
+
+    mock_generate_advice.reset_mock()
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    second = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06},
+        headers=auth_headers,
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["advice"]["summary"] == "Test advice summary."
+    assert second.json()["flare_probability"] == probability
+    assert mock_generate_advice.called
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
 def test_forecast_passes_manual_calendar_event(
     mock_fetch_env,
     mock_generate_advice,
