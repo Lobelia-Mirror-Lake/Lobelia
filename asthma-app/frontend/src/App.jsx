@@ -12,6 +12,7 @@ import { SetupRoute } from './components/routes/SetupRoute';
 import PublicRoute from './components/routes/PublicRoute';
 import NotFoundPage from './components/pages/NotFoundPage';
 import SetupPage from './components/pages/SetupPage';
+import OAuthDone from './components/input/OAuthDone';
 import { urls } from './constants';
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
             <Route path={urls.statistics} element={<StatisticsPage />} />
             <Route path={urls.calendar} element={<CalendarPage />} />
             <Route path={urls.profile} element={<ProfilePage />} />
+            <Route path="/oauth-done" element={<OAuthDone />} />
           </Route>
         </Route>
 

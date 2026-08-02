@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import {
-  getCheckIns,
-  saveCheckIn,
-} from "../../helper-functions/checkIns";
+import { useCalendar } from "../../context/CalendarContext";
 import "./CalendarPage.css";
+import CalendarConnectionPanel from "../calendar/CalendarConnectionPanel";
+import SpinnerOverlay from "../input/SpinnerOverlay";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const EMPTY_ARRAY = [];
 
 const EMPTY_FORM = {
   daily_day_symp: false,
@@ -37,16 +37,21 @@ function formatReadableDate(dateKey) {
 
 function CalendarPage() {
   const { token } = useAuth();
+  const {
+    calendarStatus,
+    calendarSnapshot,
+    loadCalendarMonth,
+    saveCalendarCheckIn,
+  } = useCalendar();
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
-  const [checkIns, setCheckIns] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
 
   const year = currentMonth.getFullYear();
   const monthIndex = currentMonth.getMonth();
@@ -61,6 +66,16 @@ function CalendarPage() {
 
   const monthStart = formatDateKey(year, monthIndex, 1);
   const monthEnd = formatDateKey(year, monthIndex, daysInMonth);
+  const monthKey = `${monthStart}:${monthEnd}`;
+
+  const currentMonthData =
+    calendarSnapshot.monthKey === monthKey ? calendarSnapshot : null;
+
+  const checkIns = currentMonthData?.checkIns ?? EMPTY_ARRAY;
+  const googleEvents = currentMonthData?.googleEvents ?? EMPTY_ARRAY;
+  const loading = currentMonthData?.checkInsLoading ?? false;
+  const eventsLoading = currentMonthData?.googleEventsLoading ?? false;
+  const monthError = currentMonthData?.error ?? "";
 
   const checkInsByDate = useMemo(() => {
     return Object.fromEntries(
@@ -68,35 +83,30 @@ function CalendarPage() {
     );
   }, [checkIns]);
 
+  const googleEventsByDate = useMemo(() => {
+    const map = {};
+    for (const ev of googleEvents) {
+      if (!map[ev.date]) map[ev.date] = [];
+      map[ev.date].push(ev);
+    }
+    return map;
+  }, [googleEvents]);
+
   useEffect(() => {
-    async function loadCheckIns() {
-      if (!token) {
-        setLoading(false);
-        setError("Log in to view your calendar.");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const data = await getCheckIns({
-          from: monthStart,
-          to: monthEnd,
-          token,
-        });
-
-        setCheckIns(data.items ?? []);
-      } catch (requestError) {
-        console.error(requestError);
-        setError(requestError.message || "Unable to load your check-ins.");
-      } finally {
-        setLoading(false);
-      }
+    if (!token) {
+      return;
     }
 
-    loadCheckIns();
-  }, [monthStart, monthEnd, token]);
+    void loadCalendarMonth({
+      year,
+      monthIndex,
+      monthStart,
+      monthEnd,
+      includeEvents: calendarStatus.connected,
+      authToken: token,
+    });
+  }, [calendarStatus.connected, loadCalendarMonth, monthEnd, monthIndex, monthStart, token, year]);
+
 
   function goToPreviousMonth() {
     setCurrentMonth(new Date(year, monthIndex - 1, 1));
@@ -182,8 +192,7 @@ function CalendarPage() {
       setError("");
       setSaveMessage("");
 
-      const savedCheckIn = await saveCheckIn({
-        token,
+      await saveCalendarCheckIn({
         checkIn: {
           date: selectedDate,
           daily_day_symp: formData.daily_day_symp,
@@ -193,20 +202,6 @@ function CalendarPage() {
           triggers: triggers.length > 0 ? triggers : null,
           calendar_event: formData.calendar_event.trim() || null,
         },
-      });
-
-      setCheckIns((current) => {
-        const existingIndex = current.findIndex(
-          (checkIn) => checkIn.date === selectedDate
-        );
-
-        if (existingIndex === -1) {
-          return [...current, savedCheckIn];
-        }
-
-        return current.map((checkIn) =>
-          checkIn.date === selectedDate ? savedCheckIn : checkIn
-        );
       });
 
       setSaveMessage("Check-in saved.");
@@ -241,6 +236,7 @@ function CalendarPage() {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const dateKey = formatDateKey(year, monthIndex, day);
     const hasCheckIn = Boolean(checkInsByDate[dateKey]);
+    const hasGoogleEvent = calendarStatus.connected && Boolean(googleEventsByDate[dateKey]);
     const isToday = dateKey === todayKey;
 
     const dateObject = new Date(year, monthIndex, day);
@@ -277,6 +273,12 @@ function CalendarPage() {
             aria-label="Check-in recorded"
           />
         )}
+        {hasGoogleEvent && (
+          <span
+            className="calendar-google-dot"
+            aria-label="Google Calendar event"
+          />
+        )}
       </button>
     );
   }
@@ -287,6 +289,8 @@ function CalendarPage() {
         <h1>Calendar</h1>
         <div className="calendar-header-avatar" aria-hidden="true" />
       </header>
+
+      <CalendarConnectionPanel />
 
       <section className="calendar-card">
         <div className="calendar-month-controls">
@@ -311,11 +315,13 @@ function CalendarPage() {
           </button>
         </div>
 
-        {loading && (
-          <p className="calendar-status">Loading your check-ins...</p>
+        {loading && <p className="calendar-status">Loading your check-ins...</p>}
+
+        {!loading && monthError && !selectedDate && (
+          <p className="calendar-error">{monthError}</p>
         )}
 
-        {!loading && error && !selectedDate && (
+        {!loading && error && !selectedDate && !monthError && (
           <p className="calendar-error">{error}</p>
         )}
 
@@ -368,6 +374,29 @@ function CalendarPage() {
                 ×
               </button>
             </div>
+
+            {calendarStatus.connected && googleEventsByDate[selectedDate] && (
+              <div className="google-events-section">
+                <h3>Google Calendar Events</h3>
+                <ul className="google-events-list">
+                  {googleEventsByDate[selectedDate].map(ev => (
+                    <li key={ev.id} className="google-event-item">
+                      <strong>{ev.title}</strong><br />
+                      {new Date(ev.start).toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                      {" – "}
+                      {new Date(ev.end).toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                      {ev.location && <div>{ev.location}</div>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <form className="check-in-form" onSubmit={handleSave}>
               <fieldset className="check-in-fieldset">
@@ -473,6 +502,7 @@ function CalendarPage() {
           </section>
         </div>
       )}
+      <SpinnerOverlay visible={eventsLoading} message="Loading Google Calendar events..." />
     </main>
   );
 }
