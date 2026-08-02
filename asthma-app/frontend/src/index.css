@@ -1042,6 +1042,37 @@ hr {
     0 6px 18px rgba(4, 12, 13, 0.15);
 }
 
+.spinner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(10, 28, 26, 0.45);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+}
+
+.spinner-box {
+  text-align: center;
+  color: #fbf8ef;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 6px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fbf8ef;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /***************************************** TEXT ********************************************/
 /* Header */
 .header-text {
