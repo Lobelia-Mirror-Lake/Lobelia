@@ -55,9 +55,9 @@
   <path class="arrow" d="M825 162 H870"/>
   <text class="step" x="847" y="148">4</text>
   <rect class="context" x="870" y="105" width="210" height="114" rx="11"/>
-  <text class="name" x="975" y="143">history</text>
-  <text class="field" x="975" y="171">writes state.history</text>
-  <text class="field" x="975" y="192">+ analysis pool</text>
+  <text class="name" x="975" y="138">history</text>
+  <text class="field" x="975" y="166">hybrid retrieval writes</text>
+  <text class="field" x="975" y="186">state.history + pool</text>
 
   <path class="arrow" d="M1080 162 H1125"/>
   <text class="step" x="1102" y="148">5</text>
