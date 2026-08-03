@@ -551,6 +551,33 @@ hr {
   line-height: 18px;
 }
 
+.password-wrapper {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.password-wrapper .form-control {
+  padding-right: 5rem;
+}
+
 .contact-card {
   
   background-color: var(--color-secondary);
@@ -1041,6 +1068,17 @@ hr {
   box-shadow:
     0 16px 48px rgba(4, 12, 13, 0.4),
     0 6px 18px rgba(4, 12, 13, 0.15);
+}
+
+.chatbot-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.chatbot-layer > * {
+  pointer-events: auto;
 }
 
 .spinner-overlay {
