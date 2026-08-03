@@ -3,7 +3,8 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector required for episode hybrid memory (semantic retrieval)
+    image: pgvector/pgvector:pg16
     container_name: mirror-lake-db
     restart: unless-stopped
     ports:
@@ -35,6 +36,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mirror_lake
+      DATABASE_URL_DIRECT: postgresql://postgres:postgres@postgres:5432/mirror_lake
       JWT_SECRET: ${JWT_SECRET:-dev_local_docker_jwt_secret_not_for_production}
       ENV_PROVIDER: ${ENV_PROVIDER:-openmeteo}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
@@ -57,6 +59,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mirror_lake
+      DATABASE_URL_DIRECT: postgresql://postgres:postgres@postgres:5432/mirror_lake
       JWT_SECRET: ${JWT_SECRET:-dev_local_docker_jwt_secret_not_for_production}
       ENV_PROVIDER: ${ENV_PROVIDER:-openmeteo}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
@@ -80,6 +83,7 @@ services:
         condition: service_healthy
 
   # Run tests in Docker — enable with: docker compose --profile test run --rm test
+  # Uses create_all in pytest fixtures (not Alembic) against mirror_lake_test.
   test:
     profiles: ["test"]
     build:
@@ -92,7 +96,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["/app/scripts/docker-entrypoint.sh"]
+    entrypoint: ["sh", "-c", "python scripts/wait_for_db.py && exec \"$@\"", "--"]
     command: ["pytest", "tests/", "-q", "-m", "not live"]
 
 volumes:

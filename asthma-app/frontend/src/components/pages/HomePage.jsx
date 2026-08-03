@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { getForecast } from "../../helper-functions/getForecast";
+import {
+  homeRiskHeading,
+  loadDisplayForecast,
+} from "../../helper-functions/getForecast";
 
 const FALLBACK_LOCATION = {
   lat: 43.0731,
@@ -58,7 +61,7 @@ function HomePage() {
 
         const location = await getUserLocation();
 
-        const data = await getForecast({
+        const data = await loadDisplayForecast({
           lat: location.lat,
           lon: location.lon,
           token,
@@ -71,7 +74,7 @@ function HomePage() {
       } catch (error) {
         if (cancelled) return;
 
-        if (error.code === "CHECK_IN_REQUIRED") {
+        if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
           setStatus("check-in-required");
           setErrorMessage(
             "Complete today’s check-in before generating your risk forecast."
@@ -162,7 +165,7 @@ function HomePage() {
         <>
           <section className="home-risk-section">
             <div className={`risk-summary risk-${riskClass}`}>
-              <h2>{riskLevel.toUpperCase()} RISK</h2>
+              <h2>{homeRiskHeading(forecast, riskLevel)}</h2>
 
               <div className="risk-circle">
                 <span>{riskPercentage}%</span>

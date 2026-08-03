@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { getProfile } from "../helper-functions/authentication";
 
 const AuthContext = createContext(null);
 
@@ -7,7 +8,9 @@ export function AuthProvider({ children }) {
     const [token, setToken] = useState(() => localStorage.getItem("token"));
     const [user, setUser] = useState(null);
     // setup complete or not
-    const [setupComplete, setSetupComplete] = useState(false);
+    const [setupComplete, setSetupComplete] = useState(() => {
+        return localStorage.getItem("setupComplete") === "true";
+    });
 
     // extracts user info
     function decodeJwt(token) {
@@ -28,6 +31,28 @@ export function AuthProvider({ children }) {
         setUser(decodeJwt(token));
     }, [token]);
 
+    // call whenever get new result from API
+    function updateUser(updatedFields) {
+        setUser(prev => ({
+            ...prev,
+            ...updatedFields,
+        }));
+    }
+
+    // call whenever need to get current user data from API
+    async function refreshUserProfile() {
+        if (!token) return;
+
+        const result = await getProfile(token);
+
+        if (typeof result === "string") {
+            console.error(result);
+            return;
+        }
+
+        setUser(result);
+    }
+
     // stores token in React and localStorage
     function storeToken(jwt) {
         localStorage.setItem("token", jwt);
@@ -37,13 +62,29 @@ export function AuthProvider({ children }) {
     // clears all user data
     function logout() {
         localStorage.removeItem("token");
+        localStorage.removeItem("setupComplete");
         setToken(null);
         setUser(null);
         setSetupComplete(false);
     }
 
+    // updates whether user's account has been setup
+    function setSetupCompletePersisted(value) {
+        localStorage.setItem("setupComplete", value ? "true" : "false");
+        setSetupComplete(value);
+    }
+
     return (
-        <AuthContext.Provider value={{ token, user, storeToken, logout, setupComplete, setSetupComplete }}>
+        <AuthContext.Provider value={{
+            token,
+            user,
+            updateUser,
+            refreshUserProfile,
+            storeToken,
+            logout,
+            setupComplete,
+            setSetupComplete: setSetupCompletePersisted
+        }}>
             {children}
         </AuthContext.Provider>
     );

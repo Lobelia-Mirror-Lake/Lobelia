@@ -16,6 +16,19 @@ def is_flare_up_threshold(puffs_today: int) -> bool:
     return puffs_today >= 3
 
 
+def compute_symptom_burden_score(check_in: CheckIn) -> int:
+    """Return a 0-5 trend score; this is not a clinical severity measure."""
+    symptom_points = sum(
+        (
+            bool(check_in.daily_day_symp),
+            bool(check_in.daily_night_symp),
+            bool(check_in.daily_limit_activity),
+        )
+    )
+    inhaler_points = 0 if check_in.puffs_today == 0 else 1 if check_in.puffs_today < 3 else 2
+    return symptom_points + inhaler_points
+
+
 def compute_is_flare_up_from_check_in(check_in: CheckIn) -> int:
     symptomatic = (
         bool(check_in.daily_day_symp)
@@ -135,6 +148,7 @@ def check_in_to_dict(check_in: CheckIn) -> dict:
         "daily_limit_activity": bool(check_in.daily_limit_activity),
         "symptoms_logged": bool(check_in.symptoms_logged),
         "puffs_today": check_in.puffs_today,
+        "symptom_burden_score": compute_symptom_burden_score(check_in),
         "notes": check_in.notes,
         "triggers": check_in.triggers or [],
         "calendar_event": check_in.calendar_event,

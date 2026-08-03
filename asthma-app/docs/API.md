@@ -21,8 +21,10 @@ Mirror Lake predicts **tomorrow's asthma flare risk** and returns **personalized
 | Daily check-ins & inhaler logging | **Shipped** |
 | Wearable daily sync | **Shipped** |
 | Environment data (`/v1/env/daily`) | **Shipped** |
+| Google Calendar (OAuth + structured events → LLM) | **Shipped** |
 | Forecast + bundled advice | **Shipped** |
 | Advice regeneration (`/v1/advice`) | **Shipped** |
+| Chat Q&A (`/v1/chat`) | **Shipped** (same Copilot graph; does not persist Home advice) |
 | Legacy `/predict/*` routes | **Shipped** (research / fallback; product uses `/v1/forecast`) |
 | **Edge AI** (per-user on-device model) | **Not implemented** — future phase |
 | Frontend integration | **Not wired** — clients should call `/v1` directly |
@@ -138,6 +140,7 @@ Authorization: Bearer <access_token>
   "id": "uuid",
   "email": "user@example.com",
   "name": "Elena M.",
+  "profile_image_url": "https://res.cloudinary.com/demo/image/upload/v1/profile.jpg",
   "date_of_birth": "1998-03-15",
   "emergency_contact": "Alex M. — 555-0100",
   "preferred_reminder": "08:00",
@@ -150,11 +153,25 @@ Authorization: Bearer <access_token>
 }
 ```
 
+| Field | Notes |
+|-------|--------|
+| `profile_image_url` | Optional HTTPS URL (e.g. Cloudinary `secure_url`). Frontend uploads to Cloudinary; backend only stores the URL. |
+
 ### Update profile
 
 `PATCH /v1/users/me` → **200**
 
 Send only fields to change (same shape as register profile fields). Returns updated profile.
+
+Example — save a Cloudinary avatar URL:
+
+```json
+{
+  "profile_image_url": "https://res.cloudinary.com/xxxxx/image/upload/v123/profile.jpg"
+}
+```
+
+No separate profile-image endpoint is required; use `PATCH /v1/users/me`.
 
 ---
 
@@ -211,6 +228,7 @@ Returns today's row, creating an empty one if needed.
   "daily_limit_activity": false,
   "symptoms_logged": true,
   "puffs_today": 2,
+  "symptom_burden_score": 2,
   "notes": null,
   "triggers": ["Pollen"],
   "calendar_event": "Morning run tomorrow",
@@ -222,6 +240,7 @@ Returns today's row, creating an empty one if needed.
 | Field | Meaning |
 |-------|---------|
 | `symptoms_logged` | User submitted `POST /v1/check-ins` for this day |
+| `symptom_burden_score` | Non-clinical 0–5 trend score: one point per symptom flag, plus 0 points for 0 puffs, 1 for 1–2 puffs, or 2 for 3+ puffs |
 | `is_flare_up_threshold` | `puffs_today >= 3` |
 | `is_flare_up` | Model label: threshold **or** all three symptom flags true |
 
@@ -389,7 +408,8 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
   "lat": 42.36,
   "lon": -71.06,
   "date": "2026-07-03",
-  "llm_provider": "gemini"
+  "llm_provider": "gemini",
+  "advice_type": "daily"
 }
 ```
 
@@ -398,6 +418,7 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 | `lat`, `lon` | yes | Device GPS |
 | `date` | no | Anchor date (default today); forecast is for **anchor + 1 day** |
 | `llm_provider` | no | `"claude"` or `"gemini"` (default from server config) |
+| `advice_type` | no | Patient advice mode (default `"daily"`). Allowed: `"daily"`, `"emergency"`, `"action_plan"`, `"air_quality"`, `"wildfire"`, `"adherence"`, `"exercise"` |
 
 ### Response
 
@@ -426,7 +447,13 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
     ],
     "disclaimer": "This information is for educational purposes only...",
     "llm_provider": "gemini",
-    "knowledge_sources_used": ["GINA", "CDC", "user_history"]
+    "knowledge_sources_used": ["local_knowledge", "user_history"]
+  },
+  "data_quality": {
+    "unavailable_context": ["wearables", "calendar"],
+    "missing_fields": [],
+    "imputed_fields": [],
+    "warnings": []
   }
 }
 ```
@@ -435,7 +462,9 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 |-------|-------------|
 | `risk_level` | `"Low"` \| `"Medium"` \| `"High"` |
 | `contributing_factors` | Human-readable list for UI chips |
-| `advice` | Always included on forecast — no separate call required for Home |
+| `advice` | Bundled Copilot advice for Home, or `null` when all LLM providers fail (ML forecast is still returned) |
+| `warnings` | Classifier warnings plus advice/outage notes (e.g. advice temporarily unavailable) |
+| `data_quality` | `{ unavailable_context, missing_fields, imputed_fields, warnings }` — e.g. `wearables` / `calendar` when absent |
 
 **Errors**
 
@@ -444,8 +473,9 @@ Otherwise → `400 CHECK_IN_REQUIRED`.
 | 400 | `CHECK_IN_REQUIRED` | No check-in / puff today |
 | 401 | `UNAUTHORIZED` | Missing or invalid JWT |
 | 502 | `ENV_PROVIDER_ERROR` | Weather/pollen fetch failed |
-| 502 | `LLM_PROVIDER_ERROR` | Advice generation failed |
 | 503 | `CLASSIFIER_UNAVAILABLE` | Model artifact missing |
+
+LLM advice failure does **not** fail the forecast: HTTP stays **200**, `advice` is `null`, and a message is added to `warnings` / `data_quality.warnings`.
 
 Result is persisted in PostgreSQL for advice regeneration.
 
@@ -455,16 +485,23 @@ Result is persisted in PostgreSQL for advice regeneration.
 
 Re-run the LLM advice pipeline **without** re-running the classifier. Requires a prior forecast for the same date.
 
+**Check-in is optional.** Advice can still use the cached risk score, stored environment (AQI, pollen, etc.), history, and medical knowledge — e.g. recommend a mask when air quality is poor even if today's symptoms were never logged. Missing check-in is reported in `data_quality.unavailable_context` and `warnings`; the API does **not** invent “no symptoms.”
+
 `POST /v1/advice` → **200**
 
 ```json
 {
   "date": "2026-07-03",
-  "llm_provider": "gemini"
+  "llm_provider": "gemini",
+  "advice_type": "air_quality"
 }
 ```
 
-Both fields optional (default: today, server `LLM_PROVIDER`).
+| Field | Required | Description |
+|-------|----------|-------------|
+| `date` | no | Anchor date (default today) |
+| `llm_provider` | no | `"claude"` or `"gemini"` (default from server config) |
+| `advice_type` | no | Same patient modes as forecast (default `"daily"`) |
 
 **Response**
 
@@ -474,12 +511,58 @@ Both fields optional (default: today, server `LLM_PROVIDER`).
   "forecast_for": "2026-07-04",
   "risk_level": "Medium",
   "flare_probability": 0.68,
-  "contributing_factors": ["..."],
-  "advice": { /* same shape as forecast.advice */ }
+  "contributing_factors": ["Elevated air quality index"],
+  "advice": { /* same shape as forecast.advice; may be null if LLM providers fail */ },
+  "warnings": [
+    "Generated without today's symptom check-in; advice is based on the cached forecast, environment, and medical knowledge."
+  ],
+  "data_quality": {
+    "unavailable_context": ["check_in", "calendar"],
+    "missing_fields": [],
+    "imputed_fields": [],
+    "warnings": ["..."]
+  }
 }
 ```
 
-**Errors:** `404 FORECAST_NOT_FOUND` if `POST /v1/forecast` was not run for that date.
+**Errors:** `404 FORECAST_NOT_FOUND` if `POST /v1/forecast` was not run for that date. Advice LLM outages return **200** with `advice: null` and a warning (stored ML forecast is unchanged).
+
+Manual `calendar_event` on a check-in is passed into the Copilot calendar node (`source: "manual"`).
+
+Structured events from Google Calendar, `POST /v1/calendar/manual-events`, or `calendar_events` on forecast are loaded into LangGraph via `StructuredCalendarProvider` for **tomorrow** (the forecast target day), including title, time, location, and description.
+
+---
+
+## Chat (Copilot Q&A)
+
+Answer a user **message** using the same LangGraph Copilot as daily advice (forecast, calendar, env, episode memory, medical knowledge). Requires a prior forecast for the date.
+
+**Does not overwrite** the Home-card `Forecast.advice` row (`persist=false`). Durable personalization comes from medical/episode memory (check-ins, forecasts, calendar), not chat logs. Future conversation memory, streaming, or citations should extend `/v1/chat` only — not `/v1/advice`.
+
+`POST /v1/chat` → **200**
+
+```json
+{
+  "message": "Should I run outside with this pollen?",
+  "date": "2026-07-03",
+  "llm_provider": "gemini"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `message` | yes | User question or statement (1–1000 chars) |
+| `date` | no | Forecast anchor date (default today) |
+| `llm_provider` | no | `"claude"` or `"gemini"` |
+
+**Response:** same shape as `POST /v1/advice` (`advice`, `warnings`, `risk_level`, `data_quality`, …). The UI typically shows `advice.summary`.
+
+**Errors:**
+
+- `404 FORECAST_NOT_FOUND` — no cached forecast; complete a check-in and generate a prediction first
+- `400` — empty/whitespace `message`
+
+LLM outages return **200** with `advice: null` and a warning (same as advice regen).
 
 ---
 
@@ -537,13 +620,23 @@ Both support optional `?include_advice=true` (legacy Claude interpreter). See `/
 
 ### Calendar
 
-There is no calendar OAuth or iCal URL endpoint in v1. The client reads the device calendar (or user input) and sends a string on check-in:
+Backend can connect a user's Google Calendar (read-only OAuth) and automatically fetch **tomorrow's** events when running `POST /v1/forecast`.
+
+| Step | Endpoint |
+|------|----------|
+| Status | `GET /v1/calendar/status` |
+| Start OAuth | `GET /v1/calendar/connect` → open `auth_url` |
+| Google redirect | `GET /v1/calendar/callback` (stores refresh token) |
+| Preview events | `GET /v1/calendar/events?date=YYYY-MM-DD` |
+| Disconnect | `DELETE /v1/calendar/disconnect` |
+
+Setup details: [CALENDAR.md](./CALENDAR.md).
+
+Dev without Google: `POST /v1/calendar/manual-events`, or pass `calendar_events` on forecast. Legacy string still works on check-in:
 
 ```json
 { "calendar_event": "Outdoor soccer tomorrow" }
 ```
-
-That text is passed to the LLM for activity-specific advice.
 
 ### Location
 
@@ -570,8 +663,9 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `FORECAST_NOT_FOUND` | 404 | No forecast for advice regeneration |
 | `EMAIL_EXISTS` | 409 | Register with existing email |
 | `ENV_PROVIDER_ERROR` | 502 | Environment API failure |
-| `LLM_PROVIDER_ERROR` | 502 | LLM failure |
 | `CLASSIFIER_UNAVAILABLE` | 503 | Model file missing |
+
+LLM provider outages on `/v1/forecast`, `/v1/advice`, and `/v1/chat` do not use a dedicated error code: the response stays **200** with `advice: null` and a warning string.
 
 ---
 
@@ -592,8 +686,17 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `POST` | `/v1/check-ins/inhaler/puff` | Yes | Log +1 puff |
 | `PUT` | `/v1/check-ins/inhaler` | Yes | Set puff total |
 | `POST` | `/v1/wearables/daily` | Yes | Sync Health aggregates |
-| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice |
-| `POST` | `/v1/advice` | Yes | Regenerate advice only |
+| `GET` | `/v1/calendar/status` | Yes | Google Calendar connection status |
+| `GET` | `/v1/calendar/connect` | Yes | Start Google OAuth |
+| `GET` | `/v1/calendar/events` | Yes | Preview events for a day |
+| `POST` | `/v1/calendar/manual-events` | Yes | Dev: store structured events |
+| `DELETE` | `/v1/calendar/disconnect` | Yes | Disconnect Google Calendar |
+| `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice (+ auto calendar) |
+| `GET` | `/v1/forecasts` | Yes | Forecast history |
+| `POST` | `/v1/forecasts/today` | Yes | Get-or-create `{ today, tomorrow }` for home/stats (runs ML/advice if missing) |
+| `GET` | `/v1/forecasts/today` | Yes | Read-only peek at stored card predictions (no ML/LLM) |
+| `POST` | `/v1/advice` | Yes | Regenerate daily advice (persists to forecast) |
+| `POST` | `/v1/chat` | Yes | Copilot Q&A over cached forecast (does not overwrite Home advice) |
 | `POST` | `/predict/classifier` | No | Legacy classifier |
 | `POST` | `/predict` | No | Legacy GINA cold start |
 
@@ -604,7 +707,6 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | Feature | Notes |
 |---------|-------|
 | **Edge AI** | Per-user on-device model training and routing |
-| Calendar iCal URL / server sync | Client-side calendar string is supported today |
 | `GET /v1/wearables/daily` | History read-back |
 | Peak flow (PEF) | Out of scope for classifier |
 
@@ -613,4 +715,5 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 ## Related documentation
 
 - [ENV_API_DESIGN.md](./ENV_API_DESIGN.md) — environment column definitions and providers
+- [CALENDAR.md](./CALENDAR.md) — Google Calendar OAuth setup
 - [README.md](../README.md) — local setup, Docker, tests
