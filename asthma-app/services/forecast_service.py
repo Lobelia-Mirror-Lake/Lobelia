@@ -546,31 +546,93 @@ async def regenerate_advice(
     llm_provider: str | None = None,
     advice_type: AdviceType = "daily",
 ) -> dict:
-    """Re-run advice using a cached forecast. Check-in is optional."""
+    """Re-run advice using a cached forecast and persist it on the forecast row."""
+    return await _advice_from_cached_forecast(
+        db,
+        user,
+        anchor_date=anchor_date,
+        llm_provider=llm_provider,
+        advice_type=advice_type,
+        question=None,
+        persist=True,
+    )
+
+
+async def generate_chat_reply(
+    db: Session,
+    user: User,
+    *,
+    message: str,
+    anchor_date: date | None = None,
+    llm_provider: str | None = None,
+    advice_type: AdviceType = "daily",
+) -> dict:
+    """Answer a chat message via Copilot without overwriting Home-card advice."""
     from api.errors import api_error
 
-    anchor_date = anchor_date or date.today()
+    cleaned = (message or "").strip()
+    if not cleaned:
+        raise api_error(400, "message is required.", "VALIDATION_ERROR")
+
+    return await _advice_from_cached_forecast(
+        db,
+        user,
+        anchor_date=anchor_date,
+        llm_provider=llm_provider,
+        advice_type=advice_type,
+        question=cleaned,
+        persist=False,
+    )
+
+
+async def _advice_from_cached_forecast(
+    db: Session,
+    user: User,
+    *,
+    anchor_date: date | None = None,
+    llm_provider: str | None = None,
+    advice_type: AdviceType = "daily",
+    question: str | None = None,
+    persist: bool = True,
+) -> dict:
+    """Shared path for daily advice regen and chat Q&A over a cached forecast."""
+    from api.errors import api_error
+    import asyncio
+    import os
+
+    day = anchor_date or date.today()
+    # Match Home: prefer a forecast run today; else the prediction targeting today
+    # (usually from yesterday's check-in).
     forecast = db.scalar(
         select(Forecast)
-        .where(Forecast.user_id == user.id, Forecast.date == anchor_date)
+        .where(Forecast.user_id == user.id, Forecast.date == day)
         .order_by(Forecast.created_at.desc())
     )
     if forecast is None:
+        forecast = db.scalar(
+            select(Forecast)
+            .where(Forecast.user_id == user.id, Forecast.forecast_for == day)
+            .order_by(Forecast.created_at.desc())
+        )
+    if forecast is None:
         raise api_error(
             404,
-            "No forecast found for this date. Run POST /v1/forecast first.",
+            "No forecast found for this date. Complete a check-in and generate a prediction first.",
             "FORECAST_NOT_FOUND",
         )
 
+    # Check-in / env belong to the day the forecast was run, not necessarily "today".
+    context_date = forecast.date
+
     check_in = db.scalar(
-        select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == anchor_date)
+        select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == context_date)
     )
 
     contributing_factors = list(forecast.contributing_factors or [])
     snapshot = db.scalar(
         select(EnvSnapshot).where(
             EnvSnapshot.user_id == user.id,
-            EnvSnapshot.date == anchor_date,
+            EnvSnapshot.date == context_date,
         )
     )
     env_features = snapshot.features if snapshot else {}
@@ -635,9 +697,6 @@ async def regenerate_advice(
         unavailable.append("calendar")
 
     try:
-        import asyncio
-        import os
-
         advice_timeout = float(os.getenv("LLM_TIMEOUT_SECONDS", "45")) * 3
         advice_result = await asyncio.wait_for(
             generate_advice(
@@ -652,9 +711,10 @@ async def regenerate_advice(
                 advice_type=advice_type,
                 db=db,
                 user=user,
-                anchor_date=anchor_date,
+                anchor_date=context_date,
                 forecast=forecast_context,
                 environment=env_features,
+                question=question,
                 return_warnings=True,
             ),
             timeout=advice_timeout,
@@ -668,14 +728,15 @@ async def regenerate_advice(
             "Advice is temporarily unavailable; the stored ML forecast is still valid."
         )
 
-    if advice is not None:
-        forecast.advice = advice
-    forecast.calendar_events = resolved_events or forecast.calendar_events
-    db.commit()
-    db.refresh(forecast)
+    if persist:
+        if advice is not None:
+            forecast.advice = advice
+        forecast.calendar_events = resolved_events or forecast.calendar_events
+        db.commit()
+        db.refresh(forecast)
 
     payload = {
-        "date": anchor_date.isoformat(),
+        "date": forecast.date.isoformat(),
         "forecast_for": forecast.forecast_for.isoformat(),
         "risk_level": forecast.risk_level,
         "flare_probability": forecast.flare_probability,

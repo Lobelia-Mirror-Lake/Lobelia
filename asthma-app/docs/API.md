@@ -24,6 +24,7 @@ Mirror Lake predicts **tomorrow's asthma flare risk** and returns **personalized
 | Google Calendar (OAuth + structured events → LLM) | **Shipped** |
 | Forecast + bundled advice | **Shipped** |
 | Advice regeneration (`/v1/advice`) | **Shipped** |
+| Chat Q&A (`/v1/chat`) | **Shipped** (same Copilot graph; does not persist Home advice) |
 | Legacy `/predict/*` routes | **Shipped** (research / fallback; product uses `/v1/forecast`) |
 | **Edge AI** (per-user on-device model) | **Not implemented** — future phase |
 | Frontend integration | **Not wired** — clients should call `/v1` directly |
@@ -532,6 +533,39 @@ Structured events from Google Calendar, `POST /v1/calendar/manual-events`, or `c
 
 ---
 
+## Chat (Copilot Q&A)
+
+Answer a user **message** using the same LangGraph Copilot as daily advice (forecast, calendar, env, episode memory, medical knowledge). Requires a prior forecast for the date.
+
+**Does not overwrite** the Home-card `Forecast.advice` row (`persist=false`). Durable personalization comes from medical/episode memory (check-ins, forecasts, calendar), not chat logs. Future conversation memory, streaming, or citations should extend `/v1/chat` only — not `/v1/advice`.
+
+`POST /v1/chat` → **200**
+
+```json
+{
+  "message": "Should I run outside with this pollen?",
+  "date": "2026-07-03",
+  "llm_provider": "gemini"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `message` | yes | User question or statement (1–1000 chars) |
+| `date` | no | Forecast anchor date (default today) |
+| `llm_provider` | no | `"claude"` or `"gemini"` |
+
+**Response:** same shape as `POST /v1/advice` (`advice`, `warnings`, `risk_level`, `data_quality`, …). The UI typically shows `advice.summary`.
+
+**Errors:**
+
+- `404 FORECAST_NOT_FOUND` — no cached forecast; complete a check-in and generate a prediction first
+- `400` — empty/whitespace `message`
+
+LLM outages return **200** with `advice: null` and a warning (same as advice regen).
+
+---
+
 ## Health check
 
 `GET /health` → **200**  
@@ -631,7 +665,7 @@ Validation errors (`400`) may include an `errors` array (Pydantic).
 | `ENV_PROVIDER_ERROR` | 502 | Environment API failure |
 | `CLASSIFIER_UNAVAILABLE` | 503 | Model file missing |
 
-LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated error code: the response stays **200** with `advice: null` and a warning string.
+LLM provider outages on `/v1/forecast`, `/v1/advice`, and `/v1/chat` do not use a dedicated error code: the response stays **200** with `advice: null` and a warning string.
 
 ---
 
@@ -661,7 +695,8 @@ LLM provider outages on `/v1/forecast` and `/v1/advice` do not use a dedicated e
 | `GET` | `/v1/forecasts` | Yes | Forecast history |
 | `POST` | `/v1/forecasts/today` | Yes | Get-or-create `{ today, tomorrow }` for home/stats (runs ML/advice if missing) |
 | `GET` | `/v1/forecasts/today` | Yes | Read-only peek at stored card predictions (no ML/LLM) |
-| `POST` | `/v1/advice` | Yes | Regenerate advice only |
+| `POST` | `/v1/advice` | Yes | Regenerate daily advice (persists to forecast) |
+| `POST` | `/v1/chat` | Yes | Copilot Q&A over cached forecast (does not overwrite Home advice) |
 | `POST` | `/predict/classifier` | No | Legacy classifier |
 | `POST` | `/predict` | No | Legacy GINA cold start |
 
