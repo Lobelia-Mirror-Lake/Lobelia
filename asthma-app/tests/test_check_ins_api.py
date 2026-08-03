@@ -1,6 +1,7 @@
 """Check-in and inhaler API tests."""
 
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -88,4 +89,137 @@ def test_symptom_burden_score_caps_inhaler_points(client: TestClient, auth_heade
     today = client.get("/v1/check-ins/today", headers=auth_headers)
     assert today.status_code == 200
     assert today.json()["symptom_burden_score"] == 5
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
+def test_updating_today_check_in_refreshes_existing_forecast(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+):
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={
+                "daily_day_symp": False,
+                "daily_night_symp": False,
+                "daily_limit_activity": False,
+            },
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+    first = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200, first.text
+    advice_calls_after_forecast = mock_generate_advice.call_count
+
+    updated = client.post(
+        "/v1/check-ins",
+        json={
+            "daily_day_symp": True,
+            "daily_night_symp": True,
+            "daily_limit_activity": True,
+        },
+        headers=auth_headers,
+    )
+    assert updated.status_code == 201, updated.text
+    body = updated.json()
+    assert body["forecast_refreshed"] is True
+    assert body["forecast"]["risk_level"]
+    assert "Daytime symptoms today" in body["forecast"]["contributing_factors"]
+    assert "Night symptoms today" in body["forecast"]["contributing_factors"]
+    # Check-in refresh re-runs ML only — advice is backfilled later on Home.
+    assert mock_generate_advice.call_count == advice_calls_after_forecast
+
+    stored = client.get("/v1/forecasts/today", headers=auth_headers)
+    assert stored.status_code == 200
+    tomorrow = stored.json().get("tomorrow")
+    assert tomorrow is not None
+    assert "Night symptoms today" in (tomorrow.get("contributing_factors") or [])
+    assert tomorrow.get("advice") is None
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
+def test_updating_yesterday_check_in_refreshes_today_card(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+):
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={"date": yesterday, "daily_night_symp": False},
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+    create = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06, "date": yesterday},
+        headers=auth_headers,
+    )
+    assert create.status_code == 200, create.text
+
+    updated = client.post(
+        "/v1/check-ins",
+        json={
+            "date": yesterday,
+            "daily_day_symp": True,
+            "daily_night_symp": True,
+            "daily_limit_activity": False,
+        },
+        headers=auth_headers,
+    )
+    assert updated.status_code == 201, updated.text
+    assert updated.json()["forecast_refreshed"] is True
+    assert "Night symptoms today" in updated.json()["forecast"]["contributing_factors"]
+
+    cards = client.get("/v1/forecasts/today", headers=auth_headers)
+    assert cards.status_code == 200
+    today_card = cards.json().get("today")
+    assert today_card is not None
+    assert "Night symptoms today" in (today_card.get("contributing_factors") or [])
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
+def test_check_in_without_forecast_does_not_create_one(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+):
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    response = client.post(
+        "/v1/check-ins",
+        json={"daily_night_symp": True},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["forecast_refreshed"] is False
+    assert "forecast" not in response.json()
+    assert mock_generate_advice.call_count == 0
 

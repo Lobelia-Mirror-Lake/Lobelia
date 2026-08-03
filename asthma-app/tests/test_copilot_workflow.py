@@ -110,6 +110,8 @@ async def test_workflow_uses_mock_calendar_and_falls_back_to_claude(db_session: 
     assert "Never recommend starting, stopping, switching" in system_text
     assert "Friday Meeting" in user_text
     assert "<CONTEXT_DATA>" in user_text
+    assert "planned activities" in user_text
+    assert "Next Step" in user_text
 
 
 async def test_copilot_debug_includes_retrieved_episodes(db_session: Session, monkeypatch):
