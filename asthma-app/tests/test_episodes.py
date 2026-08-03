@@ -235,3 +235,24 @@ def test_upsert_stores_embedding(db_session: Session):
     assert len(row.embedding) == 768
     assert math.isclose(sum(x * x for x in row.embedding), 1.0, rel_tol=1e-5)
     assert "pollen" not in row.summary_text.lower()
+
+
+def test_retrieve_skips_embedder_when_disabled(db_session: Session, monkeypatch):
+    user = User(email="no-embed@example.com", password_hash="test")
+    db_session.add(user)
+    db_session.flush()
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("get_embedder should not run when use_embeddings=False")
+
+    monkeypatch.setattr("copilot.retrieval.get_embedder", _boom)
+    query = build_query_episode(
+        episode_date=date(2026, 7, 2),
+        calendar=[{"title": "Walk outdoors"}],
+        environment={"aqi": 2},
+        forecast={"risk_level": "Low", "contributing_factors": []},
+        question="Can I go for a walk?",
+    )
+    retriever = HybridEpisodeRetriever(db_session, user.id, use_embeddings=False)
+    ranked, _pool, _days = retriever.retrieve(query, anchor_date=date(2026, 7, 1))
+    assert isinstance(ranked, list)

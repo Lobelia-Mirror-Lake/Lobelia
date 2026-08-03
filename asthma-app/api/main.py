@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from api.advice import router as advice_router
 from api.auth import router as auth_router
 from api.calendar import router as calendar_router
+from api.chat import router as chat_router
 from api.check_ins import router as check_ins_router
 from api.env import EnvDailyResponse, get_env_daily
 from api.errors import APIError, api_error_handler
@@ -107,6 +108,7 @@ app.include_router(wearables_router, prefix="/v1")
 app.include_router(calendar_router, prefix="/v1")
 app.include_router(forecast_router, prefix="/v1")
 app.include_router(advice_router, prefix="/v1")
+app.include_router(chat_router, prefix="/v1")
 
 
 @app.post("/predict/classifier")
