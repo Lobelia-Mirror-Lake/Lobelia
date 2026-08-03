@@ -195,7 +195,14 @@ One row per user per calendar day. Inhaler counts live on the same row.
 
 **Does not set inhaler puffs** — use inhaler endpoints below.
 
-**Response:** check-in object (see [Check-in object](#check-in-object)).
+**Response:** check-in object (see [Check-in object](#check-in-object)), plus:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `forecast_refreshed` | boolean | `true` when today's or yesterday's symptoms changed an existing ML forecast |
+| `forecast` | object \| omitted | Compact updated prediction (`risk_level`, `flare_probability`, `contributing_factors`, dates) when refreshed |
+
+When a forecast already exists for that check-in day (`Forecast.date`), the API re-runs the classifier (not the LLM). Advice is cleared and backfilled on the next `POST /v1/forecasts/today` / Home load. Older days than yesterday do not refresh a prediction.
 
 ---
 
@@ -271,10 +278,12 @@ Two endpoints update the same daily `puffs_today` total.
   "puffs_today": 2,
   "event_id": "uuid",
   "is_flare_up_threshold": false,
-  "message": "Logged 1 puff. Today's total: 2."
+  "message": "Logged 1 puff. Today's total: 2.",
+  "forecast_refreshed": false
 }
 ```
 
+Same `forecast_refreshed` / `forecast` fields as symptom upsert when today/yesterday already has a stored prediction.
 ---
 
 ### Set daily total manually

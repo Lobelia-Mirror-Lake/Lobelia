@@ -119,7 +119,9 @@ function HomePage() {
   const preventativeMeasures =
     forecast?.advice?.sections?.length > 0
       ? forecast.advice.sections.map((section) => section.body)
-      : ["Follow your asthma action plan"];
+      : [
+          "Plan today’s activities around your risk and air quality, and keep your rescue inhaler with you.",
+        ];
 
   const nextStep =
     forecast?.advice?.summary ||
