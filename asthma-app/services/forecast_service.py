@@ -280,6 +280,76 @@ async def ensure_card_predictions(
     return {"today": for_today, "tomorrow": for_tomorrow}
 
 
+def _delete_forecasts_for_anchor(db: Session, user_id, anchor_date: date) -> None:
+    rows = db.scalars(
+        select(Forecast).where(Forecast.user_id == user_id, Forecast.date == anchor_date)
+    ).all()
+    for row in rows:
+        db.delete(row)
+    db.flush()
+
+
+def _coords_for_refresh(
+    db: Session, user_id, day: date
+) -> tuple[float | None, float | None, EnvSnapshot | None]:
+    """Prefer the day's env snapshot; else the user's most recent snapshot."""
+    snapshot = db.scalar(
+        select(EnvSnapshot).where(EnvSnapshot.user_id == user_id, EnvSnapshot.date == day)
+    )
+    if snapshot is not None:
+        return snapshot.lat, snapshot.lon, snapshot
+    latest = db.scalar(
+        select(EnvSnapshot)
+        .where(EnvSnapshot.user_id == user_id)
+        .order_by(EnvSnapshot.date.desc())
+    )
+    if latest is not None:
+        return latest.lat, latest.lon, None
+    return None, None, None
+
+
+async def refresh_forecast_after_check_in(
+    db: Session,
+    user: User,
+    *,
+    day: date,
+    today: date | None = None,
+) -> dict | None:
+    """Re-run ML for today/yesterday when a forecast already exists for that check-in day.
+
+    Skips LLM advice so check-in saves stay fast; Home/``POST /v1/forecasts/today``
+    backfills advice when ``advice`` is null. Does not create a first-time forecast
+    (preserves the 6pm tomorrow unlock rule).
+    """
+    today = today or date.today()
+    if day not in {today, today - timedelta(days=1)}:
+        return None
+    if get_forecast(db, user.id, run_on=day) is None:
+        return None
+    if not check_in_complete(
+        db.scalar(select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == day))
+    ):
+        return None
+
+    lat, lon, _snapshot = _coords_for_refresh(db, user.id, day)
+    if lat is None or lon is None:
+        return None
+
+    try:
+        return await run_forecast(
+            db,
+            user,
+            lat=lat,
+            lon=lon,
+            anchor_date=day,
+            force_refresh=True,
+            skip_advice=True,
+            reuse_stored_env=True,
+        )
+    except Exception:
+        return None
+
+
 async def run_forecast(
     db: Session,
     user: User,
@@ -291,6 +361,9 @@ async def run_forecast(
     advice_type: AdviceType = "daily",
     calendar_events: list[dict] | None = None,
     timezone_name: str = "America/Chicago",
+    force_refresh: bool = False,
+    skip_advice: bool = False,
+    reuse_stored_env: bool = False,
 ) -> dict:
     from services import google_calendar as gcal
 
@@ -300,7 +373,7 @@ async def run_forecast(
     # Reuse a stored prediction for this check-in day (do not re-run ML).
     # If advice was missing (LLM outage on first run), fill it in now.
     existing = get_forecast(db, user.id, run_on=anchor_date)
-    if existing is not None:
+    if existing is not None and not force_refresh:
         return await ensure_forecast_advice(
             db,
             user,
@@ -308,6 +381,9 @@ async def run_forecast(
             llm_provider=llm_provider,
             advice_type=advice_type,
         ) or existing
+
+    if existing is not None and force_refresh:
+        _delete_forecasts_for_anchor(db, user.id, anchor_date)
 
     check_in = db.scalar(
         select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == anchor_date)
@@ -359,50 +435,65 @@ async def run_forecast(
         select(WearableDaily).where(WearableDaily.user_id == user.id, WearableDaily.date == yesterday)
     )
 
-    try:
-        env_result = await fetch_env_daily(lat=lat, lon=lon, day=anchor_date)
-    except Exception as exc:
-        from api.errors import api_error
-
-        # Avoid leaking upstream URLs / API keys in client-facing error messages.
-        raise api_error(
-            502,
-            "Environment provider error. Please try again later.",
-            "ENV_PROVIDER_ERROR",
-        ) from exc
-
-    env_features = env_result["features"]
     snapshot = db.scalar(
         select(EnvSnapshot).where(EnvSnapshot.user_id == user.id, EnvSnapshot.date == anchor_date)
     )
-    if snapshot is None:
-        snapshot = EnvSnapshot(
-            user_id=user.id,
-            date=anchor_date,
-            lat=lat,
-            lon=lon,
-            provider=env_result["provider"],
-            features=env_features,
-            missing=env_result.get("missing"),
-        )
-        db.add(snapshot)
+    env_result: dict[str, Any]
+    used_cached_env = (
+        reuse_stored_env
+        and snapshot is not None
+        and isinstance(snapshot.features, dict)
+    )
+    if used_cached_env:
+        env_features = dict(snapshot.features)
+        env_result = {
+            "provider": snapshot.provider or "cached",
+            "features": env_features,
+            "missing": snapshot.missing or [],
+        }
     else:
-        snapshot.lat = lat
-        snapshot.lon = lon
-        snapshot.provider = env_result["provider"]
-        snapshot.features = env_features
-        snapshot.missing = env_result.get("missing")
+        try:
+            env_result = await fetch_env_daily(lat=lat, lon=lon, day=anchor_date)
+        except Exception as exc:
+            from api.errors import api_error
+
+            # Avoid leaking upstream URLs / API keys in client-facing error messages.
+            raise api_error(
+                502,
+                "Environment provider error. Please try again later.",
+                "ENV_PROVIDER_ERROR",
+            ) from exc
+
+        env_features = env_result["features"]
+        if snapshot is None:
+            snapshot = EnvSnapshot(
+                user_id=user.id,
+                date=anchor_date,
+                lat=lat,
+                lon=lon,
+                provider=env_result["provider"],
+                features=env_features,
+                missing=env_result.get("missing"),
+            )
+            db.add(snapshot)
+        else:
+            snapshot.lat = lat
+            snapshot.lon = lon
+            snapshot.provider = env_result["provider"]
+            snapshot.features = env_features
+            snapshot.missing = env_result.get("missing")
 
     # Tomorrow env for temp_diff when available
     temp_diff = None
-    try:
-        tomorrow_env = await fetch_env_daily(lat=lat, lon=lon, day=forecast_for)
-        t_today = env_features.get("temperature")
-        t_tomorrow = tomorrow_env["features"].get("temperature")
-        if t_today is not None and t_tomorrow is not None:
-            temp_diff = float(t_tomorrow) - float(t_today)
-    except Exception:
-        pass
+    if not used_cached_env:
+        try:
+            tomorrow_env = await fetch_env_daily(lat=lat, lon=lon, day=forecast_for)
+            t_today = env_features.get("temperature")
+            t_tomorrow = tomorrow_env["features"].get("temperature")
+            if t_today is not None and t_tomorrow is not None:
+                temp_diff = float(t_tomorrow) - float(t_today)
+        except Exception:
+            pass
 
     classifier_payload = {
         **env_features,
@@ -441,36 +532,42 @@ async def run_forecast(
     }
     advice_warnings: list[str] = []
     advice_debug: dict | None = None
-    try:
-        import asyncio
-        import os
+    advice = None
+    if not skip_advice:
+        try:
+            import asyncio
+            import os
 
-        advice_timeout = float(os.getenv("LLM_TIMEOUT_SECONDS", "45")) * 3
-        advice_result = await asyncio.wait_for(
-            generate_advice(
-                risk_level=prediction["risk_level"],
-                contributing_factors=contributing_factors,
-                calendar_event=calendar_summary,
-                calendar_events=resolved_events,
-                symptoms_summary=_symptoms_summary(check_in) or "no significant symptoms reported",
-                puffs_today=check_in.puffs_today,
-                layer3_summary="",
-                llm_provider=llm_provider,
-                advice_type=advice_type,
-                db=db,
-                user=user,
-                anchor_date=anchor_date,
-                forecast=forecast_context,
-                environment=env_features,
-                return_warnings=True,
-            ),
-            timeout=advice_timeout,
-        )
-        advice, advice_warnings, advice_debug = _unpack_advice_result(advice_result)
-    except Exception:
-        advice = None
+            advice_timeout = float(os.getenv("LLM_TIMEOUT_SECONDS", "45")) * 3
+            advice_result = await asyncio.wait_for(
+                generate_advice(
+                    risk_level=prediction["risk_level"],
+                    contributing_factors=contributing_factors,
+                    calendar_event=calendar_summary,
+                    calendar_events=resolved_events,
+                    symptoms_summary=_symptoms_summary(check_in) or "no significant symptoms reported",
+                    puffs_today=check_in.puffs_today,
+                    layer3_summary="",
+                    llm_provider=llm_provider,
+                    advice_type=advice_type,
+                    db=db,
+                    user=user,
+                    anchor_date=anchor_date,
+                    forecast=forecast_context,
+                    environment=env_features,
+                    return_warnings=True,
+                ),
+                timeout=advice_timeout,
+            )
+            advice, advice_warnings, advice_debug = _unpack_advice_result(advice_result)
+        except Exception:
+            advice = None
+            advice_warnings.append(
+                "Advice is temporarily unavailable; the ML forecast is still valid."
+            )
+    else:
         advice_warnings.append(
-            "Advice is temporarily unavailable; the ML forecast is still valid."
+            "Advice will refresh on the next Home load after this symptom update."
         )
 
     record = Forecast(

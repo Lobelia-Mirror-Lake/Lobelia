@@ -22,6 +22,7 @@ from services.check_in_service import (
     set_inhaler_total,
     upsert_check_in,
 )
+from services.forecast_service import refresh_forecast_after_check_in
 
 router = APIRouter(prefix="/check-ins", tags=["check-ins"])
 
@@ -46,8 +47,23 @@ class InhalerSetRequest(BaseModel):
     puffs_today: int = Field(..., ge=0, le=50)
 
 
+def _with_forecast_refresh(payload: dict, forecast: dict | None) -> dict:
+    if forecast is None:
+        payload["forecast_refreshed"] = False
+        return payload
+    payload["forecast_refreshed"] = True
+    payload["forecast"] = {
+        "date": forecast.get("date"),
+        "forecast_for": forecast.get("forecast_for"),
+        "risk_level": forecast.get("risk_level"),
+        "flare_probability": forecast.get("flare_probability"),
+        "contributing_factors": forecast.get("contributing_factors") or [],
+    }
+    return payload
+
+
 @router.post("", status_code=201)
-def create_check_in(
+async def create_check_in(
     body: CheckInCreate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -64,7 +80,8 @@ def create_check_in(
         triggers=body.triggers,
         calendar_event=body.calendar_event,
     )
-    return check_in_to_dict(check_in)
+    forecast = await refresh_forecast_after_check_in(db, user, day=day)
+    return _with_forecast_refresh(check_in_to_dict(check_in), forecast)
 
 
 @router.get("")
@@ -98,7 +115,7 @@ def get_today_check_in(
 
 
 @router.post("/inhaler/puff")
-def log_puff(
+async def log_puff(
     body: Optional[PuffRequest] = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -107,26 +124,34 @@ def log_puff(
     day = body.date or Date.today()
     check_in, event = log_inhaler_puff(db, user.id, day=day, recorded_at=body.recorded_at)
     total = check_in.puffs_today
-    return {
-        "date": day.isoformat(),
-        "puffs_today": total,
-        "event_id": str(event.id),
-        "is_flare_up_threshold": is_flare_up_threshold(total),
-        "message": f"Logged 1 puff. Today's total: {total}.",
-    }
+    forecast = await refresh_forecast_after_check_in(db, user, day=day)
+    return _with_forecast_refresh(
+        {
+            "date": day.isoformat(),
+            "puffs_today": total,
+            "event_id": str(event.id),
+            "is_flare_up_threshold": is_flare_up_threshold(total),
+            "message": f"Logged 1 puff. Today's total: {total}.",
+        },
+        forecast,
+    )
 
 
 @router.put("/inhaler")
-def set_inhaler(
+async def set_inhaler(
     body: InhalerSetRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     day = body.date or Date.today()
     check_in = set_inhaler_total(db, user.id, day=day, puffs_today=body.puffs_today)
-    return {
-        "date": day.isoformat(),
-        "puffs_today": check_in.puffs_today,
-        "source": "manual",
-        "is_flare_up_threshold": is_flare_up_threshold(check_in.puffs_today),
-    }
+    forecast = await refresh_forecast_after_check_in(db, user, day=day)
+    return _with_forecast_refresh(
+        {
+            "date": day.isoformat(),
+            "puffs_today": check_in.puffs_today,
+            "source": "manual",
+            "is_flare_up_threshold": is_flare_up_threshold(check_in.puffs_today),
+        },
+        forecast,
+    )
