@@ -54,7 +54,9 @@ class _RawAdvice(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     summary: str = Field(min_length=1)
-    sections: list[AdviceSection] = Field(min_length=1, max_length=5)
+    # Chat path allows summary-only replies; empty sections must not fail validation
+    # (failed validation triggers a full fallback LLM call and doubles latency).
+    sections: list[AdviceSection] = Field(default_factory=list, max_length=5)
     disclaimer: str = DEFAULT_DISCLAIMER
 
 
@@ -228,10 +230,27 @@ def build_recommendation_graph(deps: WorkflowDependencies):
             "current_symptoms": deps.symptoms_summary,
             "rescue_puffs_today": deps.puffs_today,
         }
+        is_chat = bool((state.get("question") or "").strip())
         task = (
-            "Answer the user's question using the supplied context."
-            if state.get("question")
+            "The user's message is the primary task. Reply in a natural conversational tone "
+            "(like a helpful asthma coach in a chat app), using the forecast, calendar, "
+            "environment, relevant history, personal insights, and medical knowledge in "
+            "CONTEXT_DATA. Never contradict or recalculate the ML forecast risk values. "
+            "Do not diagnose, prescribe, or change medications or dosages.\n"
+            "Length: about 3–4 short sentences in the summary field — enough to answer clearly "
+            "but still fit a chat bubble. Avoid report-style openings like "
+            "\"The forecast indicates...\"; speak directly to the user. "
+            "Put the full chat reply in summary; use sections only if you need one optional tip "
+            "(1 short sentence), otherwise leave sections as an empty array."
+            if is_chat
             else "Generate today's concise personalized asthma recommendation."
+        )
+        schema_example = (
+            '{"summary":"...","sections":[],'
+            f'"disclaimer":"{DEFAULT_DISCLAIMER}"}}'
+            if is_chat
+            else '{"summary":"...","sections":[{"title":"...","body":"..."}],'
+            f'"disclaimer":"{DEFAULT_DISCLAIMER}"}}'
         )
         prompt = (
             f"{task}\n\n"
@@ -240,8 +259,7 @@ def build_recommendation_graph(deps: WorkflowDependencies):
             f"{json.dumps(prompt_context, default=str, ensure_ascii=False)}\n"
             "</CONTEXT_DATA>\n\n"
             "Return exactly: "
-            '{"summary":"...","sections":[{"title":"...","body":"..."}],'
-            f'"disclaimer":"{DEFAULT_DISCLAIMER}"}}'
+            f"{schema_example}"
         )
         return {"prompt": prompt}
 
@@ -355,7 +373,13 @@ async def generate_copilot_advice(
         anchor_date=anchor_date,
         calendar_day=resolved_calendar_day,
         environment_provider=PreloadedEnvironmentProvider(environment),
-        history_provider=RelevantHistoryProvider(db, user.id),
+        # Chat skips the sync Gemini query embedding (often multi-second); keyword/FTS
+        # memory is enough for turn latency. Daily advice keeps hybrid retrieval.
+        history_provider=RelevantHistoryProvider(
+            db,
+            user.id,
+            use_embeddings=not bool((question or "").strip()),
+        ),
         calendar_provider=calendar_provider or NullCalendarProvider(),
         profile_provider=ProfileProvider(user),
         insights_provider=PersonalInsightsProvider(),
