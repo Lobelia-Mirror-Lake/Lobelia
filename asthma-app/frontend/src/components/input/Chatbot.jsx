@@ -150,11 +150,6 @@ function Chatbot({
 
             {!isCollapsed && (
                 <>
-                    <p className="chatbot-hint px-2 small text-muted mb-1">
-                        Tips about activities and environment are fine here. Log
-                        symptoms or rescue puffs in your check-in so they update
-                        your risk prediction.
-                    </p>
                     <div className="chatbot-conversation">
                         {messages.map((message) => (
                             <div
