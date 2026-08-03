@@ -123,7 +123,8 @@ class AdviceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     summary: str = Field(min_length=1)
-    sections: list[AdviceSection] = Field(min_length=1, max_length=5)
+    # Chat replies may use summary-only; daily advice still prompts for sections.
+    sections: list[AdviceSection] = Field(default_factory=list, max_length=5)
     disclaimer: str = Field(min_length=1)
     llm_provider: str
     knowledge_sources_used: list[str] = Field(default_factory=list)
