@@ -212,6 +212,7 @@ class RelevantHistoryProvider:
         maximum_lookback_days: int = 365,
         max_examples: int = 5,
         embedder=None,
+        use_embeddings: bool = True,
     ):
         self.db = db
         self.user_id = user_id
@@ -219,6 +220,7 @@ class RelevantHistoryProvider:
         self.maximum_lookback_days = maximum_lookback_days
         self.max_examples = max_examples
         self.embedder = embedder
+        self.use_embeddings = use_embeddings
 
     def get_relevant_history(
         self,
@@ -249,6 +251,7 @@ class RelevantHistoryProvider:
             default_lookback_days=self.default_lookback_days,
             maximum_lookback_days=self.maximum_lookback_days,
             max_examples=self.max_examples,
+            use_embeddings=self.use_embeddings,
         )
         ranked, analysis_pool, window_days = retriever.retrieve(
             query,
