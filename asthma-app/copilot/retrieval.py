@@ -65,6 +65,7 @@ class HybridEpisodeRetriever:
         max_examples: int = 5,
         analysis_pool_size: int = 30,
         candidate_limit: int = 20,
+        use_embeddings: bool = True,
     ):
         self.db = db
         self.user_id = user_id
@@ -74,6 +75,7 @@ class HybridEpisodeRetriever:
         self.max_examples = max_examples
         self.analysis_pool_size = analysis_pool_size
         self.candidate_limit = candidate_limit
+        self.use_embeddings = use_embeddings
 
     def _lookback(self, lookback_days: int | None) -> int:
         return min(max(1, lookback_days or self.default_lookback_days), self.maximum_lookback_days)
@@ -144,11 +146,14 @@ class HybridEpisodeRetriever:
 
         warn_out = warnings if warnings is not None else []
         query_embedding: list[float] | None = None
-        try:
-            embedder = self.embedder or get_embedder()
-            query_embedding = embedder.embed(query.summary_text)
-        except Exception:
-            warn_out.append("Episode embedding unavailable; using keyword-only memory retrieval.")
+        if self.use_embeddings:
+            try:
+                embedder = self.embedder or get_embedder()
+                query_embedding = embedder.embed(query.summary_text)
+            except Exception:
+                warn_out.append(
+                    "Episode embedding unavailable; using keyword-only memory retrieval."
+                )
 
         vector_scores = self._vector_candidates(
             query_embedding=query_embedding,

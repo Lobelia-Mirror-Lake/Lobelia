@@ -284,3 +284,41 @@ async def test_medication_dosage_instruction_is_rejected_and_falls_back(db_sessi
     assert advice["llm_provider"] == "claude"
     assert "4 puffs" not in str(advice)
     assert any("gemini attempt 1 failed" in warning for warning in warnings)
+
+
+CHAT_SUMMARY_ONLY = (
+    '{"summary":"Looks like a calmer day for you. Night symptoms are still worth watching.",'
+    '"sections":[],'
+    '"disclaimer":"Educational only; follow your clinician-authored action plan."}'
+)
+
+
+async def test_chat_empty_sections_accepted_without_fallback(db_session: Session):
+    """Chat prompt allows sections=[]; that must not trigger a second LLM call."""
+    user = _user(db_session, "chat-empty-sections@example.com")
+    claude_calls: list = []
+    registry = LLMRegistry(
+        factories={
+            "gemini": lambda: FakeModel(content=CHAT_SUMMARY_ONLY),
+            "claude": lambda: FakeModel(content=VALID_ADVICE, calls=claude_calls),
+        },
+        retries_per_provider=1,
+    )
+
+    advice, warnings, _debug = await generate_copilot_advice(
+        db=db_session,
+        user=user,
+        anchor_date=date(2026, 1, 30),
+        forecast={"risk_level": "Low", "contributing_factors": ["Night symptoms"]},
+        environment={},
+        symptoms_summary="nighttime symptoms",
+        puffs_today=0,
+        question="Is today a good day for a walk?",
+        llm_registry=registry,
+    )
+
+    assert advice is not None
+    assert advice["llm_provider"] == "gemini"
+    assert advice["sections"] == []
+    assert claude_calls == []
+    assert not any("failed" in warning for warning in warnings)
