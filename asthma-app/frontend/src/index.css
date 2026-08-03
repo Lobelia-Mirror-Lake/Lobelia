@@ -1032,6 +1032,7 @@ hr {
 }
 
 .chatbot-floating {
+  overflow: auto;
 
   width: clamp(320px, 40vw, 600px);
 
