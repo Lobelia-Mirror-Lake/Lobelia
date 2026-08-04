@@ -12,6 +12,8 @@ import {
 } from "../../helper-functions/profile";
 import "./ProfilePage.css";
 import EditButton from "../input/EditButton";
+import ProfileCircle from "../input/ProfileCircle";
+import { Card } from "react-bootstrap"
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -93,7 +95,7 @@ function EditIcon() {
 }
 
 function ProfilePage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const fileInputRef = useRef(null);
 
   const [profile, setProfile] = useState(null);
@@ -428,7 +430,7 @@ function ProfilePage() {
   }
 
   return (
-    <main className="profile-page">
+    <main className="profile-page vertical-40">
 
       {actionError && !activeEditor && (
         <p className="profile-global-error">
@@ -437,19 +439,19 @@ function ProfilePage() {
       )}
 
       <section className="profile-top-grid">
-        <article className="profile-card profile-identity-card">
-          <button
-            type="button"
-            className="profile-edit-button"
+        <Card className="green-theme border-contrast text-center at-middle-center vertical-16" style={{justifyContent:"space-evenly"}}>
+          <EditButton
+            className="profile-edit-button button-light button-small"
+            width="30"
+            height="30"
             onClick={openProfileEditor}
-            aria-label="Edit profile details"
+            ariaLabel="Edit profile details"
           >
-            <EditIcon />
-          </button>
+          </EditButton>
 
-          <button
-            type="button"
-            className="profile-photo-button"
+          <ProfileCircle
+            imageUrl={user?.profile_image_url}
+            size={"175px"}
             onClick={() => {
               if (!photoSupported) {
                 setActionError(
@@ -461,23 +463,9 @@ function ProfilePage() {
               fileInputRef.current?.click();
             }}
             disabled={uploadingPhoto}
-            aria-label="Upload profile photo"
-          >
-            {profile?.profile_image_url ? (
-              <img
-                src={profile.profile_image_url}
-                alt={`${profile?.name || "User"} profile`}
-              />
-            ) : (
-              <span className="profile-photo-placeholder">
-                {uploadingPhoto
-                  ? "Uploading..."
-                  : photoSupported
-                    ? "Upload photo"
-                    : "No photo saved"}
-              </span>
-            )}
-          </button>
+            ariaLabel="Upload profile photo"
+            theme={"light-theme"}
+          />
 
           <input
             ref={fileInputRef}
@@ -487,16 +475,18 @@ function ProfilePage() {
             hidden
           />
 
-          <h2>{profile?.name || "No name saved"}</h2>
+          <div className="vertical-8">
+            <h2 className={"section-header-text"}>{profile?.name || "No name saved"}</h2>
 
-          <p>
-            {age === null
-              ? "No age available"
-              : `${age} years old`}
-          </p>
+            <p>
+              {age === null
+                ? "No age available"
+                : `${age} years old`}
+            </p>
 
-          <p>{formatBirthdate(profile?.date_of_birth)}</p>
-        </article>
+            <p>{formatBirthdate(profile?.date_of_birth)}</p>
+          </div>
+        </Card>
 
         <div className="profile-information-column">
           <ProfileListCard
@@ -528,7 +518,6 @@ function ProfilePage() {
         items={emergencyContacts}
         emptyMessage="No emergency contact saved"
         onEdit={openContactEditor}
-        wide
       />
 
       {activeEditor && (
@@ -725,26 +714,26 @@ function ProfileListCard({
   items,
   emptyMessage,
   onEdit,
-  wide = false,
+  wide = true,
 }) {
   return (
-    <article
-      className={`profile-card profile-list-card ${
+    <Card
+      className={`green-theme border-contrast text-center ${
         wide ? "profile-list-card-wide" : ""
       }`}
     >
       {onEdit && (
-        <button
-          type="button"
-          className="profile-edit-button"
+        <EditButton
+          className="profile-edit-button button-light button-small"
+          width="30"
+          height="30"
           onClick={onEdit}
-          aria-label={`Edit ${title}`}
+          ariaLabel={`Edit ${title}`}
         >
-          <EditIcon />
-        </button>
+        </EditButton>
       )}
 
-      <h2>{title}</h2>
+      <h2 className={"section-header-text"}>{title}</h2>
 
       <hr />
 
@@ -761,7 +750,7 @@ function ProfileListCard({
           {emptyMessage}
         </p>
       )}
-    </article>
+    </Card>
   );
 }
 

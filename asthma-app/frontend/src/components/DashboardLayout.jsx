@@ -82,8 +82,9 @@ function DashboardLayout() {
           <h1>{currentPage}</h1>
 
           <ProfileCircle
-            imageUrl={user?.profile_picture}
+            imageUrl={user?.profile_image_url}
             onClick={openLogoutModal}
+            theme={"green-theme"}
           />
         </div>
 
