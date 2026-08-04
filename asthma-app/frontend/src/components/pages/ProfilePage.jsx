@@ -69,12 +69,12 @@ function normalizeStringArray(value) {
     .filter(Boolean);
 }
 
-function getSymptomsField(profile) {
-  if (!profile) return null;
+function getSymptomsField(user) {
+  if (!user) return null;
 
   if (
     Object.prototype.hasOwnProperty.call(
-      profile,
+      user,
       "known_symptoms"
     )
   ) {
@@ -82,7 +82,7 @@ function getSymptomsField(profile) {
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(profile, "symptoms")
+    Object.prototype.hasOwnProperty.call(user, "symptoms")
   ) {
     return "symptoms";
   }
@@ -95,11 +95,10 @@ function EditIcon() {
 }
 
 function ProfilePage() {
-  const { token, user } = useAuth();
+  const { token, user, refreshUserProfile } = useAuth();
   const fileInputRef = useRef(null);
 
-  const [profile, setProfile] = useState(null);
-  const [pageStatus, setPageStatus] = useState("loading");
+  const [pageStatus, setPageStatus] = useState("success");
   const [pageError, setPageError] = useState("");
 
   const [activeEditor, setActiveEditor] = useState(null);
@@ -119,78 +118,40 @@ function ProfilePage() {
     useState(false);
   const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      try {
-        setPageStatus("loading");
-        setPageError("");
-
-        const data = await getProfile(token);
-
-        if (!cancelled) {
-          setProfile(data);
-          setPageStatus("success");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPageStatus("error");
-          setPageError(
-            error.message || "Unable to load your profile."
-          );
-        }
-      }
-    }
-
-    if (token) {
-      loadProfile();
-    } else {
-      setPageStatus("error");
-      setPageError(
-        "You must be logged in to view your profile."
-      );
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
   const symptomsField = useMemo(
-    () => getSymptomsField(profile),
-    [profile]
+    () => getSymptomsField(user),
+    [user]
   );
 
   const symptoms = useMemo(() => {
     if (!symptomsField) return [];
 
-    return normalizeStringArray(profile?.[symptomsField]);
-  }, [profile, symptomsField]);
+    return normalizeStringArray(user?.[symptomsField]);
+  }, [user, symptomsField]);
 
   const triggers = useMemo(
     () =>
-      normalizeStringArray(profile?.trigger_preferences),
-    [profile]
+      normalizeStringArray(user?.trigger_preferences),
+    [user]
   );
 
   const emergencyContacts = useMemo(() => {
     if (
-      typeof profile?.emergency_contact !== "string" ||
-      !profile.emergency_contact.trim()
+      typeof user?.emergency_contact !== "string" ||
+      !user.emergency_contact.trim()
     ) {
       return [];
     }
 
-    return [profile.emergency_contact.trim()];
-  }, [profile]);
+    return [user.emergency_contact.trim()];
+  }, [user]);
 
-  const age = calculateAge(profile?.date_of_birth);
+  const age = calculateAge(user?.date_of_birth);
 
   const photoSupported =
-    profile &&
+    user &&
     Object.prototype.hasOwnProperty.call(
-      profile,
+      user,
       "profile_image_url"
     );
 
@@ -198,8 +159,8 @@ function ProfilePage() {
     setActionError("");
 
     setProfileDraft({
-      name: profile?.name || "",
-      date_of_birth: profile?.date_of_birth || "",
+      name: user?.name || "",
+      date_of_birth: user?.date_of_birth || "",
     });
 
     setActiveEditor("profile");
@@ -229,7 +190,7 @@ function ProfilePage() {
 
   function openContactEditor() {
     setActionError("");
-    setContactDraft(profile?.emergency_contact || "");
+    setContactDraft(user?.emergency_contact || "");
     setActiveEditor("contact");
   }
 
@@ -289,7 +250,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -312,7 +273,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -342,7 +303,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -365,7 +326,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -400,7 +361,7 @@ function ProfilePage() {
           token,
         });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
     } catch (error) {
       setActionError(
         error.message || "Unable to upload your photo."
@@ -476,7 +437,7 @@ function ProfilePage() {
           />
 
           <div className="vertical-8">
-            <h2 className={"section-header-text"}>{profile?.name || "No name saved"}</h2>
+            <h2 className={"section-header-text"}>{user?.name || "No name saved"}</h2>
 
             <p>
               {age === null
@@ -484,7 +445,7 @@ function ProfilePage() {
                 : `${age} years old`}
             </p>
 
-            <p>{formatBirthdate(profile?.date_of_birth)}</p>
+            <p>{formatBirthdate(user?.date_of_birth)}</p>
           </div>
         </Card>
 
