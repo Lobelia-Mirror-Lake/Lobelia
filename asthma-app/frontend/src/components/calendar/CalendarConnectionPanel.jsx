@@ -1,4 +1,5 @@
 import { useCalendar } from "../../context/CalendarContext";
+import { Button, Container, Row, Col, Card } from "react-bootstrap";
 
 export default function CalendarConnectionPanel() {
   const {
@@ -12,75 +13,78 @@ export default function CalendarConnectionPanel() {
     disconnectGoogleCalendar,
   } = useCalendar();
 
+  const isConnected = calendarStatus.connected;
+
+  const buttonText = !isConnected
+    ? !calendarStatus.configured
+      ? "Google Calendar unavailable"
+      : actionLoading
+      ? "Connecting..."
+      : "Connect Google Calendar"
+    : actionLoading
+    ? "Disconnecting..."
+    : "Disconnect Google Calendar";
+
+  const onClick = isConnected
+    ? disconnectGoogleCalendar
+    : connectGoogleCalendar;
+
+  const disabled = isConnected
+    ? actionLoading || statusLoading
+    : actionLoading ||
+      statusLoading ||
+      !calendarStatus.configured;
+
+console.log(statusLoading);
+      
   return (
-    <>
-      <section className="calendar-connection-panel" aria-live="polite">
-        <div className="calendar-connection-copy">
-          <p className="calendar-connection-label">Google Calendar</p>
+      <Container className="dark-theme card"  style={{width: "100%"}} aria-live="polite">
+        <Row className="p-2 align-items-center" style={{width: "100%", justifyContent: "space-between"}}>
+          <Col md={12} lg={7} className="vertical-16">
+            <p>Google Calendar</p>
 
-          <h2>
-            {statusLoading
-              ? "Checking connection status"
-              : calendarStatus.connected
-                ? "Calendar connected"
-                : "Calendar not connected"}
-          </h2>
+            <h2>
+              {statusLoading
+                ? "Checking connection status"
+                : calendarStatus.connected
+                  ? "Calendar connected"
+                  : "Calendar not connected"}
+            </h2>
 
-          <p className="calendar-connection-description">
-            {statusLoading
-              ? "Loading your Google Calendar connection."
-              : calendarStatus.connected
-                ? `Connected${calendarStatus.email ? ` as ${calendarStatus.email}` : ""}.`
-                : "Connect Google Calendar to bring events into your monthly view."}
-          </p>
-
-          {(statusError || actionError || actionMessage) && (
-            <p
-              className={[
-                "calendar-connection-feedback",
-                statusError || actionError ? "calendar-connection-feedback--error" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {statusError || actionError || actionMessage}
+            <p>
+              {statusLoading
+                ? "Loading your Google Calendar connection."
+                : calendarStatus.connected
+                  ? `Connected${calendarStatus.email ? ` as ${calendarStatus.email}` : ""}.`
+                  : "Connect Google Calendar to bring events into your monthly view."}
             </p>
-          )}
-        </div>
 
-        <div className="calendar-connection-actions">
-          {!calendarStatus.connected ? (
-            <button
-              type="button"
-              className="calendar-connection-button calendar-connection-button--primary"
-              onClick={connectGoogleCalendar}
-              disabled={
-                actionLoading ||
-                statusLoading ||
-                calendarStatus.connected ||
-                !calendarStatus.configured
-              }
+            {(statusError || actionError || actionMessage) && (
+              <p
+                style={{
+                  color: statusError || actionError
+                    ? "var(--color-error-light)"
+                    : "var(--color-primary)",
+                }}
+              >
+                {statusError || actionError || actionMessage}
+              </p>
+            )}
+          </Col>
+
+          <Col md={12} lg={1} style={{height:"24px", width:"24px"}}/>
+
+          <Col md={12} lg={4} className="at-middle-center">
+            <Button
+              className="button-light body-text p-3"
+              style={{ width: "fit-content" }}
+              onClick={onClick}
+              disabled={disabled}
             >
-              {calendarStatus.configured
-                ? actionLoading && !calendarStatus.connected
-                  ? "Connecting..."
-                  : "Connect Google Calendar"
-                : "Google Calendar unavailable"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="calendar-connection-button calendar-connection-button--secondary"
-              onClick={disconnectGoogleCalendar}
-              disabled={actionLoading || statusLoading || !calendarStatus.connected}
-            >
-              {actionLoading && calendarStatus.connected
-                ? "Disconnecting..."
-                : "Disconnect Google Calendar"}
-            </button>
-          )}
-        </div>
-      </section>
-    </>
+              {buttonText}
+            </Button>
+          </Col>
+        </Row>
+      </Container>
   );
 }

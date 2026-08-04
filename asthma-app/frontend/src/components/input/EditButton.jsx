@@ -1,12 +1,12 @@
 import { Button } from "react-bootstrap";
 
-function EditButton({ onClick, className = "", style = {}, width = "36", height = "36" }) {
+function EditButton({ onClick, className = "", style = {}, width = "36", height = "36", ariaLabel = "" }) {
     return (
         <Button
             className={className}
             style={style}
             onClick={onClick}
-            aria-label="Edit"
+            aria-label={`${ariaLabel ? ariaLabel : "Edit"}`}
         >
             <svg
                 width={width}

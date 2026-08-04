@@ -204,6 +204,79 @@
   overflow-y: auto;
 }
 
+/************************************* COLORS ***************************************/
+.dark-theme {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+
+  --bg-color: var(--color-secondary);
+  --bg-color-dark: var(--color-secondary-dark);
+  --bg-color-darkest: var(--color-secondary-darkest);
+  --text-color: var(--color-primary);
+  --text-color-dark: var(--color-primary-dark);
+  --text-color-darkest: var(--color-primary-darkest);
+}
+
+.light-theme {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+
+  --bg-color: var(--color-primary);
+  --bg-color-dark: var(--color-primary-dark);
+  --bg-color-darkest: var(--color-primary-darkest);
+  --text-color: var(--color-secondary);
+  --text-color-dark: var(--color-secondary-dark);
+  --text-color-darkest: var(--color-secondary-darkest);
+}
+
+.green-theme {
+  background-color: var(--color-tertiary);
+  color: var(--color-secondary);
+
+  --bg-color: var(--color-tertiary);
+  --bg-color-dark: var(--color-tertiary-dark);
+  --bg-color-darkest: var(--color-tertiary-darkest);
+  --text-color: var(--color-secondary);
+  --text-color-dark: var(--color-secondary-dark);
+  --text-color-darkest: var(--color-secondary-darkest);
+}
+
+.dark-main {
+  --bg-color: var(--color-secondary);
+  --bg-color-dark: var(--color-secondary-dark);
+  --bg-color-darkest: var(--color-secondary-darkest);
+}
+
+.green-detail {
+  --text-color: var(--color-tertiary);
+  --text-color-dark: var(--color-tertiary-dark);
+  --text-color-darkest: var(--color-tertiary-darkest);
+}
+
+.border-contrast {
+  --border-color: var(--text-color)
+}
+
+.card, [class*="card-"] {
+  border: var(--stroke-width) solid var(--border-color, var(--bg-color-dark));
+  border-radius: var(--space-16);
+  padding: var(--card-padding, var(--space-16));
+}
+
+.card-0  { --card-padding: 0; }
+.card-8  { --card-padding: var(--space-8); }
+.card-16 { --card-padding: var(--space-16); }
+.card-24 { --card-padding: var(--space-24); }
+.card-32 { --card-padding: var(--space-32); }
+.card-40 { --card-padding: var(--space-40); }
+.card-48 { --card-padding: var(--space-48); }
+.card-56 { --card-padding: var(--space-56); }
+.card-64 { --card-padding: var(--space-64); }
+.card-72 { --card-padding: var(--space-72); }
+.card-80 { --card-padding: var(--space-80); }
+
+
+
 /********************************* ICONS ********************************************/
 
 body {
@@ -253,6 +326,12 @@ body {
   border-color: var(--color-secondary-dark);
 }
 
+.button-dark:disabled {
+  background-color: var(--color-secondary);
+  color: var(--color-primary-dark);
+  border-color: var(--color-secondary-dark);
+}
+
 .button-dark:hover,
 .button-dark:focus,
 .button-dark.active {
@@ -272,6 +351,12 @@ body {
 .button-light {
   background-color: var(--color-primary);
   color: var(--color-secondary);
+  border-color: var(--color-primary-dark);
+}
+
+.button-light:disabled {
+  background-color: var(--color-primary);
+  color: var(--color-secondary-dark);
   border-color: var(--color-primary-dark);
 }
 
@@ -549,6 +634,33 @@ hr {
 .form-modal .form-control {
   font-size: 18px;
   line-height: 18px;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.password-wrapper .form-control {
+  padding-right: 5rem;
 }
 
 .contact-card {
@@ -856,10 +968,10 @@ hr {
 
   border-radius: 50%;
 
-  background-color: var(--color-tertiary);
-  border: var(--stroke-width) solid var(--color-secondary);
+  background-color: var(--bg-color, (--color-tertiary));
+  border: var(--stroke-width) solid var(--text-color, var(--color-secondary));
 
-  color: var(--color-secondary);
+  color: var(--text-color, var(--color-secondary));
 
   transition:
     background-color 0.15s ease,
@@ -886,12 +998,11 @@ hr {
   justify-content: center;
   align-items: center;
 
-  background-color: var(--color-tertiary);
+  background-color: var(--bg-color, (--color-tertiary));
+  color: var(--text-color, var(--color-secondary));
 
   font-family: var(--font-header-family);
   font-size: var(--font-section-header-size);
-
-  color: var(--color-secondary);
 
   transition:
     background-color 0.15s ease,
@@ -899,9 +1010,9 @@ hr {
 }
 
 .profile-circle:hover {
-  border-color: var(--color-secondary-dark);
+  border-color: var(--text-color-dark, var(--color-secondary-dark));
 
-  background-color: var(--color-tertiary-dark);
+  background-color: var(--bg-color-dark, var(--color-tertiary-dark));
 }
 
 .profile-circle:hover .profile-image {
@@ -909,14 +1020,14 @@ hr {
 }
 
 .profile-circle:hover .profile-default {
-  background-color: var(--color-tertiary-dark);
-  color: var(--color-secondary-dark);
+  background-color: var(--bg-color-dark, var(--color-tertiary-dark));
+  color: var(--text-color-dark, var(--color-secondary-dark));
 }
 
 .profile-circle:active {
-  border-color: var(--color-secondary-darkest);
+  border-color: var(--text-color-darkest, var(--color-secondary-darkest));
 
-  background-color: var(--color-tertiary-darkest);
+  background-color: var(--bg-color-darkest, var(--color-tertiary-darkest));
 }
 
 .profile-circle:active .profile-image {
@@ -924,8 +1035,8 @@ hr {
 }
 
 .profile-circle:active .profile-default {
-  background-color: var(--color-tertiary-darkest);
-  color: var(--color-secondary-darkest);
+  background-color: var(--bg-color-darkest, var(--color-tertiary-darkest));
+  color: var(--text-color-darkest, var(--color-secondary-darkest));
 }
 
 .profile-default span {
@@ -1041,6 +1152,17 @@ hr {
   box-shadow:
     0 16px 48px rgba(4, 12, 13, 0.4),
     0 6px 18px rgba(4, 12, 13, 0.15);
+}
+
+.chatbot-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.chatbot-layer > * {
+  pointer-events: auto;
 }
 
 .spinner-overlay {
@@ -1193,13 +1315,19 @@ h3 {
   margin: 0;
 }
 
-p {
+p, li {
   font-family: var(--font-body-family);
   font-size: var(--font-body-size);
   font-weight: var(--font-body-weight);
   
   line-height: var(--font-body-size);
   margin: 0;
+}
+
+ul, ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
 
 /***************************** ANIMATIONS ***************************************/

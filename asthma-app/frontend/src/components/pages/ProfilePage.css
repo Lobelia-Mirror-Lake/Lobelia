@@ -1,8 +1,5 @@
 .profile-page {
-  min-height: 100vh;
   padding: 28px 42px 120px;
-  background: #fbf8ef;
-  color: #173f3d;
   box-sizing: border-box;
 }
 
@@ -63,7 +60,7 @@
 
 .profile-identity-card {
   display: flex;
-  min-height: 520px;
+  min-height: 200px;
   flex-direction: column;
   align-items: center;
   padding: 40px 24px;
@@ -147,7 +144,6 @@
 
 .profile-list-card-wide {
   min-height: 180px;
-  margin-top: 44px;
 }
 
 .profile-card-divider {
@@ -170,6 +166,8 @@
   background: #fffdf6;
   font-size: clamp(1rem, 2vw, 1.4rem);
   line-height: 1.05;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .profile-empty-message {
