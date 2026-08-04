@@ -5,6 +5,9 @@ function ProfileCircle({
   imageUrl,
   onClick,
   size = 88,
+  disabled,
+  ariaLabel,
+  theme =""
 }) {
     const { user } = useAuth();
     const [imageError, setImageError] = useState(false);
@@ -13,13 +16,15 @@ function ProfileCircle({
 
     return (
         <div
-            className="profile-circle"
+            className={`profile-circle ${theme}`}
             style={{
                 width: size,
                 height: size,
                 cursor: onClick ? "pointer" : "default",
             }}
             onClick={onClick}
+            disabled={disabled}
+            aria-label={ariaLabel}
         >
         {
             showImage ? (

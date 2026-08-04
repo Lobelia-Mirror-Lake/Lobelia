@@ -1,9 +1,10 @@
 import { Form } from 'react-bootstrap';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { errorIconDataUri } from '../../helper-functions/errorIconDataUri.js';
 import { getColor } from '../../helper-functions/getColor';
 import { validate } from '../../helper-functions/validate.js';
 import { IMaskInput } from "react-imask";
+import { Eye, EyeSlash } from "react-bootstrap-icons";
 
 function FormFull( { fields, formData, setFormData, errors, setErrors, setInputError, theme = "dark" } ) {
     // test whether input meets requirements
@@ -19,6 +20,15 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
 
         setErrors(newErrors);
         setInputError("");
+    };
+
+    // visibility
+    const [showPasswords, setShowPasswords] = useState({});
+    const togglePassword = (name) => {
+        setShowPasswords((prev) => ({
+            ...prev,
+            [name]: !prev[name],
+        }));
     };
 
     // get color and shape for error icon
@@ -68,15 +78,40 @@ function FormFull( { fields, formData, setFormData, errors, setErrors, setInputE
                             className={`${theme}`}
                         />
                         ) : (
-                        <Form.Control
-                            type={data.type}
-                            placeholder={data.placeholder}
-                            value={formData[data.name] ?? ""}
-                            onChange={(e) => handleChange(data.name, e.target.value)}
-                            onBlur={(e) => handleChange(data.name, e.target.value.trim())}
-                            isInvalid={!!errors[data.name]}
-                            className={`${theme}`}
-                        />
+                        <div className={`${data.type === "password" ? "password-wrapper" : ""}`}>
+                            <Form.Control
+                                type={
+                                    data.type === "password" && showPasswords[data.name]
+                                        ? "text"
+                                        : data.type
+                                }
+                                placeholder={data.placeholder}
+                                value={formData[data.name] ?? ""}
+                                onChange={(e) => handleChange(data.name, e.target.value)}
+                                onBlur={(e) => handleChange(data.name, e.target.value.trim())}
+                                isInvalid={!!errors[data.name]}
+                                className={`${theme}`}
+                            />
+
+                            {data.type === "password" && (
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => togglePassword(data.name)}
+                                    aria-label={
+                                        showPasswords[data.name]
+                                            ? "Hide password"
+                                            : "Show password"
+                                    }
+                                >
+                                    {showPasswords[data.name] ? (
+                                        <EyeSlash />
+                                    ) : (
+                                        <Eye />
+                                    )}
+                                </button>
+                            )}
+                        </div>
                         )
                     }
 

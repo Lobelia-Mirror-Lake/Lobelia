@@ -200,9 +200,9 @@ function Chatbot({
                     </div>
 
                     <div className="chatbot-input">
-                        <div className="chatbot-input-field form-full light">
+                        <div className="chatbot-input-field card-0 light-theme" style={{borderRadius:"8px"}}>
                             <Form.Control
-                                className="light"
+                                style={{borderRadius:"4px"}}
                                 as="textarea"
                                 rows={2}
                                 placeholder={
@@ -233,49 +233,51 @@ function Chatbot({
     }
 
     return (
-        <Rnd
-            size={size}
-            position={position}
-            onDragStop={(e, d) => {
-                setPosition({
-                    x: d.x,
-                    y: d.y,
-                });
-            }}
-            onResizeStop={(e, direction, ref, delta, position) => {
-                const newSize = {
-                    width: ref.offsetWidth,
-                    height: ref.offsetHeight,
-                };
+        <div className="chatbot-layer">
+            <Rnd
+                size={size}
+                position={position}
+                onDragStop={(e, d) => {
+                    setPosition({
+                        x: d.x,
+                        y: d.y,
+                    });
+                }}
+                onResizeStop={(e, direction, ref, delta, position) => {
+                    const newSize = {
+                        width: ref.offsetWidth,
+                        height: ref.offsetHeight,
+                    };
 
-                setSize(newSize);
-                previousExpandedSize.current = newSize;
-                setPosition(position);
-            }}
-            enableResizing={
-                isCollapsed
-                    ? {
-                        left: true,
-                        right: true,
-                        top: false,
-                        bottom: false,
-                        topLeft: false,
-                        topRight: false,
-                        bottomLeft: false,
-                        bottomRight: false,
-                    }
-                    : true
-            }
-            minWidth={300}
-            minHeight={isCollapsed ? 0 : 300}
-            bounds="window"
-            style={{
-                position: "fixed",
-                zIndex: 9999,
-            }}
-        >
-            {chatbot}
-        </Rnd>
+                    setSize(newSize);
+                    previousExpandedSize.current = newSize;
+                    setPosition(position);
+                }}
+                enableResizing={
+                    isCollapsed
+                        ? {
+                            left: true,
+                            right: true,
+                            top: false,
+                            bottom: false,
+                            topLeft: false,
+                            topRight: false,
+                            bottomLeft: false,
+                            bottomRight: false,
+                        }
+                        : true
+                }
+                minWidth={300}
+                minHeight={isCollapsed ? 0 : 300}
+                bounds="parent"
+                style={{
+                    position: "fixed",
+                    zIndex: 9999,
+                }}
+            >
+                {chatbot}
+            </Rnd>
+        </div>
     );
 }
 
