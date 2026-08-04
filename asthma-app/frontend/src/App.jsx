@@ -11,6 +11,7 @@ import DashboardRoute from './components/routes/DashboardRoute';
 import { SetupRoute } from './components/routes/SetupRoute';
 import PublicRoute from './components/routes/PublicRoute';
 import NotFoundPage from './components/pages/NotFoundPage';
+import PrivacyPage from './components/pages/PrivacyPage';
 import SetupPage from './components/pages/SetupPage';
 import OAuthDone from './components/input/OAuthDone';
 import { urls } from './constants';
@@ -53,6 +54,9 @@ function App() {
         <Route element={<PublicRoute />}>
           <Route path={urls.landing} element={<LandingPage />} />
         </Route>
+
+        {/* Public legal page — reachable logged in or out (needed for Google OAuth). */}
+        <Route path={urls.privacy} element={<PrivacyPage />} />
 
         <Route element={<SetupRoute />}>
           <Route path={urls.setup} element={<SetupPage />} />
