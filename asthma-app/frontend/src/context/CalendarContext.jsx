@@ -166,57 +166,66 @@ export function CalendarProvider({ children }) {
     setCalendarSnapshot(EMPTY_SNAPSHOT);
   }, []);
 
-  const refreshGoogleCalendarStatus = useCallback(async (authToken = token) => {
-    if (!authToken) {
-      return EMPTY_STATUS;
-    }
-
-    const requestId = ++statusRequestRef.current;
-    setStatusLoading(true);
-    setStatusError("");
-
-    try {
-      const response = await fetch(`${API_URL}/v1/calendar/status`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      const data = await parseCalendarResponse(response);
-
-      if (requestId !== statusRequestRef.current) {
-        return data;
+  const refreshGoogleCalendarStatus = useCallback(
+    async (authToken = token, { silent = false } = {}) => {
+      if (!authToken) {
+        return EMPTY_STATUS;
       }
 
-      const nextStatus = {
-        connected: Boolean(data.connected),
-        configured: Boolean(data.configured),
-        email: data.email ?? null,
-        connectedAt: data.connectedAt ?? null,
-      };
+      const requestId = ++statusRequestRef.current;
 
-      setCalendarStatus(nextStatus);
+      if (!silent) {
+        setStatusLoading(true);
+      }
 
-      if (!nextStatus.connected) {
+      setStatusError("");
+
+      try {
+        const response = await fetch(`${API_URL}/v1/calendar/status`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+
+        const data = await parseCalendarResponse(response);
+
+        if (requestId !== statusRequestRef.current) {
+          return data;
+        }
+
+        const nextStatus = {
+          connected: Boolean(data.connected),
+          configured: Boolean(data.configured),
+          email: data.email ?? null,
+          connectedAt: data.connectedAt ?? null,
+        };
+
+        setCalendarStatus(nextStatus);
+
+        if (!nextStatus.connected) {
+          clearGoogleEventsFromCache();
+        }
+
+        return nextStatus;
+      } catch (error) {
+        if (requestId !== statusRequestRef.current) {
+          return null;
+        }
+
+        setCalendarStatus(EMPTY_STATUS);
+        setStatusError(
+          error?.message || "Unable to load Google Calendar connection status."
+        );
+
         clearGoogleEventsFromCache();
-      }
 
-      return nextStatus;
-    } catch (error) {
-      if (requestId !== statusRequestRef.current) {
         return null;
+      } finally {
+        if (!silent && requestId === statusRequestRef.current) {
+          setStatusLoading(false);
+        }
       }
-
-      setCalendarStatus(EMPTY_STATUS);
-      setStatusError(
-        error?.message || "Unable to load Google Calendar connection status."
-      );
-      clearGoogleEventsFromCache();
-      return null;
-    } finally {
-      if (requestId === statusRequestRef.current) {
-        setStatusLoading(false);
-      }
-    }
-  }, [clearGoogleEventsFromCache, token]);
+    },
+    [clearGoogleEventsFromCache, token]
+  );
 
   const loadCalendarMonth = useCallback(async ({
     year,
@@ -415,7 +424,7 @@ export function CalendarProvider({ children }) {
         const activePopup = popupRef.current;
 
         if (!activePopup || activePopup.closed) {
-          refreshGoogleCalendarStatus(token).then((status) => {
+          refreshGoogleCalendarStatus(token, { silent: true }).then((status) => {
             clearCalendarConnection();
             setActionLoading(false);
 
@@ -435,7 +444,7 @@ export function CalendarProvider({ children }) {
           return;
         }
 
-        refreshGoogleCalendarStatus(token).then((status) => {
+        refreshGoogleCalendarStatus(token, { silent: true }).then((status) => {
           if (status?.connected) {
             clearCalendarConnection();
             setActionLoading(false);

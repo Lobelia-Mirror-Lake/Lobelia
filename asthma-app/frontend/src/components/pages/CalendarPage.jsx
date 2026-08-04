@@ -285,10 +285,6 @@ function CalendarPage() {
 
   return (
     <main className="calendar-page">
-      <header className="calendar-page-header">
-        <h1>Calendar</h1>
-        <div className="calendar-header-avatar" aria-hidden="true" />
-      </header>
 
       <CalendarConnectionPanel />
 
@@ -376,11 +372,11 @@ function CalendarPage() {
             </div>
 
             {calendarStatus.connected && googleEventsByDate[selectedDate] && (
-              <div className="google-events-section">
+              <div className="card dark-theme mt-3" style={{gap: "16px"}}>
                 <h3>Google Calendar Events</h3>
-                <ul className="google-events-list">
+                <ul>
                   {googleEventsByDate[selectedDate].map(ev => (
-                    <li key={ev.id} className="google-event-item">
+                    <li key={ev.id}>
                       <strong>{ev.title}</strong><br />
                       {new Date(ev.start).toLocaleTimeString([], {
                         hour: "numeric",

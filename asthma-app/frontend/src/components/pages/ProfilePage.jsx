@@ -11,6 +11,7 @@ import {
   uploadAndSaveProfileImage,
 } from "../../helper-functions/profile";
 import "./ProfilePage.css";
+import EditButton from "../input/EditButton";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -428,20 +429,6 @@ function ProfilePage() {
 
   return (
     <main className="profile-page">
-      <header className="profile-header">
-        <h1>Profile</h1>
-
-        <div className="profile-header-avatar">
-          {profile?.profile_image_url && (
-            <img
-              src={profile.profile_image_url}
-              alt=""
-            />
-          )}
-        </div>
-      </header>
-
-      <div className="profile-header-divider" />
 
       {actionError && !activeEditor && (
         <p className="profile-global-error">
@@ -759,7 +746,7 @@ function ProfileListCard({
 
       <h2>{title}</h2>
 
-      <div className="profile-card-divider" />
+      <hr />
 
       {items.length > 0 ? (
         <div className="profile-chip-list">
