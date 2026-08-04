@@ -1,5 +1,6 @@
 import "./StatisticsPage.css";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "react-bootstrap";
 import { useAuth } from "../../context/AuthContext";
 import { getCheckIns } from "../../helper-functions/checkIns";
 import {
@@ -500,16 +501,6 @@ function StatisticsPage() {
 
   return (
     <main className="statistics-page">
-      <header className="statistics-header">
-        <h1>Your Statistics</h1>
-
-        <div
-          className="statistics-profile-placeholder"
-          aria-hidden="true"
-        />
-      </header>
-
-      <div className="statistics-divider" />
 
       <section className="statistics-grid">
         <article className="statistics-panel prediction-panel">
@@ -649,13 +640,12 @@ function StatisticsPage() {
             </div>
           </article>
 
-          <button
-            className="download-summary-button"
-            type="button"
+          <Button
+            className="button-dark btn-large-text"
             onClick={downloadSummary}
           >
             Download Summary
-          </button>
+          </Button>
         </section>
       </section>
     </main>

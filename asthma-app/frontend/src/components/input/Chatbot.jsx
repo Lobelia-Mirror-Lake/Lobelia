@@ -200,9 +200,9 @@ function Chatbot({
                     </div>
 
                     <div className="chatbot-input">
-                        <div className="chatbot-input-field form-full light">
+                        <div className="chatbot-input-field card-0 light-theme" style={{borderRadius:"8px"}}>
                             <Form.Control
-                                className="light"
+                                style={{borderRadius:"4px"}}
                                 as="textarea"
                                 rows={2}
                                 placeholder={
