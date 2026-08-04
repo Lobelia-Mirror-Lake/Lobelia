@@ -3,6 +3,7 @@ const dashboardBase = "";
 export const urls = {
   landing: "/",
   setup: "/setup",
+  privacy: "/privacy",
 
   dashboard: dashboardBase,
   home: `${dashboardBase}/home`,
