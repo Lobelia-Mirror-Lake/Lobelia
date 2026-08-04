@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Container, Row, Col, Form } from "react-bootstrap";
 import ToggleButton from "./ToggleButton";
 import ArrowButton from "./ArrowButton";
-import Draggable from "react-draggable";
+import { Rnd } from "react-rnd";
 import { useAuth } from "../../context/AuthContext";
 import { askCopilot, formatCopilotReply } from "../../helper-functions/askCopilot";
 
@@ -27,6 +27,19 @@ function Chatbot({
     const [isCollapsed, toggleCollapsed] = useState(beginClosed);
     const [isSending, setIsSending] = useState(false);
 
+    const EXPANDED_DEFAULT = {
+        width: 400,
+        height: 500,
+    };
+
+    const [size, setSize] = useState(EXPANDED_DEFAULT);
+    const previousExpandedSize = useRef(EXPANDED_DEFAULT);
+
+    const [position, setPosition] = useState(() => ({
+        x: window.innerWidth - EXPANDED_DEFAULT.width - 20,
+        y: window.innerHeight - EXPANDED_DEFAULT.height - 20,
+    }));
+
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -35,8 +48,23 @@ function Chatbot({
         });
     }, [messages]);
 
-    async function onCollapse() {
-        toggleCollapsed((curr) => !curr);
+    const containerRef = useRef(null);
+
+    useLayoutEffect(() => {
+        if (isCollapsed && containerRef.current) {
+            const { width, height } = containerRef.current.getBoundingClientRect();
+
+            setSize((prev) => ({
+                width: Math.ceil(width),
+                height: Math.ceil(height),
+            }));
+        } else {
+            setSize(previousExpandedSize.current);
+        }
+    }, [isCollapsed, title]);
+
+    function onCollapse() {
+        toggleCollapsed((c) => !c);
     }
 
     async function sendMessage() {
@@ -104,11 +132,14 @@ function Chatbot({
 
     const chatbot = (
         <Container
-            className={`contact-card d-flex flex-column chatbot-header ${
+            ref={containerRef}
+            className={`contact-card d-flex flex-column ${
                 isFloating ? "chatbot-floating" : "position-relative"
             }`}
             style={{
-                height: isCollapsed ? "auto" : isFloating ? 500 : 600,
+                width: isCollapsed ? "auto" : "100%",
+                height: isCollapsed ? "auto" : isFloating ? "100%" : 600,
+                resize: "none",
             }}
         >
             <Row
@@ -169,9 +200,9 @@ function Chatbot({
                     </div>
 
                     <div className="chatbot-input">
-                        <div className="chatbot-input-field form-full light">
+                        <div className="chatbot-input-field card-0 light-theme" style={{borderRadius:"8px"}}>
                             <Form.Control
-                                className="light"
+                                style={{borderRadius:"4px"}}
                                 as="textarea"
                                 rows={2}
                                 placeholder={
@@ -202,20 +233,51 @@ function Chatbot({
     }
 
     return (
-        <Draggable nodeRef={nodeRef} handle=".chatbot-header">
-            <div
-                ref={nodeRef}
+        <div className="chatbot-layer">
+            <Rnd
+                size={size}
+                position={position}
+                onDragStop={(e, d) => {
+                    setPosition({
+                        x: d.x,
+                        y: d.y,
+                    });
+                }}
+                onResizeStop={(e, direction, ref, delta, position) => {
+                    const newSize = {
+                        width: ref.offsetWidth,
+                        height: ref.offsetHeight,
+                    };
+
+                    setSize(newSize);
+                    previousExpandedSize.current = newSize;
+                    setPosition(position);
+                }}
+                enableResizing={
+                    isCollapsed
+                        ? {
+                            left: true,
+                            right: true,
+                            top: false,
+                            bottom: false,
+                            topLeft: false,
+                            topRight: false,
+                            bottomLeft: false,
+                            bottomRight: false,
+                        }
+                        : true
+                }
+                minWidth={300}
+                minHeight={isCollapsed ? 0 : 300}
+                bounds="parent"
                 style={{
                     position: "fixed",
-                    right: "20px",
-                    bottom: "20px",
                     zIndex: 9999,
-                    transform: `translateY(${offsetY}px)`,
                 }}
             >
                 {chatbot}
-            </div>
-        </Draggable>
+            </Rnd>
+        </div>
     );
 }
 

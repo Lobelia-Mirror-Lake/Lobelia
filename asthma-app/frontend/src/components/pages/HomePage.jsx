@@ -129,16 +129,6 @@ function HomePage() {
 
   return (
     <main className="home-page">
-      <section className="home-header">
-        <h1>Hi, {formatName(user)}!</h1>
-
-        <div
-          className="home-profile-placeholder"
-          aria-hidden="true"
-        />
-      </section>
-
-      <div className="home-divider" />
 
       {status === "loading" && (
         <section className="home-state-card">
