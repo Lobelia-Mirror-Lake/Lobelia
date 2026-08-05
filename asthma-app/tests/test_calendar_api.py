@@ -127,7 +127,7 @@ def test_list_events_when_connected(
     from sqlalchemy import select
 
     mock_fetch.return_value = [
-        {"title": "Lecture", "start": "2026-07-17", "end": "2026-07-17", "all_day": True}
+        {"title": "Lecture", "start": "2026-07-17", "end": "2026-07-17", "all_day": True, "date": "2026-07-17"}
     ]
     # Attach a fake refresh token to the auth user
     me = client.get("/v1/users/me", headers=auth_headers).json()
@@ -140,3 +140,78 @@ def test_list_events_when_connected(
     assert response.status_code == 200, response.text
     assert response.json()["events"][0]["title"] == "Lecture"
     mock_fetch.assert_awaited()
+
+
+def test_calendar_status_includes_camel_case_alias(client: TestClient, auth_headers: dict, db_session):
+    from datetime import datetime, timezone
+
+    from db.models import User
+    from sqlalchemy import select
+
+    me = client.get("/v1/users/me", headers=auth_headers).json()
+    user = db_session.scalar(select(User).where(User.email == me["email"]))
+    assert user is not None
+    user.google_calendar_refresh_token = "fake-refresh"
+    user.google_calendar_email = "cal@example.com"
+    user.google_calendar_connected_at = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
+    db_session.commit()
+
+    response = client.get("/v1/calendar/status", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["connected"] is True
+    assert body["email"] == "cal@example.com"
+    assert body["connected_at"]
+    assert body["connectedAt"] == body["connected_at"]
+
+
+@patch("services.google_calendar.fetch_events_for_range", new_callable=AsyncMock)
+def test_list_events_range_for_month(
+    mock_fetch,
+    client: TestClient,
+    auth_headers: dict,
+    db_session,
+):
+    from db.models import User
+    from sqlalchemy import select
+
+    mock_fetch.return_value = [
+        {
+            "title": "Lab",
+            "start": "2026-08-05T10:00:00-05:00",
+            "end": "2026-08-05T11:00:00-05:00",
+            "all_day": False,
+            "date": "2026-08-05",
+        }
+    ]
+    me = client.get("/v1/users/me", headers=auth_headers).json()
+    user = db_session.scalar(select(User).where(User.email == me["email"]))
+    assert user is not None
+    user.google_calendar_refresh_token = "fake-refresh"
+    db_session.commit()
+
+    response = client.get(
+        "/v1/calendar/events?from=2026-08-01&to=2026-08-31",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["from"] == "2026-08-01"
+    assert body["to"] == "2026-08-31"
+    assert body["events"][0]["date"] == "2026-08-05"
+    mock_fetch.assert_awaited()
+
+
+def test_list_events_range_requires_both_bounds(client: TestClient, auth_headers: dict, db_session):
+    from db.models import User
+    from sqlalchemy import select
+
+    me = client.get("/v1/users/me", headers=auth_headers).json()
+    user = db_session.scalar(select(User).where(User.email == me["email"]))
+    assert user is not None
+    user.google_calendar_refresh_token = "fake-refresh"
+    db_session.commit()
+
+    response = client.get("/v1/calendar/events?from=2026-08-01", headers=auth_headers)
+    assert response.status_code == 400
+    assert response.json()["code"] == "VALIDATION_ERROR"

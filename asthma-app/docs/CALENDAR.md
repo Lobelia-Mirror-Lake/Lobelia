@@ -43,8 +43,8 @@ docker compose up -d --force-recreate api
 | Check status     | `GET /v1/calendar/status`                                                     |
 | Start OAuth      | `GET /v1/calendar/connect` (alias: `/v1/calendar/auth-url`) → open `auth_url` |
 | Google redirects | `GET /v1/calendar/callback` (stores refresh token)                            |
-| Preview events   | `GET /v1/calendar/events?date=YYYY-MM-DD`                                     |
-| Forecast         | `POST /v1/forecast` auto-fetches **tomorrow** events → LLM                    |
+| Preview events   | `GET /v1/calendar/events?date=YYYY-MM-DD` or `?from=&to=` (month range) |
+| Forecast         | `POST /v1/forecast` / `POST /v1/forecasts/today` auto-fetches **tomorrow** events → LLM |
 | Disconnect       | `DELETE /v1/calendar/disconnect`                                              |
 
 
