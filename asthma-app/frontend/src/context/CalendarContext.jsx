@@ -73,26 +73,28 @@ async function parseCalendarResponse(response) {
 }
 
 async function fetchGoogleEventsForMonth(authToken, year, monthIndex, daysInMonth) {
-  const events = [];
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const dateKey = formatDateKey(year, monthIndex, day);
-    const response = await fetch(`${API_URL}/v1/calendar/events?date=${dateKey}`, {
+  const monthStart = formatDateKey(year, monthIndex, 1);
+  const monthEnd = formatDateKey(year, monthIndex, daysInMonth);
+  const response = await fetch(
+    `${API_URL}/v1/calendar/events?from=${monthStart}&to=${monthEnd}`,
+    {
       headers: { Authorization: `Bearer ${authToken}` },
-    });
-
-    if (!response.ok) {
-      continue;
     }
+  );
 
-    const data = await response.json();
-
-    if (Array.isArray(data.events)) {
-      events.push(...data.events.map((event) => ({ ...event, date: dateKey })));
-    }
+  if (!response.ok) {
+    return [];
   }
 
-  return events;
+  const data = await response.json();
+  if (!Array.isArray(data.events)) {
+    return [];
+  }
+
+  return data.events.map((event) => ({
+    ...event,
+    date: event.date || String(event.start || "").slice(0, 10),
+  }));
 }
 
 function monthPrefixFromDate(dateKey) {
@@ -195,7 +197,7 @@ export function CalendarProvider({ children }) {
           connected: Boolean(data.connected),
           configured: Boolean(data.configured),
           email: data.email ?? null,
-          connectedAt: data.connectedAt ?? null,
+          connectedAt: data.connectedAt ?? data.connected_at ?? null,
         };
 
         setCalendarStatus(nextStatus);
@@ -490,7 +492,7 @@ export function CalendarProvider({ children }) {
         connected: Boolean(data.connected),
         configured: Boolean(data.configured),
         email: data.email ?? null,
-        connectedAt: data.connectedAt ?? null,
+        connectedAt: data.connectedAt ?? data.connected_at ?? null,
       });
 
       clearGoogleEventsFromCache();
