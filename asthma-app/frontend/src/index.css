@@ -382,6 +382,11 @@ body {
   padding: 2px;
 }
 
+.button-medium {
+  padding: clamp(0.5rem, 4vw, var(--space-8))
+          clamp(1rem, 4vw, var(--space-48));
+}
+
 .alert-error {
   background-color: var(--color-error-light);
   color: var(--color-error-darkest);
@@ -598,7 +603,9 @@ hr {
 }
 
 .form-modal {
-  width: clamp(280px, 90vw, 600px);
+  width: fit-content;
+  max-width: calc(100vw - 2 * var(--space-24));
+
   max-height: calc(100vh - 2 * var(--space-24));
   min-height: 0;
 
@@ -606,11 +613,11 @@ hr {
   flex-direction: column;
 
   border-radius: var(--space-16);
+}
 
-  --font-section-text-size: 24px;
-  --font-body-size: 18px;
-  --font-invalid-size: 14px;
-  --form-item-gap: 4px;
+.form-modal.container {
+  width: fit-content;
+  max-width: clamp(280px, 90vw, 600px);
 }
 
 .form-modal-header,

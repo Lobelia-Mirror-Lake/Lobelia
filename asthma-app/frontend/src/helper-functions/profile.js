@@ -143,3 +143,26 @@ export async function uploadAndSaveProfileImage({
     },
   });
 }
+
+export async function deleteProfileImage({ token }) {
+  const response = await fetch(`${API_URL}/v1/users/me`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      profile_image_url: "",
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => "");
+
+    throw new Error(
+      error?.detail || "Unable to remove profile image."
+    );
+  }
+
+  return response.json();
+}
