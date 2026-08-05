@@ -55,8 +55,6 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   }
 
   async function submitAuthentication() {
-    setLoading(true);
-
     var result = "Trouble Processing. Please try again later.";
 
     try {
@@ -65,9 +63,7 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
       } else {
         result = await signUp(formData.email, formData.password);
       }
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
 
     if (isJwt(result)) {
       if (showLogin) {
@@ -95,6 +91,8 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
 
   // ********************* login or sign up is clicked *****************************
   async function authButtonClick() {
+    if (loading) return;
+
     const newErrors = verifyFields();
 
     if (hasErrors(newErrors)) {
@@ -103,26 +101,30 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
       return;
     }
 
-    if (showLogin) {
-      await submitAuthentication();
-      return;
+    setLoading(true);
+
+    try {
+      if (showLogin) {
+        await submitAuthentication();
+        return;
+      }
+
+      // SIGNUP FLOW
+      setButtonError("");
+
+      // Request signup code BEFORE opening modal
+      const result = await requestSignupCode(formData.email);
+
+      if (result !== true) {
+        setButtonError(result);
+        playErrorResponse(setShake);
+        return;
+      }
+
+      setShowSignupVerificationModal(true);
+    } finally {
+      setLoading(false);
     }
-
-    // SIGNUP FLOW
-    setButtonError("");
-
-    // Request signup code BEFORE opening modal
-    const result = await requestSignupCode(formData.email);
-
-    if (result !== true) {
-      // Show error on main signup screen
-      setButtonError(result);
-      playErrorResponse(setShake);
-      return;
-    }
-
-    // Only open modal if code was successfully created
-    setShowSignupVerificationModal(true);
   }
 
   async function handleSignupVerified() {

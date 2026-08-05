@@ -34,8 +34,6 @@ export default function CalendarConnectionPanel() {
     : actionLoading ||
       statusLoading ||
       !calendarStatus.configured;
-
-console.log(statusLoading);
       
   return (
       <Container className="dark-theme card"  style={{width: "100%"}} aria-live="polite">
