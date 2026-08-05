@@ -9,12 +9,14 @@ import {
   getProfile,
   updateProfile,
   uploadAndSaveProfileImage,
+  deleteProfileImage,
 } from "../../helper-functions/profile";
 import "./ProfilePage.css";
 import EditButton from "../input/EditButton";
 import ProfileCircle from "../input/ProfileCircle";
-import { Card } from "react-bootstrap"
+import { Card, Button } from "react-bootstrap"
 import EmergencyContactsManager from "../input/EmergencyContactsManager";
+import FormModal from "../input/FormModal";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -115,6 +117,7 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] =
     useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [actionError, setActionError] = useState("");
 
   const symptomsField = useMemo(
@@ -326,6 +329,25 @@ function ProfilePage() {
     }
   }
 
+  async function handleDeletePhoto() {
+    try {
+      setUploadingPhoto(true);
+      setActionError("");
+
+      await deleteProfileImage({
+        token,
+      });
+
+      await refreshUserProfile();
+    } catch (error) {
+      setActionError(
+        error.message || "Unable to remove your photo."
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function handlePhotoSelected(event) {
     const file = event.target.files?.[0];
 
@@ -409,7 +431,7 @@ function ProfilePage() {
                 return;
               }
 
-              fileInputRef.current?.click();
+              setShowPhotoModal(true);
             }}
             disabled={uploadingPhoto}
             ariaLabel="Upload profile photo"
@@ -635,6 +657,45 @@ function ProfilePage() {
             )}
           </section>
         </div>
+      )}
+
+      {showPhotoModal && (
+        <FormModal
+          title="Profile Photo"
+          onHide={() => setShowPhotoModal(false)}
+          onSubmit={() => setShowPhotoModal(false)}
+          submitText="Cancel"
+          showSubmit={false}
+        >
+          <div className="vertical-16 at-middle-center">
+            <Button
+              className="button-light body-text"
+              onClick={() => {
+                setShowPhotoModal(false);
+                fileInputRef.current?.click();
+              }}
+            >
+              {user?.profile_image_url
+                ? "Change Photo"
+                : "Add Photo"}
+            </Button>
+
+            {user?.profile_image_url && (
+              <Button
+                className="button-light body-text"
+                disabled={uploadingPhoto}
+                onClick={async () => {
+                  await handleDeletePhoto();
+                  setShowPhotoModal(false);
+                }}
+              >
+                {uploadingPhoto
+                  ? "Removing..."
+                  : "Remove Photo"}
+              </Button>
+            )}
+          </div>
+        </FormModal>
       )}
     </main>
   );
