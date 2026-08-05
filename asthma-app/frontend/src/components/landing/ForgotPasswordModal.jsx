@@ -57,10 +57,62 @@ function ForgotPasswordModal({ show, onHide }) {
   }
 
   async function submit() {
-    if (step === "email") {
-      const newErrors = validate(emailFields, emailData);
+    if (loadingCode) return;
 
-      setEmailErrors(newErrors);
+    setLoadingCode(true);
+
+    try {
+      if (step === "email") {
+        const newErrors = validate(emailFields, emailData);
+
+        setEmailErrors(newErrors);
+
+        if (hasErrors(newErrors)) {
+          setButtonError("You have not met the requirements.");
+          playErrorResponse(setShake);
+          return;
+        }
+
+        const result = await requestResetCode(emailData.email);
+
+        if (result !== true) {
+          setButtonError(result);
+          playErrorResponse(setShake);
+          return;
+        }
+
+        setButtonError("");
+        setStep("code");
+        return;
+      }
+
+      if (step === "code") {
+        const newErrors = validate(codeFields, codeData);
+
+        setCodeErrors(newErrors);
+
+        if (hasErrors(newErrors)) {
+          setButtonError("You have not met the requirements.");
+          playErrorResponse(setShake);
+          return;
+        }
+
+        const result = await verifyResetCode(emailData.email, codeData.code);
+
+        if (result !== true) {
+          setButtonError(result);
+          playErrorResponse(setShake);
+          return;
+        }
+
+        setButtonError("");
+        setStep("password");
+        return;
+      }
+
+      const newErrors = validate(passwordFields, passwordData);
+
+      setPasswordErrors(newErrors);
 
       if (hasErrors(newErrors)) {
         setButtonError("You have not met the requirements.");
@@ -68,64 +120,23 @@ function ForgotPasswordModal({ show, onHide }) {
         return;
       }
 
-      setLoadingCode(true);
-      const result = await requestResetCode(emailData.email);
-      setLoadingCode(false);
+      const result = await resetPassword(
+        emailData.email,
+        passwordData.password,
+        codeData.code
+      );
 
-      if (result !== true) {
-        setButtonError(result);
-        playErrorResponse(setShake);
+      if (result === true) {
+        onHide();
         return;
       }
 
-      setButtonError("");
-      setStep("code");
-      return;
-    }
-
-    if (step === "code") {
-      const newErrors = validate(codeFields, codeData);
-
-      setCodeErrors(newErrors);
-
-      if (hasErrors(newErrors)) {
-        setButtonError("You have not met the requirements.");
-        playErrorResponse(setShake);
-        return;
-      }
-
-      const result = await verifyResetCode(emailData.email, codeData.code);
-
-      if (result !== true) {
-        setButtonError(result);
-        playErrorResponse(setShake);
-        return;
-      }
-
-      setButtonError("");
-      setStep("password");
-      return;
-    }
-
-    const newErrors = validate(passwordFields, passwordData);
-
-    setPasswordErrors(newErrors);
-
-    if (hasErrors(newErrors)) {
-      setButtonError("You have not met the requirements.");
+      setButtonError(result);
       playErrorResponse(setShake);
-      return;
+
+    } finally {
+      setLoadingCode(false);
     }
-
-    const result = await resetPassword(emailData.email, passwordData.password, codeData.code);
-
-    if (result === true) {
-      onHide();
-      return;
-    }
-
-    setButtonError(result);
-    playErrorResponse(setShake);
   }
 
   const title = step === "email" ? "Forgot Password" : step === "code" ? "Verify Reset Code" : "Reset Password";

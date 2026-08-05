@@ -7,6 +7,7 @@ import { IMaskInput } from "react-imask";
 import { Eye, EyeSlash } from "react-bootstrap-icons";
 
 function FormFull( { fields, formData, setFormData, errors, setErrors, setInputError, theme = "dark" } ) {
+    
     // test whether input meets requirements
     const handleChange = (name, value) => {
         const newData = {
