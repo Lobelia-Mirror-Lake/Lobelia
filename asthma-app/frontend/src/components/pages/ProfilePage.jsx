@@ -14,6 +14,7 @@ import "./ProfilePage.css";
 import EditButton from "../input/EditButton";
 import ProfileCircle from "../input/ProfileCircle";
 import { Card } from "react-bootstrap"
+import EmergencyContactsManager from "../input/EmergencyContactsManager";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -111,8 +112,6 @@ function ProfilePage() {
   const [listDraft, setListDraft] = useState([]);
   const [newListItem, setNewListItem] = useState("");
 
-  const [contactDraft, setContactDraft] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] =
     useState(false);
@@ -136,14 +135,11 @@ function ProfilePage() {
   );
 
   const emergencyContacts = useMemo(() => {
-    if (
-      typeof user?.emergency_contact !== "string" ||
-      !user.emergency_contact.trim()
-    ) {
+    if (!Array.isArray(user?.emergency_contacts)) {
       return [];
     }
 
-    return [user.emergency_contact.trim()];
+    return user.emergency_contacts;
   }, [user]);
 
   const age = calculateAge(user?.date_of_birth);
@@ -188,19 +184,12 @@ function ProfilePage() {
     setActiveEditor("symptoms");
   }
 
-  function openContactEditor() {
-    setActionError("");
-    setContactDraft(user?.emergency_contact || "");
-    setActiveEditor("contact");
-  }
-
   function closeEditor() {
     if (saving) return;
 
     setActiveEditor(null);
     setListDraft([]);
     setNewListItem("");
-    setContactDraft("");
     setActionError("");
   }
 
@@ -314,24 +303,23 @@ function ProfilePage() {
     }
   }
 
-  async function saveEmergencyContact() {
+  async function updateEmergencyContacts(contacts) {
     try {
       setSaving(true);
       setActionError("");
 
-      const updatedProfile = await updateProfile({
+      await updateProfile({
         token,
         updates: {
-          emergency_contact: contactDraft.trim(),
+          emergency_contacts: contacts,
         },
       });
 
       await refreshUserProfile();
-      setActiveEditor(null);
     } catch (error) {
       setActionError(
         error.message ||
-          "Unable to update your emergency contact."
+        "Unable to update your emergency contacts."
       );
     } finally {
       setSaving(false);
@@ -463,6 +451,7 @@ function ProfilePage() {
                 ? openSymptomsEditor
                 : null
             }
+            type="symptoms"
           />
 
           <ProfileListCard
@@ -470,15 +459,17 @@ function ProfilePage() {
             items={triggers}
             emptyMessage="No triggers saved"
             onEdit={openTriggersEditor}
+            type="triggers"
           />
         </div>
       </section>
 
       <ProfileListCard
-        title="Emergency Contacts"
-        items={emergencyContacts}
-        emptyMessage="No emergency contact saved"
-        onEdit={openContactEditor}
+          title="Emergency Contacts"
+          items={emergencyContacts}
+          emptyMessage="No emergency contacts saved"
+          onEdit={() => setActiveEditor("contacts")}
+          type="contacts"
       />
 
       {activeEditor && (
@@ -627,41 +618,19 @@ function ProfilePage() {
               </>
             )}
 
-            {activeEditor === "contact" && (
-              <>
-                <h2 id="profile-editor-title">
-                  Edit Emergency Contact
-                </h2>
+            {activeEditor === "contacts" && (
+                <>
+                    <h2 id="profile-editor-title">
+                        Edit Emergency Contacts
+                    </h2>
 
-                <label className="profile-field">
-                  <span>Contact</span>
+                    <EmergencyContactsManager
+                        contacts={emergencyContacts}
+                        onChange={updateEmergencyContacts}
+                    />
 
-                  <input
-                    type="text"
-                    value={contactDraft}
-                    placeholder="Name — phone number"
-                    onChange={(event) =>
-                      setContactDraft(event.target.value)
-                    }
-                  />
-                </label>
-
-                <p className="profile-editor-note">
-                  The current backend supports one emergency
-                  contact.
-                </p>
-
-                <EditorError message={actionError} />
-
-                <button
-                  type="button"
-                  className="profile-save-button"
-                  onClick={saveEmergencyContact}
-                  disabled={saving}
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </>
+                    <EditorError message={actionError} />
+                </>
             )}
           </section>
         </div>
@@ -676,6 +645,7 @@ function ProfileListCard({
   emptyMessage,
   onEdit,
   wide = true,
+  type = "strings"
 }) {
   return (
     <Card
@@ -699,17 +669,35 @@ function ProfileListCard({
       <hr />
 
       {items.length > 0 ? (
-        <div className="profile-chip-list">
-          {items.map((item) => (
-            <span className="profile-chip" key={item}>
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="profile-empty-message">
-          {emptyMessage}
-        </p>
+          <div className="profile-chip-list">
+            {type === "contacts"
+              ? items.map(contact => (
+                  <div
+                      className="profile-chip"
+                      key={contact.id}
+                  >
+                      <div>
+                          {contact.firstName} {contact.lastName}
+                      </div>
+
+                      {contact.phone && (
+                          <div>{contact.phone}</div>
+                      )}
+                  </div>
+              ))
+              : items.map(item => (
+                  <span
+                      className="profile-chip"
+                      key={item}
+                  >
+                      {item}
+                  </span>
+              ))}
+          </div>
+        ) : (
+          <p className="profile-empty-message">
+            {emptyMessage}
+          </p>
       )}
     </Card>
   );
