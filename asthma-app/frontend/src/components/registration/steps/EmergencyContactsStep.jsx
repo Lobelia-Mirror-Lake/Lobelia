@@ -18,6 +18,7 @@ function EmergencyContactsStep({
             emergencyContacts: contacts,
           })
         }
+        compact={false}
       />
     </div>
   );

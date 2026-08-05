@@ -9,7 +9,9 @@ function EmergencyContactsManager({
   addButtonText = "Add Contact",
   emptyMessage = "No emergency contacts.",
   editable = true,
+  compact = false,
 }) {
+
   const [showModal, setShowModal] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
 
@@ -62,49 +64,54 @@ function EmergencyContactsManager({
   }
 
   return (
-    <>
-      <div className="vertical-16 scrollable">
-        {contacts.length === 0 ? (
-          <p>{emptyMessage}</p>
-        ) : (
-          contacts.map(contact => (
-            <ContactCard
-              key={contact.id}
-              contact={contact}
-              onEdit={
-                editable
-                  ? () => openEditModal(contact)
-                  : undefined
-              }
-              onDelete={
-                editable
-                  ? () => removeContact(contact.id)
-                  : undefined
-              }
-            />
-          ))
-        )}
-      </div>
-
-      {editable && (
-        <Button
-          className="button-dark btn-medium-text text-center"
-          style={{
-            width: "clamp(200px, 40vw, 400px)",
-          }}
-          onClick={openAddModal}
+    <div className="vertical-16 at-middle-center vertical-fill">
+        <div
+            className={`vertical-16 w-100 text-center ${
+              contacts.length > 0 ? "scrollable" : ""
+            }`}
         >
-          {addButtonText}
-        </Button>
-      )}
+            {contacts.length === 0 ? (
+                <p>{emptyMessage}</p>
+             ) : (
+                contacts.map(contact => (
+                    <ContactCard
+                        key={contact.id}
+                        contact={contact}
+                        onEdit={
+                            editable
+                            ? () => openEditModal(contact)
+                            : undefined
+                        }
+                        onDelete={
+                            editable
+                            ? () => removeContact(contact.id)
+                            : undefined
+                        }
+                        compact={compact}
+                    />
+                ))
+            )}
+        </div>
 
-      <ContactModal
-        show={showModal}
-        onHide={closeModal}
-        onSubmit={saveContact}
-        initialData={editingContact}
-      />
-    </>
+        {editable && (
+            <Button
+                className="button-dark btn-medium-text text-center"
+                style={{
+                    width: "clamp(200px, 40vw, 400px)",
+                }}
+                onClick={openAddModal}
+            >
+                {addButtonText}
+            </Button>
+        )}
+
+        <ContactModal
+            show={showModal}
+            onHide={closeModal}
+            onSubmit={saveContact}
+            initialData={editingContact}
+        />
+    </div>
   );
 }
 

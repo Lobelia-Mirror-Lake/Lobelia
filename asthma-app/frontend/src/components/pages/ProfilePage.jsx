@@ -627,6 +627,7 @@ function ProfilePage() {
                     <EmergencyContactsManager
                         contacts={emergencyContacts}
                         onChange={updateEmergencyContacts}
+                        compact={true}
                     />
 
                     <EditorError message={actionError} />
