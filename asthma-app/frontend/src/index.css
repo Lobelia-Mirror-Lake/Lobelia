@@ -202,6 +202,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /************************************* COLORS ***************************************/
@@ -379,6 +380,11 @@ body {
   border-radius: 8px;
   border-width: calc(var(--stroke-width) / 2);
   padding: 2px;
+}
+
+.button-medium {
+  padding: clamp(0.5rem, 4vw, var(--space-8))
+          clamp(1rem, 4vw, var(--space-48));
 }
 
 .alert-error {
@@ -597,29 +603,26 @@ hr {
 }
 
 .form-modal {
-  width: clamp(280px, 90vw, 600px);
+  width: fit-content;
+  max-width: calc(100vw - 2 * var(--space-24));
+
   max-height: calc(100vh - 2 * var(--space-24));
+  min-height: 0;
 
   display: flex;
   flex-direction: column;
 
   border-radius: var(--space-16);
-  padding: clamp(16px, 4vw, var(--space-32));
+}
 
-  --font-section-text-size: 24px;
-  --font-body-size: 18px;
-  --font-invalid-size: 14px;
-  --form-item-gap: 4px;
+.form-modal.container {
+  width: fit-content;
+  max-width: clamp(280px, 90vw, 600px);
 }
 
 .form-modal-header,
 .form-modal-footer {
   flex-shrink: 0;
-}
-
-.form-modal-body {
-  flex: 1;
-  overflow-y: auto;
 }
 
 .form-modal h2 {
@@ -634,6 +637,22 @@ hr {
 .form-modal .form-control {
   font-size: 18px;
   line-height: 18px;
+}
+
+.form-item .invalid-feedback {
+  display: block;
+}
+
+/* Hide Edge/Chromium built-in password reveal button */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
+
+/* Hide WebKit password reveal controls (if present) */
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-password-reveal-button {
+    display: none;
 }
 
 .password-wrapper {

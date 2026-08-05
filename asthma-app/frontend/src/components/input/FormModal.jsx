@@ -8,13 +8,14 @@ function FormModal({
     onSubmit,
     submitText="Submit",
     buttonError="",
-    shake=false
+    shake=false,
+    showSubmit=true
 }) {
 
     return (
         <div className="form-modal-overlay">
             <Container
-                className="dark-green-body form-modal p-5 vertical position-relative"
+                className="dark-green-body form-modal p-5 vertical-32 vertical-fill position-relative"
             >
             {
                 // x button will be placed in top-right corner absolutely (without affecting placement of other items)
@@ -29,25 +30,25 @@ function FormModal({
                     </Col>
                 </Row>
 
-                <Row
-                    className="flex-grow-1 form-modal-body"
-                >
+                <Row className="scrollable flex-grow-1" style={{minHeight:"50px"}}>
                     {children}
                 </Row>
 
-                <Row className="vertical-16 form-modal-footer">
-                    <div className="error-text-light at-middle-center mt-2">
-                        {buttonError}
-                    </div>
-                    <Button
-                        className={`button-light btn-medium-text ${
-                            shake ? "shake" : ""
-                        }`}
-                        onClick={onSubmit}
-                    >
-                        {submitText}
-                    </Button>
-                </Row>
+                {showSubmit && (
+                    <Row className="vertical-16 form-modal-footer flex-shrink-0">
+                        <div className="error-text-light at-middle-center">
+                            {buttonError}
+                        </div>
+                        <Button
+                            className={`button-light btn-medium-text ${
+                                shake ? "shake" : ""
+                            }`}
+                            onClick={onSubmit}
+                        >
+                            {submitText}
+                        </Button>
+                    </Row>
+                )}
 
             </Container>
 
