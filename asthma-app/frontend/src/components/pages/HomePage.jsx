@@ -167,7 +167,7 @@ function HomePage() {
             <div className="home-next-step-column">
               <article className="home-card next-step-card">
                 <h2>Next Step</h2>
-                <div className="card-divider" />
+                <hr/>
                 <p>{nextStep}</p>
               </article>
 
@@ -180,7 +180,7 @@ function HomePage() {
             </div>
           </section>
 
-          <div className="home-divider" />
+          <hr/>
 
           <ForecastCard
             title="Predicted Triggers"
@@ -207,7 +207,7 @@ function ForecastCard({ title, items }) {
   return (
     <article className="home-card forecast-card">
       <h2>{title}</h2>
-      <div className="card-divider" />
+      <hr/>
 
       <div className="forecast-tags">
         {items.map((item, index) => (
