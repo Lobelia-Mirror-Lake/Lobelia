@@ -192,7 +192,7 @@ function CalendarPage() {
       setError("");
       setSaveMessage("");
 
-      await saveCalendarCheckIn({
+      const saved = await saveCalendarCheckIn({
         checkIn: {
           date: selectedDate,
           daily_day_symp: formData.daily_day_symp,
@@ -204,7 +204,13 @@ function CalendarPage() {
         },
       });
 
-      setSaveMessage("Check-in saved.");
+      if (saved?.forecast_refreshed && saved?.forecast?.risk_level) {
+        setSaveMessage(
+          `Check-in saved. Risk prediction updated to ${saved.forecast.risk_level}.`
+        );
+      } else {
+        setSaveMessage("Check-in saved.");
+      }
     } catch (requestError) {
       console.error(requestError);
       setError(requestError.message || "Unable to save your check-in.");
