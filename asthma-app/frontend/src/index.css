@@ -679,6 +679,11 @@ hr {
   min-width: 0;
 }
 
+.contact-card.compact {
+  width: 100%;
+  max-width: 600px;
+}
+
 .checkbox {
   display: flex;
   align-items: center;

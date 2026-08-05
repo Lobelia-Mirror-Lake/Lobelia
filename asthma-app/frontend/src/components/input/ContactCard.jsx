@@ -5,11 +5,14 @@ import CancelButton from "../input/CancelButton";
 function ContactCard({
     contact,
     onEdit,
-    onDelete
+    onDelete,
+    compact = false
 }) {
 
     return (
-        <Container className="contact-card position-relative">
+        <Container
+            className={`contact-card ${compact ? "compact" : ""} position-relative`}
+        >
             <Row className="vertical">
                 <Col className="horizontal-16">
                     <div
