@@ -30,7 +30,7 @@ function ProfileCircle({
             showImage ? (
             <img
                 src={imageUrl}
-                alt="Profile"
+                alt=""
                 className="profile-image"
                 onError={() => setImageError(true)}
             />
