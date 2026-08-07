@@ -82,7 +82,7 @@ function DashboardLayout() {
           <h1>{currentPage}</h1>
 
           <ProfileCircle
-            imageUrl={user?.profile_image_url}
+            imageUrl={`${import.meta.env.BASE_URL}lobelia_icon_fill.png`}
             onClick={openLogoutModal}
             theme={"green-theme"}
           />
