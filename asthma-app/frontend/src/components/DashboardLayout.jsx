@@ -9,13 +9,13 @@ import Chatbot from './input/Chatbot';
 
 function DashboardLayout() {
   const location = useLocation();
-  const { user, logout, refreshUserProfile } = useAuth();
+  const { token, user, logout, refreshUserProfile } = useAuth();
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     refreshUserProfile();
-  }, []);
+  }, [token, refreshUserProfile]);
 
   const pageNames = {
     [urls.home]: `Hi, ${user?.name || "User"}!`,
@@ -82,7 +82,7 @@ function DashboardLayout() {
           <h1>{currentPage}</h1>
 
           <ProfileCircle
-            imageUrl={user?.profile_image_url}
+            imageUrl={`${import.meta.env.BASE_URL}lobelia_icon_fill.png`}
             onClick={openLogoutModal}
             theme={"green-theme"}
           />

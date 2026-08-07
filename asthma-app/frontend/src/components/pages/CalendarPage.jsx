@@ -289,6 +289,37 @@ function CalendarPage() {
     );
   }
 
+  function formatEventForSelectedDay(start, end, selectedDate) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    const eventStartKey = startDate.toISOString().slice(0, 10);
+    const eventEndKey = endDate.toISOString().slice(0, 10);
+
+    const timeOptions = {
+      hour: "numeric",
+      minute: "2-digit",
+    };
+
+    // Single-day event
+    if (eventStartKey === eventEndKey) {
+      return `${startDate.toLocaleTimeString([], timeOptions)} – ${endDate.toLocaleTimeString([], timeOptions)}`;
+    }
+
+    // First day of a multi-day event
+    if (selectedDate === eventStartKey) {
+      return `Starts ${startDate.toLocaleTimeString([], timeOptions)}`;
+    }
+
+    // Last day of a multi-day event
+    if (selectedDate === eventEndKey) {
+      return `Ends ${endDate.toLocaleTimeString([], timeOptions)}`;
+    }
+
+    // Middle day(s)
+    return "All day";
+  }
+
   return (
     <main className="calendar-page">
 
@@ -384,16 +415,9 @@ function CalendarPage() {
                   {googleEventsByDate[selectedDate].map(ev => (
                     <li key={ev.id}>
                       <strong>{ev.title}</strong><br />
-                      {new Date(ev.start).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                      {" – "}
-                      {new Date(ev.end).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                      {ev.location && <div>{ev.location}</div>}
+                      <div>
+                        {formatEventForSelectedDay(ev.start, ev.end, selectedDate)}
+                      </div>
                     </li>
                   ))}
                 </ul>

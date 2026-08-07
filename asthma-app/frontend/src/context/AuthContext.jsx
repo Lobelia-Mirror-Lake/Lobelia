@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getProfile } from "../helper-functions/authentication";
 
 const AuthContext = createContext(null);
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
     }
 
     // call whenever need to get current user data from API
-    async function refreshUserProfile() {
+    const refreshUserProfile = useCallback(async () => {
         if (!token) return;
 
         const result = await getProfile(token);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }) {
         }
 
         setUser(result);
-    }
+    }, [token]);
 
     // stores token in React and localStorage
     function storeToken(jwt) {
