@@ -39,7 +39,12 @@
   /* Status colors */
   --color-success: #FFFFFF;          /* Success or Safe */
   --color-warning: #FFFFFF;          /* Warning or Medium Risk */
+  
   --color-error-light: #FF94BD;
+  --color-error-light-dark: #ed83ac;
+  --color-error-light-darkest: #d86c96;
+  
+  --color-error: #aa0041;
   --color-error-dark: #8D0036;
   --color-error-darkest: #5F0024;
 
@@ -242,6 +247,32 @@
   --text-color-darkest: var(--color-secondary-darkest);
 }
 
+.error-light-theme {
+  background-color: var(--color-error-light);
+  color: var(--color-error-darkest);
+
+  --bg-color: var(--color-error-light);
+  --bg-color-dark: var(--color-error-light-dark);
+  --bg-color-darkest: var(--color-error-light-darkest);
+
+  --text-color: var(--color-error-darkest);
+  --text-color-dark: var(--color-error-dark);
+  --text-color-darkest: var(--color-error-darkest);
+}
+
+.error-dark-theme {
+  background-color: var(--color-error);
+  color: var(--color-primary);
+
+  --bg-color: var(--color-error);
+  --bg-color-dark: var(--color-error-dark);
+  --bg-color-darkest: var(--color-error-darkest);
+
+  --text-color: var(--color-primary);
+  --text-color-dark: var(--color-primary-dark);
+  --text-color-darkest: var(--color-primary-darkest);
+}
+
 .dark-main {
   --bg-color: var(--color-secondary);
   --bg-color-dark: var(--color-secondary-dark);
@@ -374,6 +405,60 @@ body {
   background-color: var(--color-primary-darkest);
   color: var(--color-secondary-darkest);
   border-color: var(--color-primary-darkest);
+}
+
+.button-error-light {
+  background-color: var(--color-error-light);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-dark);
+}
+
+.button-error-light:disabled {
+  background-color: var(--color-error-light);
+  color: var(--color-error-dark);
+  border-color: var(--color-error-light-dark);
+}
+
+.button-error-light:hover,
+.button-error-light:focus,
+.button-error-light.active {
+  background-color: var(--color-error-light-dark);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-darkest);
+}
+
+.button-error-light:active,
+.button-error-light:focus:active {
+  background-color: var(--color-error-light-darkest);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-darkest);
+}
+
+.button-error-dark {
+  background-color: var(--color-error);
+  color: var(--color-primary);
+  border-color: var(--color-error-dark);
+}
+
+.button-error-dark:disabled {
+  background-color: var(--color-error);
+  color: var(--color-primary-dark);
+  border-color: var(--color-error-dark);
+}
+
+.button-error-dark:hover,
+.button-error-dark:focus,
+.button-error-dark.active {
+  background-color: var(--color-error-dark);
+  color: var(--color-primary-dark);
+  border-color: var(--color-error-darkest);
+}
+
+.button-error-dark:active,
+.button-error-dark:focus:active {
+  background-color: var(--color-error-darkest);
+  color: var(--color-primary-darkest);
+  border-color: var(--color-error-darkest);
 }
 
 .button-small {
@@ -1074,6 +1159,8 @@ input::-webkit-password-reveal-button {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  gap: var(--space-16);
 }
 
 .chatbot-conversation {
@@ -1147,8 +1234,6 @@ input::-webkit-password-reveal-button {
   display: flex;
   align-items: flex-end;
   gap: var(--space-16);
-
-  margin-top: var(--space-16);
 }
 
 .chatbot-input textarea {
@@ -1167,10 +1252,6 @@ input::-webkit-password-reveal-button {
 }
 
 .chatbot-floating {
-  overflow: auto;
-
-  width: clamp(320px, 40vw, 600px);
-
   z-index: 1050;
 
   box-shadow:
@@ -1187,6 +1268,26 @@ input::-webkit-password-reveal-button {
 
 .chatbot-layer > * {
   pointer-events: auto;
+}
+
+.chat-page {
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-24);
+  padding: var(--space-40);
+  background-color: var(--color-secondary);
+  border: var(--stroke-width) solid var(--color-secondary-dark);
+  border-radius: var(--space-16);
+}
+
+.chat-page .chatbot-conversation {
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-page .chatbot-input {
+  flex-shrink: 0;
 }
 
 .spinner-overlay {

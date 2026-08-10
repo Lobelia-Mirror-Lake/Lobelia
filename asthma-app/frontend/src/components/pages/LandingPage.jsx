@@ -157,16 +157,17 @@ function LandingPage() {
   return (
     <div
       style={{
-        overflowX: "hidden",
-        width: "100vw",
-        height: "100dvh",
+          overflowX: "hidden",
+          overflowY: "auto",
+          width: "100%",
+          minHeight: "100dvh",
       }}
     >
       <motion.div
         className="d-flex flex-row"
         style={{
           width: totalWidth,
-          height: "100dvh",
+          minHeight: "100dvh",
           x: xOffset,
         }}
       >
@@ -175,7 +176,7 @@ function LandingPage() {
         <motion.div
           style={{
             width: panelWidth,
-            height: "100dvh",
+            minHeight: "100dvh",
           }}
         >
           <LandingContent
@@ -192,7 +193,7 @@ function LandingPage() {
         <motion.div
           style={{
             width: panelWidth,
-            height: "100dvh",
+            minHeight: "100dvh",
           }}
         >
           <AuthSlide

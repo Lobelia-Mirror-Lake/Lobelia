@@ -77,7 +77,7 @@ function HomePage() {
         if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
           setStatus("check-in-required");
           setErrorMessage(
-            "Complete today’s check-in before generating your risk forecast."
+            "Complete yesterday’s check-in before generating your risk forecast."
           );
         } else {
           setStatus("error");
@@ -125,7 +125,7 @@ function HomePage() {
 
   const nextStep =
     forecast?.advice?.summary ||
-    "Complete today’s check-in to receive a personalized recommendation.";
+    "Complete yesterday’s check-in to receive a personalized recommendation.";
 
   return (
     <main className="home-page">

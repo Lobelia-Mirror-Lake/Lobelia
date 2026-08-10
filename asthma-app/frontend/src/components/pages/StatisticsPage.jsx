@@ -300,7 +300,7 @@ function StatisticsPage() {
 
         if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
           setForecastErrorMessage(
-            "Complete today’s symptom check-in to generate tomorrow’s prediction."
+            "Complete yesterday's symptom check-in to generate today's prediction.\nComplete today’s symptom check-in to generate tomorrow’s prediction."
           );
         } else {
           setForecastErrorMessage(
@@ -521,7 +521,7 @@ function StatisticsPage() {
           {forecastStatus === "error" && (
             <div className="statistics-message statistics-error-message">
               <h3>Prediction unavailable</h3>
-              <p>{forecastErrorMessage}</p>
+              <p style={{whiteSpace: "pre-line", lineHeight: 1.3}}>{forecastErrorMessage}</p>
             </div>
           )}
 
