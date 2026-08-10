@@ -1413,6 +1413,10 @@ input::-webkit-password-reveal-button {
   margin: 0;
 }
 
+.paragraph {
+  line-height: calc( (var(--font-body-size) + 5px) );
+}
+
 h1 {
   font-family: var(--font-header-family);
   font-size: var(--font-header-size);

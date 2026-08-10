@@ -7,7 +7,7 @@ function LandingContent({
   onLogin,
   onSignUp,
   onBack,
-  authSlideOpen,
+  landingSlideOpen,
   buttonsDisabled,
   animationDuration
 }) {
@@ -44,7 +44,7 @@ function LandingContent({
   }, []);
 
   const wrapperHeight =
-    authSlideOpen
+    landingSlideOpen
       ? backHeight
       : loginSignupHeight;
 
@@ -106,8 +106,8 @@ function LandingContent({
         <motion.div
           ref={loginSignupRef}
           animate={{
-            opacity: authSlideOpen ? 0 : 1,
-            pointerEvents: authSlideOpen
+            opacity: landingSlideOpen ? 0 : 1,
+            pointerEvents: landingSlideOpen
               ? "none"
               : "auto",
           }}
@@ -151,8 +151,8 @@ function LandingContent({
         <motion.div
           ref={backRef}
           animate={{
-            opacity: authSlideOpen ? 1 : 0,
-            pointerEvents: authSlideOpen
+            opacity: landingSlideOpen ? 1 : 0,
+            pointerEvents: landingSlideOpen
               ? "auto"
               : "none",
           }}

@@ -11,7 +11,7 @@ import { useNavigate } from "react-router";
 import SignupVerificationModal from './SignupVerificationModal';
 import ForgotPasswordModal from './ForgotPasswordModal';
 
-function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
+function AuthSlide({ showLogin, showSignUp }) {
   // whether app is waiting for API call
   const [loading, setLoading] = useState(false);
 
@@ -144,76 +144,68 @@ function AuthSlide({ showLogin, showSignUp, onBack, landingVisible }) {
   return (
     <>
       <Container
-          fluid
-          className="dark-green-body p-5 vertical min-vh-100 h-100 position-relative"
-          style={{
-            overflowY: "auto",
-          }}
-          onKeyDown={handleKeyDown}
+        className="vertical h-100 p-0"
+        onKeyDown={handleKeyDown}
       >
+        <Row className="flex-grow-1">
+          <Col
+            className="vertical-8 p-0"
+          >
+            <div className="p-0">
+              <h1 className="text-center">{ showLogin ? "Login" : "Sign Up" }</h1>
+              <hr />
+            </div>
+            <FormFull
+              theme={"light"}
+              fields={fields}
+              formData={formData}
+              setFormData={setFormData}
+              errors={errors}
+              setErrors={setErrors}
+              setInputError={setButtonError}
+            />
+          </Col>
+        </Row>
+        <Row
+          className="error-text-light at-middle-center mt-4 mb-2"
+          style={{height: "48px"}}
+        >{buttonError}</Row>
+        <Row className="at-middle-center">
         {
-          // back button will be placed in top-left corner absolutely (without affecting placement of other items)
-          !landingVisible && <ArrowButton className="button-light p-2 absolute-top-left" isBack={true} onClick={onBack} />
-        }
-          <Row className="flex-grow-1">
-            <Col
-              className="vertical-8 p-0"
+          loading ? (
+            <Spinner
+              animation="border"
+              role="status"
+              style={{
+                width: "48px",
+                height: "48px",
+                color: "var(--color-primary)",
+              }}
+            />
+          ) : (
+            <Button
+              className={`button-light btn-large-text ${shake ? "shake" : ""}`}
+              onClick={authButtonClick}
             >
-              <div className="p-0">
-                <h1 className="text-center">{ showLogin ? "Login" : "Sign Up" }</h1>
-                <hr />
-              </div>
-              <FormFull
-                theme={"light"}
-                fields={fields}
-                formData={formData}
-                setFormData={setFormData}
-                errors={errors}
-                setErrors={setErrors}
-                setInputError={setButtonError}
-              />
-            </Col>
-          </Row>
-          <Row
-            className="error-text-light at-middle-center mt-4 mb-2"
-            style={{height: "48px"}}
-          >{buttonError}</Row>
-          <Row className="at-middle-center">
-          {
-            loading ? (
-              <Spinner
-                animation="border"
-                role="status"
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  color: "var(--color-primary)",
-                }}
-              />
-            ) : (
+              { showLogin ? "Login" : "Sign Up" }
+            </Button>
+          )
+        }
+        </Row>
+        {
+          showLogin && !loading && (
+            <Row className="at-middle-center mt-3">
               <Button
-                className={`button-light btn-large-text ${shake ? "shake" : ""}`}
-                onClick={authButtonClick}
+                variant="link"
+                className="btn-medium-text p-0 border-0 text-decoration-underline"
+                style={{ color: "var(--color-primary)", width: "fit-content" }}
+                onClick={openForgotPassword}
               >
-                { showLogin ? "Login" : "Sign Up" }
+                Forgot password?
               </Button>
-            )
-          }
-          </Row>
-          {
-            showLogin && !loading && (
-              <Row className="at-middle-center mt-3">
-                <Button
-                  variant="link"
-                  className="btn-medium-text p-0 border-0 text-decoration-underline"
-                  style={{ color: "var(--color-primary)", width: "fit-content" }}
-                  onClick={openForgotPassword}
-                >
-                  Forgot password?
-                </Button>
-              </Row>
-            )
-          }
+            </Row>
+          )
+        }
       </Container>
 
       <SignupVerificationModal

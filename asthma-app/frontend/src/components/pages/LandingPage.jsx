@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 
 import LandingContent from "../landing/LandingContent";
-import AuthSlide from "../landing/AuthSlide";
+import LandingSlide from "../landing/LandingSlide";
 
 import useMediaQuery from "../../helper-functions/useMediaQuery";
 import { BREAKPOINTS, urls } from "../../constants";
@@ -16,10 +16,10 @@ function LandingPage() {
   const [showSignUp, setShowSignUp] = useState(false);
 
   // Slide states
-  const [authSlideOpen, setAuthSlideOpen] = useState(false);
+  const [landingSlideOpen, setLandingSlideOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   // allows slide to reset
-  const [authKey, setAuthKey] = useState(0);
+  const [landingKey, setLandingKey] = useState(0);
 
   // Disable buttons while animation is running
   const [isAnimating, setIsAnimating] = useState(false);
@@ -35,7 +35,7 @@ function LandingPage() {
     setShowLogin(true);
     setShowSignUp(false);
 
-    setAuthSlideOpen(true);
+    setLandingSlideOpen(true);
     setIsClosing(false);
   };
 
@@ -45,15 +45,15 @@ function LandingPage() {
     setShowLogin(false);
     setShowSignUp(true);
 
-    setAuthSlideOpen(true);
+    setLandingSlideOpen(true);
     setIsClosing(false);
   };
 
   const onBack = () => {
     if (isAnimating) return;
 
-    setAuthKey(k => k + 1);
-    setAuthSlideOpen(false);
+    setLandingKey(k => k + 1);
+    setLandingSlideOpen(false);
     setIsClosing(true);
   };
 
@@ -85,7 +85,7 @@ function LandingPage() {
   useEffect(() => {
     const opening =
       (showLogin || showSignUp) &&
-      authSlideOpen &&
+      landingSlideOpen &&
       !isClosing;
 
     let animation;
@@ -148,7 +148,7 @@ function LandingPage() {
   }, [
     showLogin,
     showSignUp,
-    authSlideOpen,
+    landingSlideOpen,
     isClosing,
     isLargeScreen
   ]);
@@ -183,21 +183,21 @@ function LandingPage() {
             onLogin={onLogin}
             onSignUp={onSignUp}
             onBack={onBack}
-            authSlideOpen={authSlideOpen}
+            landingSlideOpen={landingSlideOpen}
             buttonsDisabled={isAnimating}
             animationDuration={ANIMATION_DURATION}
           />
         </motion.div>
 
-        {/* Auth panel */}
+        {/* Landing panel */}
         <motion.div
           style={{
             width: panelWidth,
             minHeight: "100dvh",
           }}
         >
-          <AuthSlide
-            key={authKey}
+          <LandingSlide
+            key={landingKey}
             showLogin={showLogin}
             showSignUp={showSignUp}
             onBack={onBack}
