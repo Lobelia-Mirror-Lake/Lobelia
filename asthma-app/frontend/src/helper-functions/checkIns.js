@@ -48,3 +48,24 @@ export async function saveCheckIn({ token, checkIn }) {
 
   return parseResponse(response, "Failed to save check-in");
 }
+
+export async function logInhalerPuff({ token, date }) {
+  const response = await fetch(
+    `${API_URL}/v1/check-ins/inhaler/puff`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...(date ? { date } : {}),
+      }),
+    }
+  );
+
+  return parseResponse(
+    response,
+    "Failed to log rescue inhaler use"
+  );
+}
