@@ -352,6 +352,10 @@ body {
         clamp(1rem, 10vw, var(--space-144));
 }
 
+.login-signup-button {
+  width: clamp(140px, 20vw, 600px);
+}
+
 .button-dark {
   background-color: var(--color-secondary);
   color: var(--color-primary);

@@ -20,7 +20,7 @@
 
 .privacy-page h1 {
   margin: 0 0 0.5rem;
-  font-size: 2rem;
+  font-size: 2.5rem;
   line-height: 1.2;
 }
 
@@ -40,7 +40,12 @@
 
 .privacy-page h2 {
   margin: 0 0 0.65rem;
-  font-size: 1.15rem;
+  font-size: 1.7rem;
+}
+
+.privacy-page h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.5rem;
 }
 
 .privacy-page p,
@@ -51,6 +56,7 @@
 .privacy-page ul {
   margin: 0;
   padding-left: 1.25rem;
+  gap: 0.25rem;
 }
 
 .privacy-page code {

@@ -1,4 +1,6 @@
-import { Container } from "react-bootstrap";
+import { Nav, Container } from "react-bootstrap";
+import { NavLink } from "react-router";
+import { urls } from "../../constants";
 
 function About() {
     const horiPad = 50;
@@ -58,7 +60,9 @@ function About() {
             </div>
             
             <h3>
-                [Privacy Policy]
+                <Nav.Link className="text-decoration-underline" as={NavLink} to={urls.privacy} end>
+                    Privacy Policy
+                </Nav.Link>
             </h3>
         </ Container>
     );

@@ -14,6 +14,7 @@ function LandingPage() {
   // Auth states
   const [showLogin, setShowLogin] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   // Slide states
   const [landingSlideOpen, setLandingSlideOpen] = useState(false);
@@ -34,6 +35,7 @@ function LandingPage() {
 
     setShowLogin(true);
     setShowSignUp(false);
+    setShowAbout(false);
 
     setLandingSlideOpen(true);
     setIsClosing(false);
@@ -44,6 +46,18 @@ function LandingPage() {
 
     setShowLogin(false);
     setShowSignUp(true);
+    setShowAbout(false);
+
+    setLandingSlideOpen(true);
+    setIsClosing(false);
+  };
+
+  const onAbout = () => {
+    if (isAnimating) return;
+
+    setShowLogin(false);
+    setShowSignUp(false);
+    setShowAbout(true);
 
     setLandingSlideOpen(true);
     setIsClosing(false);
@@ -84,7 +98,7 @@ function LandingPage() {
 
   useEffect(() => {
     const opening =
-      (showLogin || showSignUp) &&
+      (showLogin || showSignUp || showAbout) &&
       landingSlideOpen &&
       !isClosing;
 
@@ -148,6 +162,7 @@ function LandingPage() {
   }, [
     showLogin,
     showSignUp,
+    showAbout,
     landingSlideOpen,
     isClosing,
     isLargeScreen
@@ -182,6 +197,7 @@ function LandingPage() {
           <LandingContent
             onLogin={onLogin}
             onSignUp={onSignUp}
+            onAbout={onAbout}
             onBack={onBack}
             landingSlideOpen={landingSlideOpen}
             buttonsDisabled={isAnimating}
