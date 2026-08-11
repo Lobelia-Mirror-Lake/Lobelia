@@ -6,8 +6,9 @@ import image from "../../assets/images/lungFlowers.png";
 function LandingContent({
   onLogin,
   onSignUp,
+  onAbout,
   onBack,
-  authSlideOpen,
+  landingSlideOpen,
   buttonsDisabled,
   animationDuration
 }) {
@@ -44,15 +45,15 @@ function LandingContent({
   }, []);
 
   const wrapperHeight =
-    authSlideOpen
+    landingSlideOpen
       ? backHeight
-      : loginSignupHeight;
+      : loginSignupHeight + 1;
 
 
   return (
     <Container
       fluid
-      className="green-body vertical-16 min-vh-100 h-100"
+      className="green-body vertical-16 min-vh-100 h-100 p-2"
       style={{
         justifyContent: "space-between"
       }}
@@ -104,10 +105,11 @@ function LandingContent({
 
         {/* Login / Signup */}
         <motion.div
+          className="vertical-16 p-0"
           ref={loginSignupRef}
           animate={{
-            opacity: authSlideOpen ? 0 : 1,
-            pointerEvents: authSlideOpen
+            opacity: landingSlideOpen ? 0 : 1,
+            pointerEvents: landingSlideOpen
               ? "none"
               : "auto",
           }}
@@ -120,24 +122,24 @@ function LandingContent({
             padding: "8px"
           }}
         >
-          <Row className="at-middle-center g-3">
+          <Row className="at-middle-center g-3 p-0">
             <Col xs="auto">
               <Button
-                className="button-dark btn-large-text"
+                className="button-dark btn-large-text login-signup-button"
                 onClick={onLogin}
                 disabled={buttonsDisabled}
               >
                 Login
               </Button>
             </Col>
-            <Col xs="auto line-break-wrapper">
+            <Col xs="auto line-break-wrapper p-0">
               <span className="btn-large-text line-break">
                 Or
               </span>
             </Col>
             <Col xs="auto">
               <Button
-                className="button-dark btn-large-text"
+                className="button-dark btn-large-text login-signup-button"
                 onClick={onSignUp}
                 disabled={buttonsDisabled}
               >
@@ -145,14 +147,24 @@ function LandingContent({
               </Button>
             </Col>
           </Row>
+          <Row className="at-middle-center">
+            <Button
+              variant="link"
+              className="btn-medium-text p-0 border-0 text-decoration-underline"
+              style={{ color: "var(--color-secondary)", width: "fit-content" }}
+              onClick={onAbout}
+            >
+              About
+            </Button>
+          </Row>
         </motion.div>
 
         {/* Back */}
         <motion.div
           ref={backRef}
           animate={{
-            opacity: authSlideOpen ? 1 : 0,
-            pointerEvents: authSlideOpen
+            opacity: landingSlideOpen ? 1 : 0,
+            pointerEvents: landingSlideOpen
               ? "auto"
               : "none",
           }}

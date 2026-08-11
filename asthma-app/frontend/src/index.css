@@ -352,6 +352,10 @@ body {
         clamp(1rem, 10vw, var(--space-144));
 }
 
+.login-signup-button {
+  width: clamp(140px, 20vw, 600px);
+}
+
 .button-dark {
   background-color: var(--color-secondary);
   color: var(--color-primary);
@@ -1411,6 +1415,10 @@ input::-webkit-password-reveal-button {
   
   line-height: var(--font-title-size);
   margin: 0;
+}
+
+.paragraph {
+  line-height: calc( (var(--font-body-size) + 5px) );
 }
 
 h1 {
