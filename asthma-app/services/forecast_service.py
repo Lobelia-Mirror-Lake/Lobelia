@@ -38,10 +38,73 @@ def _symptoms_summary(check_in: CheckIn | None) -> str | None:
     return ", ".join(parts)
 
 
+def local_calendar_date(timezone_name: str = "America/Chicago") -> date:
+    """User-local calendar date (avoids UTC date shifting evening CDT into tomorrow)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        return datetime.now(ZoneInfo(timezone_name)).date()
+    except Exception:
+        return date.today()
+
+
+def local_after_six_pm(timezone_name: str = "America/Chicago") -> bool:
+    """True when local time is at/after 18:00 in ``timezone_name``."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        local_now = datetime.now(ZoneInfo(timezone_name))
+    except Exception:
+        local_now = datetime.now().astimezone()
+    return local_now.hour >= 18
+
+
+def _symptom_day_phrase(check_in_day: date, *, reference: date) -> str:
+    """Describe when symptoms were logged relative to the viewer's local today."""
+    if check_in_day == reference:
+        return "today"
+    if check_in_day == reference - timedelta(days=1):
+        return "yesterday"
+    return f"on {check_in_day.isoformat()}"
+
+
+def _relabel_symptom_factors(
+    factors: list[str] | None,
+    *,
+    check_in_day: date,
+    reference_date: date | None = None,
+) -> list[str]:
+    """Fix baked-in 'today' labels on stored forecasts for the viewer's local day."""
+    import re
+
+    reference = reference_date or local_calendar_date()
+    day_phrase = _symptom_day_phrase(check_in_day, reference=reference)
+    out: list[str] = []
+    for factor in factors or []:
+        text = str(factor)
+        if text.startswith("Night symptoms "):
+            out.append(f"Night symptoms {day_phrase}")
+        elif text.startswith("Daytime symptoms "):
+            out.append(f"Daytime symptoms {day_phrase}")
+        elif text.startswith("Rescue inhaler used once"):
+            out.append(f"Rescue inhaler used once {day_phrase}")
+        else:
+            match = re.match(r"Rescue inhaler used (\d+) times(?:\s+.*)?$", text)
+            if match:
+                out.append(f"Rescue inhaler used {match.group(1)} times {day_phrase}")
+            else:
+                out.append(text)
+    return out
+
+
 def _humanize_top_features(
     top_features: list[str],
     env: dict,
     check_in: CheckIn | None,
+    *,
+    reference_date: date | None = None,
 ) -> list[str]:
     factors: list[str] = []
     pollen_map = {
@@ -55,14 +118,20 @@ def _humanize_top_features(
             factors.append(f"High {label}")
 
     if check_in is not None:
+        day_phrase = _symptom_day_phrase(
+            check_in.date,
+            reference=reference_date or local_calendar_date(),
+        )
         if check_in.daily_night_symp:
-            factors.append("Night symptoms today")
+            factors.append(f"Night symptoms {day_phrase}")
         if check_in.daily_day_symp:
-            factors.append("Daytime symptoms today")
+            factors.append(f"Daytime symptoms {day_phrase}")
         if check_in.puffs_today == 1:
-            factors.append("Rescue inhaler used once")
+            factors.append(f"Rescue inhaler used once {day_phrase}")
         elif check_in.puffs_today >= 2:
-            factors.append(f"Rescue inhaler used {check_in.puffs_today} times")
+            factors.append(
+                f"Rescue inhaler used {check_in.puffs_today} times {day_phrase}"
+            )
 
     if env.get("humidity") and env["humidity"] >= 80:
         factors.append("High humidity")
@@ -327,18 +396,11 @@ async def ensure_card_predictions(
     Tomorrow is only *generated* after 18:00 local (matching the UI unlock rule).
     """
     from api.errors import api_error
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
 
-    today = today or date.today()
+    today = today or local_calendar_date(timezone_name)
     yesterday = today - timedelta(days=1)
     tomorrow = today + timedelta(days=1)
-
-    try:
-        local_now = datetime.now(ZoneInfo(timezone_name))
-    except Exception:
-        local_now = datetime.now().astimezone()
-    after_six = local_now.hour >= 18
+    after_six = local_after_six_pm(timezone_name)
 
     for_today = get_forecast(db, user.id, targeting=today)
     for_tomorrow = get_forecast(db, user.id, targeting=tomorrow)
@@ -630,6 +692,7 @@ async def run_forecast(
         prediction.get("top_features", []),
         env_features,
         check_in,
+        reference_date=local_calendar_date(timezone_name),
     )
 
     forecast_context = {
@@ -841,7 +904,10 @@ async def _advice_from_cached_forecast(
         select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == context_date)
     )
 
-    contributing_factors = list(forecast.contributing_factors or [])
+    contributing_factors = _relabel_symptom_factors(
+        forecast.contributing_factors,
+        check_in_day=context_date,
+    )
     snapshot = db.scalar(
         select(EnvSnapshot).where(
             EnvSnapshot.user_id == user.id,
@@ -952,14 +1018,22 @@ async def _advice_from_cached_forecast(
     return payload
 
 
-def forecast_to_dict(record: Forecast) -> dict:
+def forecast_to_dict(
+    record: Forecast,
+    *,
+    reference_date: date | None = None,
+) -> dict:
     return {
         "date": record.date.isoformat(),
         "forecast_for": record.forecast_for.isoformat(),
         "flare_probability": record.flare_probability,
         "predicted_flare_tomorrow": bool(record.flare_probability and record.flare_probability >= 0.5),
         "risk_level": record.risk_level,
-        "contributing_factors": record.contributing_factors or [],
+        "contributing_factors": _relabel_symptom_factors(
+            record.contributing_factors,
+            check_in_day=record.date,
+            reference_date=reference_date,
+        ),
         "calendar_events": record.calendar_events or [],
         "advice": record.advice,
         "created_at": record.created_at.isoformat() if record.created_at else None,
