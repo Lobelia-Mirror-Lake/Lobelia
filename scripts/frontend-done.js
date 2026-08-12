@@ -15,8 +15,8 @@ function run(cmd) {
 console.log("Building frontend (production mode)...");
 run("npm run build");
 
-console.log("Pushing docs/ to gh-pages...");
-run("git subtree push --prefix asthma-app/frontend/docs origin gh-pages");
+//console.log("Pushing docs/ to gh-pages...");
+//run("git subtree push --prefix asthma-app/frontend/docs origin gh-pages");
 
 console.log("Committing to current branch...");
 run("git add .");
