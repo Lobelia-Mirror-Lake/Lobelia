@@ -206,13 +206,31 @@ def test_forecast_passes_manual_calendar_event(
     mock_env_fetch,
     mock_advice,
 ):
+    from datetime import date, timedelta
+
     mock_fetch_env.side_effect = mock_env_fetch.side_effect
     mock_generate_advice.side_effect = mock_advice.side_effect
 
-    client.post(
-        "/v1/check-ins",
-        json={"calendar_event": "Outdoor soccer tomorrow"},
-        headers=auth_headers,
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={"date": today.isoformat()},
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={
+                "date": tomorrow.isoformat(),
+                "calendar_event": "Outdoor soccer tomorrow",
+            },
+            headers=auth_headers,
+        ).status_code
+        == 201
     )
     response = client.post(
         "/v1/forecast",
@@ -222,4 +240,107 @@ def test_forecast_passes_manual_calendar_event(
     assert response.status_code == 200, response.text
     kwargs = mock_generate_advice.call_args.kwargs
     assert kwargs["calendar_event"] == "Outdoor soccer tomorrow"
+    assert kwargs["calendar_events"]
+    assert kwargs["calendar_events"][0]["title"] == "Outdoor soccer tomorrow"
+    assert kwargs["calendar_events"][0]["source"] == "manual"
     assert "calendar" not in response.json()["data_quality"]["unavailable_context"]
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
+def test_same_day_calendar_text_feeds_today_card_advice(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+    db_session,
+):
+    """Free-text on today's check-in should reach advice for today's prediction card."""
+    from datetime import date, timedelta
+
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={"date": yesterday.isoformat(), "daily_day_symp": False},
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+    # Build today's card (from yesterday's check-in) first.
+    first = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06, "date": yesterday.isoformat()},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200, first.text
+
+    # Demo path: add calendar text on today without Google.
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={"date": today.isoformat(), "calendar_event": "Ice skating"},
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+
+    mock_generate_advice.reset_mock()
+    mock_generate_advice.side_effect = mock_advice.side_effect
+    advice = client.post("/v1/advice", json={}, headers=auth_headers)
+    assert advice.status_code == 200, advice.text
+    kwargs = mock_generate_advice.call_args.kwargs
+    assert kwargs["calendar_event"] == "Ice skating"
+    assert any(
+        isinstance(e, dict) and e.get("title") == "Ice skating"
+        for e in (kwargs.get("calendar_events") or [])
+    )
+
+
+@patch("services.forecast_service.generate_advice")
+@patch("services.forecast_service.fetch_env_daily")
+def test_yesterdays_calendar_text_does_not_apply_to_today(
+    mock_fetch_env,
+    mock_generate_advice,
+    client: TestClient,
+    auth_headers: dict,
+    mock_env_fetch,
+    mock_advice,
+):
+    """Ice skating on yesterday's check-in must not show up as today's plan."""
+    from datetime import date, timedelta
+
+    mock_fetch_env.side_effect = mock_env_fetch.side_effect
+    mock_generate_advice.side_effect = mock_advice.side_effect
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    assert (
+        client.post(
+            "/v1/check-ins",
+            json={"date": yesterday.isoformat(), "calendar_event": "Ice skating"},
+            headers=auth_headers,
+        ).status_code
+        == 201
+    )
+    response = client.post(
+        "/v1/forecast",
+        json={"lat": 42.36, "lon": -71.06, "date": yesterday.isoformat()},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    kwargs = mock_generate_advice.call_args.kwargs
+    events = kwargs.get("calendar_events") or []
+    assert not any(
+        isinstance(event, dict) and "ice skating" in str(event.get("title") or "").lower()
+        for event in events
+    )
+    assert kwargs.get("calendar_event") in (None, "")

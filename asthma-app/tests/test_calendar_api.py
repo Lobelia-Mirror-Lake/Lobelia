@@ -80,7 +80,7 @@ def test_manual_events_then_forecast_uses_them(
             )
             assert response.status_code == 200, response.text
             body = response.json()
-            assert body["calendar_source"] in ("check_in", "request", "google_calendar")
+            assert body["calendar_source"] in ("check_in", "request", "google_calendar", "manual")
             assert any(e.get("title") == "Outdoor soccer" for e in body.get("calendar_events", []))
             assert advice_mock.called
             kwargs = advice_mock.call_args.kwargs
