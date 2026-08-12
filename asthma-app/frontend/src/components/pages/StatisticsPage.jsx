@@ -208,7 +208,11 @@ function createMonthlyHistory(checkIns, from, to, graphType) {
     1
   );
 
-  const finalMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  const finalMonth = new Date(
+    endDate.getFullYear(),
+    endDate.getMonth(),
+    1
+  );
 
   while (currentMonth <= finalMonth) {
     const month = currentMonth.getMonth();
@@ -281,6 +285,7 @@ function StatisticsPage() {
         setForecastErrorMessage("");
 
         const location = await getUserLocation();
+
         const { today, tomorrow } = await loadCardPredictions({
           lat: location.lat,
           lon: location.lon,
@@ -298,7 +303,10 @@ function StatisticsPage() {
         setForecastStatus("error");
         setTomorrowForecast(null);
 
-        if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
+        if (
+          error.code === "CHECK_IN_REQUIRED" ||
+          error.code === "FORECAST_NOT_FOUND"
+        ) {
           setForecastErrorMessage(
             "Complete yesterday's symptom check-in to generate today's prediction.\nComplete today’s symptom check-in to generate tomorrow’s prediction."
           );
@@ -340,15 +348,22 @@ function StatisticsPage() {
 
         if (cancelled) return;
 
-        setCheckIns(Array.isArray(response?.items) ? response.items : []);
+        setCheckIns(
+          Array.isArray(response?.items)
+            ? response.items
+            : []
+        );
+
         setHistoryStatus("success");
       } catch (error) {
         if (cancelled) return;
 
         setCheckIns([]);
         setHistoryStatus("error");
+
         setHistoryErrorMessage(
-          error.message || "Your recent check-in history is unavailable."
+          error.message ||
+            "Your recent check-in history is unavailable."
         );
       }
     }
@@ -357,7 +372,9 @@ function StatisticsPage() {
       loadHistory();
     } else {
       setHistoryStatus("error");
-      setHistoryErrorMessage("Log in to view your check-in history.");
+      setHistoryErrorMessage(
+        "Log in to view your check-in history."
+      );
     }
 
     return () => {
@@ -366,7 +383,9 @@ function StatisticsPage() {
   }, [token, selectedRange]);
 
   const riskPercentage = useMemo(() => {
-    const probability = Number(forecast?.flare_probability);
+    const probability = Number(
+      forecast?.flare_probability
+    );
 
     if (Number.isNaN(probability)) {
       return 0;
@@ -375,12 +394,16 @@ function StatisticsPage() {
     return Math.round(probability * 100);
   }, [forecast]);
 
-  const riskLevel = forecast?.risk_level || "Unavailable";
+  const riskLevel =
+    forecast?.risk_level || "Unavailable";
 
   const reasoning = useMemo(() => {
     const factors = forecast?.contributing_factors;
 
-    if (!Array.isArray(factors) || factors.length === 0) {
+    if (
+      !Array.isArray(factors) ||
+      factors.length === 0
+    ) {
       return "Not enough recent information is available to explain the prediction.";
     }
 
@@ -388,35 +411,59 @@ function StatisticsPage() {
       return `${factors[0]} contributed to this prediction.`;
     }
 
-    const lastFactor = factors[factors.length - 1];
-    const earlierFactors = factors.slice(0, -1).join(", ");
+    const lastFactor =
+      factors[factors.length - 1];
+
+    const earlierFactors = factors
+      .slice(0, -1)
+      .join(", ");
 
     return `${earlierFactors}, and ${lastFactor} contributed to this prediction.`;
   }, [forecast]);
 
   const tomorrowRiskPercentage = useMemo(() => {
-    const probability = Number(tomorrowForecast?.flare_probability);
-    if (Number.isNaN(probability)) return 0;
+    const probability = Number(
+      tomorrowForecast?.flare_probability
+    );
+
+    if (Number.isNaN(probability)) {
+      return 0;
+    }
+
     return Math.round(probability * 100);
   }, [tomorrowForecast]);
 
-  const tomorrowRiskLevel = tomorrowForecast?.risk_level || "Unavailable";
+  const tomorrowRiskLevel =
+    tomorrowForecast?.risk_level || "Unavailable";
 
   const tomorrowReasoning = useMemo(() => {
-    const factors = tomorrowForecast?.contributing_factors;
-    if (!Array.isArray(factors) || factors.length === 0) {
+    const factors =
+      tomorrowForecast?.contributing_factors;
+
+    if (
+      !Array.isArray(factors) ||
+      factors.length === 0
+    ) {
       return "Not enough recent information is available to explain the prediction.";
     }
+
     if (factors.length === 1) {
       return `${factors[0]} contributed to this prediction.`;
     }
-    const lastFactor = factors[factors.length - 1];
-    const earlierFactors = factors.slice(0, -1).join(", ");
+
+    const lastFactor =
+      factors[factors.length - 1];
+
+    const earlierFactors = factors
+      .slice(0, -1)
+      .join(", ");
+
     return `${earlierFactors}, and ${lastFactor} contributed to this prediction.`;
   }, [tomorrowForecast]);
 
   const selectedHistory = useMemo(() => {
-    const { from, to } = getDateRange(selectedRange);
+    const { from, to } =
+      getDateRange(selectedRange);
 
     return buildHistory(
       checkIns,
@@ -429,8 +476,16 @@ function StatisticsPage() {
 
   const predictionReminder = useMemo(() => {
     const d = new Date();
-    const todayLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const todayCheckIn = checkIns.find((row) => row.date === todayLocal);
+
+    const todayLocal =
+      `${d.getFullYear()}-` +
+      `${String(d.getMonth() + 1).padStart(2, "0")}-` +
+      `${String(d.getDate()).padStart(2, "0")}`;
+
+    const todayCheckIn = checkIns.find(
+      (row) => row.date === todayLocal
+    );
+
     const todayCheckInComplete =
       todayCheckIn &&
       (Number(todayCheckIn.puffs_today || 0) > 0 ||
@@ -439,7 +494,9 @@ function StatisticsPage() {
     return statisticsReminderText({
       todayForecast: forecast,
       tomorrowForecast,
-      todayCheckInComplete: Boolean(todayCheckInComplete),
+      todayCheckInComplete: Boolean(
+        todayCheckInComplete
+      ),
     });
   }, [checkIns, forecast, tomorrowForecast]);
 
@@ -450,8 +507,10 @@ function StatisticsPage() {
 
   function downloadSummary() {
     const rangeLabel =
-      RANGE_OPTIONS.find((option) => option.key === selectedRange)?.label ||
-      selectedRange;
+      RANGE_OPTIONS.find(
+        (option) =>
+          option.key === selectedRange
+      )?.label || selectedRange;
 
     const graphLabel =
       graphType === "symptoms"
@@ -472,7 +531,8 @@ function StatisticsPage() {
       "",
       `${graphLabel} RANGE: ${rangeLabel}`,
       ...selectedHistory.labels.map(
-        (label, index) => `${label}: ${selectedHistory.values[index]}`
+        (label, index) =>
+          `${label}: ${selectedHistory.values[index]}`
       ),
       "",
       "Reminder: Enter today’s symptoms to receive a prediction for tomorrow.",
@@ -488,9 +548,11 @@ function StatisticsPage() {
     const link = document.createElement("a");
 
     link.href = fileUrl;
-    link.download = `mirror-lake-summary-${new Date()
-      .toISOString()
-      .slice(0, 10)}.txt`;
+
+    link.download =
+      `mirror-lake-summary-${new Date()
+        .toISOString()
+        .slice(0, 10)}.txt`;
 
     document.body.appendChild(link);
     link.click();
@@ -501,11 +563,12 @@ function StatisticsPage() {
 
   return (
     <main className="statistics-page">
-
       <section className="statistics-grid">
         <article className="statistics-panel prediction-panel">
           <h2>
-            {tomorrowForecast ? "Your Predictions" : "Today’s Prediction"}
+            {tomorrowForecast
+              ? "Your Predictions"
+              : "Today’s Prediction"}
           </h2>
 
           {forecastStatus === "loading" && (
@@ -513,7 +576,8 @@ function StatisticsPage() {
               <h3>Loading your prediction...</h3>
 
               <p>
-                We are reviewing your latest health and environment data.
+                We are reviewing your latest
+                health and environment data.
               </p>
             </div>
           )}
@@ -521,43 +585,63 @@ function StatisticsPage() {
           {forecastStatus === "error" && (
             <div className="statistics-message statistics-error-message">
               <h3>Prediction unavailable</h3>
-              <p style={{whiteSpace: "pre-line", lineHeight: 1.3}}>{forecastErrorMessage}</p>
-            </div>
-          )}
 
-          {forecastStatus === "success" && tomorrowForecast && (
-            <div className="prediction-content">
-              <div
-                className={`statistics-risk-circle risk-${tomorrowRiskLevel.toLowerCase()}`}
+              <p
+                style={{
+                  whiteSpace: "pre-line",
+                  lineHeight: 1.3,
+                }}
               >
-                <span>{tomorrowRiskPercentage}%</span>
-              </div>
-
-              <div className="prediction-reasoning">
-                <h3>Tomorrow’s Prediction</h3>
-                <p>{tomorrowReasoning}</p>
-              </div>
+                {forecastErrorMessage}
+              </p>
             </div>
           )}
 
-          {forecastStatus === "success" && forecast && (
-            <div className="prediction-content">
-              <div
-                className={`statistics-risk-circle risk-${riskLevel.toLowerCase()}`}
-              >
-                <span>{riskPercentage}%</span>
-              </div>
+          {forecastStatus === "success" &&
+            tomorrowForecast && (
+              <div className="prediction-content">
+                <div
+                  className={`statistics-risk-circle risk-${tomorrowRiskLevel.toLowerCase()}`}
+                >
+                  <span>
+                    {tomorrowRiskPercentage}%
+                  </span>
+                </div>
 
-              <div className="prediction-reasoning">
-                <h3>{tomorrowForecast ? "Today’s Prediction" : "Reasoning"}</h3>
-                <p>{reasoning}</p>
+                <div className="prediction-reasoning">
+                  <h3>Tomorrow’s Prediction</h3>
+                  <p>{tomorrowReasoning}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {forecastStatus === "success" && predictionReminder && (
-            <p className="prediction-reminder">{predictionReminder}</p>
-          )}
+          {forecastStatus === "success" &&
+            forecast && (
+              <div className="prediction-content">
+                <div
+                  className={`statistics-risk-circle risk-${riskLevel.toLowerCase()}`}
+                >
+                  <span>{riskPercentage}%</span>
+                </div>
+
+                <div className="prediction-reasoning">
+                  <h3>
+                    {tomorrowForecast
+                      ? "Today’s Prediction"
+                      : "Reasoning"}
+                  </h3>
+
+                  <p>{reasoning}</p>
+                </div>
+              </div>
+            )}
+
+          {forecastStatus === "success" &&
+            predictionReminder && (
+              <p className="prediction-reminder">
+                {predictionReminder}
+              </p>
+            )}
         </article>
 
         <section className="statistics-right-column">
@@ -576,8 +660,12 @@ function StatisticsPage() {
                       ? "graph-type-button graph-type-button-active"
                       : "graph-type-button"
                   }
-                  onClick={() => setGraphType("symptoms")}
-                  aria-pressed={graphType === "symptoms"}
+                  onClick={() =>
+                    setGraphType("symptoms")
+                  }
+                  aria-pressed={
+                    graphType === "symptoms"
+                  }
                 >
                   Symptoms
                 </button>
@@ -589,8 +677,12 @@ function StatisticsPage() {
                       ? "graph-type-button graph-type-button-active"
                       : "graph-type-button"
                   }
-                  onClick={() => setGraphType("puffs")}
-                  aria-pressed={graphType === "puffs"}
+                  onClick={() =>
+                    setGraphType("puffs")
+                  }
+                  aria-pressed={
+                    graphType === "puffs"
+                  }
                 >
                   Inhaler Puffs
                 </button>
@@ -599,7 +691,9 @@ function StatisticsPage() {
 
             {historyStatus === "loading" && (
               <div className="statistics-message graph-message">
-                <p>Loading your recent check-ins...</p>
+                <p>
+                  Loading your recent check-ins...
+                </p>
               </div>
             )}
 
@@ -621,21 +715,31 @@ function StatisticsPage() {
               <p>Get results for:</p>
 
               <div className="range-buttons">
-                {RANGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    className={
-                      selectedRange === option.key
-                        ? "range-button range-button-active"
-                        : "range-button"
-                    }
-                    onClick={() => setSelectedRange(option.key)}
-                    aria-pressed={selectedRange === option.key}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+                {RANGE_OPTIONS.map(
+                  (option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      className={
+                        selectedRange ===
+                        option.key
+                          ? "range-button range-button-active"
+                          : "range-button"
+                      }
+                      onClick={() =>
+                        setSelectedRange(
+                          option.key
+                        )
+                      }
+                      aria-pressed={
+                        selectedRange ===
+                        option.key
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  )
+                )}
               </div>
             </div>
           </article>
@@ -652,7 +756,11 @@ function StatisticsPage() {
   );
 }
 
-function SymptomGraph({ labels, values, graphType }) {
+function SymptomGraph({
+  labels,
+  values,
+  graphType,
+}) {
   const width = 640;
   const height = 390;
 
@@ -663,49 +771,123 @@ function SymptomGraph({ labels, values, graphType }) {
     left: 55,
   };
 
-  const graphWidth = width - padding.left - padding.right;
-  const graphHeight = height - padding.top - padding.bottom;
+  const graphWidth =
+    width - padding.left - padding.right;
 
-  const maximumValue = Math.max(...values, 1);
+  const graphHeight =
+    height - padding.top - padding.bottom;
 
+  const maximumValue = Math.max(
+    ...values,
+    1
+  );
+
+  /*
+   * Start with a minimum useful graph height.
+   *
+   * Symptoms can be 0-3 per individual day, but
+   * aggregated ranges such as weeks/months can be
+   * much larger than 3.
+   */
+  const minimumMaximum =
+    graphType === "symptoms" ? 3 : 5;
+
+  const rawMaximum = Math.max(
+    minimumMaximum,
+    Math.ceil(maximumValue)
+  );
+
+  /*
+   * Pick a whole-number interval.
+   *
+   * Small graphs:
+   * 0, 1, 2, 3
+   * 0, 1, 2, 3, 4, 5
+   *
+   * Larger graphs:
+   * 0, 2, 4, 6, 8
+   * 0, 3, 6, 9, 12
+   * 0, 4, 8, 12, 16, 20
+   */
+  const tickStep =
+    rawMaximum <= 5
+      ? 1
+      : Math.ceil(rawMaximum / 5);
+
+  /*
+   * Round the top of the graph UP to a clean
+   * multiple of the tick interval.
+   *
+   * Example:
+   * maximum data = 17
+   * tickStep = 4
+   * graph maximum = 20
+   */
   const yMaximum =
-    graphType === "symptoms"
-      ? Math.max(3, maximumValue)
-      : Math.max(5, Math.ceil(maximumValue / 5) * 5);
+    Math.ceil(rawMaximum / tickStep) *
+    tickStep;
 
-  const points = values.map((value, index) => {
-    const x =
-      padding.left +
-      (labels.length === 1
-        ? graphWidth / 2
-        : (index / (labels.length - 1)) * graphWidth);
+  const points = values.map(
+    (value, index) => {
+      const x =
+        padding.left +
+        (labels.length === 1
+          ? graphWidth / 2
+          : (index /
+              (labels.length - 1)) *
+            graphWidth);
 
-    const y =
-      padding.top +
-      graphHeight -
-      (value / yMaximum) * graphHeight;
+      const y =
+        padding.top +
+        graphHeight -
+        (value / yMaximum) *
+          graphHeight;
 
-    return {
-      x,
-      y,
-      value,
-      label: labels[index],
-    };
-  });
+      return {
+        x,
+        y,
+        value,
+        label: labels[index],
+      };
+    }
+  );
 
   const polylinePoints = points
-    .map((point) => `${point.x},${point.y}`)
+    .map(
+      (point) =>
+        `${point.x},${point.y}`
+    )
     .join(" ");
 
-  const gridLines = Array.from({ length: 6 }, (_, index) => {
-    const y = padding.top + (index / 5) * graphHeight;
-    const label = Math.round(yMaximum - (index / 5) * yMaximum);
+  /*
+   * Generate unique whole-number ticks.
+   * No Math.round(), so duplicate labels
+   * cannot occur.
+   */
+  const tickValues = [];
 
-    return {
-      y,
-      label,
-    };
-  });
+  for (
+    let value = 0;
+    value <= yMaximum;
+    value += tickStep
+  ) {
+    tickValues.push(value);
+  }
+
+  const gridLines = tickValues.map(
+    (value) => {
+      const y =
+        padding.top +
+        graphHeight -
+        (value / yMaximum) *
+          graphHeight;
+
+      return {
+        y,
+        label: value,
+      };
+    }
+  );
 
   const ariaLabel =
     graphType === "symptoms"
@@ -720,8 +902,8 @@ function SymptomGraph({ labels, values, graphType }) {
         role="img"
         aria-label={ariaLabel}
       >
-        {gridLines.map((line, index) => (
-          <g key={`${line.y}-${index}`}>
+        {gridLines.map((line) => (
+          <g key={line.label}>
             <line
               className="graph-grid-line"
               x1={padding.left}
@@ -764,29 +946,38 @@ function SymptomGraph({ labels, values, graphType }) {
           />
         )}
 
-        {points.map((point, index) => (
-          <g key={`${point.label}-${index}`}>
-            <circle
-              className="graph-data-point"
-              cx={point.x}
-              cy={point.y}
-              r="6"
+        {points.map(
+          (point, index) => (
+            <g
+              key={`${point.label}-${index}`}
             >
-              <title>
-                {point.label}: {point.value}
-              </title>
-            </circle>
+              <circle
+                className="graph-data-point"
+                cx={point.x}
+                cy={point.y}
+                r="6"
+              >
+                <title>
+                  {point.label}:{" "}
+                  {point.value}
+                </title>
+              </circle>
 
-            <text
-              className="graph-axis-label graph-x-label"
-              x={point.x}
-              y={height - padding.bottom + 30}
-              textAnchor="middle"
-            >
-              {point.label}
-            </text>
-          </g>
-        ))}
+              <text
+                className="graph-axis-label graph-x-label"
+                x={point.x}
+                y={
+                  height -
+                  padding.bottom +
+                  30
+                }
+                textAnchor="middle"
+              >
+                {point.label}
+              </text>
+            </g>
+          )
+        )}
       </svg>
     </div>
   );

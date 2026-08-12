@@ -486,6 +486,9 @@ function CalendarPage() {
                   onChange={updateField}
                   placeholder="Outdoor run, work shift, travel..."
                 />
+                <small className="check-in-field-hint">
+                  Add what you have planned this day — we’ll use it in your advice.
+                </small>
               </label>
 
               <label className="check-in-input-group">

@@ -27,6 +27,25 @@ class CalendarStatus(BaseModel):
     configured: bool
     email: Optional[str] = None
     connected_at: Optional[str] = None
+    # Frontend CalendarContext reads camelCase; keep snake_case for API docs too.
+    connectedAt: Optional[str] = None
+
+
+def _status_for(user: User | None = None, *, connected: bool | None = None) -> CalendarStatus:
+    connected_flag = (
+        bool(user.google_calendar_refresh_token) if connected is None and user is not None else bool(connected)
+    )
+    email = user.google_calendar_email if user is not None else None
+    connected_at = None
+    if user is not None and user.google_calendar_connected_at is not None:
+        connected_at = user.google_calendar_connected_at.isoformat()
+    return CalendarStatus(
+        connected=connected_flag,
+        configured=gcal.oauth_configured(),
+        email=email if connected_flag else None,
+        connected_at=connected_at if connected_flag else None,
+        connectedAt=connected_at if connected_flag else None,
+    )
 
 
 class ConnectResponse(BaseModel):
@@ -44,14 +63,7 @@ class ManualEventsRequest(BaseModel):
 
 @router.get("/status", response_model=CalendarStatus)
 def calendar_status(user: User = Depends(get_current_user)) -> CalendarStatus:
-    return CalendarStatus(
-        connected=bool(user.google_calendar_refresh_token),
-        configured=gcal.oauth_configured(),
-        email=user.google_calendar_email,
-        connected_at=user.google_calendar_connected_at.isoformat()
-        if user.google_calendar_connected_at
-        else None,
-    )
+    return _status_for(user)
 
 
 @router.get("/connect", response_model=ConnectResponse)
@@ -83,12 +95,22 @@ def calendar_oauth_done(
     title = "Calendar connected" if ok else "Calendar connection failed"
     detail = "You can close this tab and return to the app." if ok else f"Reason: {reason or 'unknown'}"
     color = "#0a7" if ok else "#c33"
+    # Notify opener (popup OAuth) then try to close — frontend also polls /status.
+    payload = "connected" if ok else "error"
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{title}</title></head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem">
   <h1 style="color:{color}">{title}</h1>
   <p>{detail}</p>
   <p><a href="/docs">API docs</a></p>
+  <script>
+    try {{
+      if (window.opener) {{
+        window.opener.postMessage({{ type: "google-calendar-{payload}" }}, "*");
+      }}
+    }} catch (e) {{}}
+    try {{ window.close(); }} catch (e) {{}}
+  </script>
 </body></html>"""
     return HTMLResponse(html)
 
@@ -164,24 +186,84 @@ def calendar_disconnect(
     user.google_calendar_email = None
     user.google_calendar_connected_at = None
     db.commit()
-    return CalendarStatus(connected=False, configured=gcal.oauth_configured())
+    return _status_for(connected=False)
+
+
+def _calendar_fetch_error(exc: Exception) -> Exception:
+    reason = str(exc).strip()
+    if hasattr(exc, "response") and getattr(exc, "response", None) is not None:
+        try:
+            payload = exc.response.json()
+            reason = (
+                payload.get("error", {}).get("message")
+                or payload.get("error_description")
+                or reason
+            )
+        except Exception:
+            reason = (exc.response.text or reason)[:300]
+    detail = "Failed to fetch Google Calendar events"
+    if reason:
+        detail = f"{detail}: {reason}"
+    return api_error(502, detail, "CALENDAR_FETCH_ERROR")
 
 
 @router.get("/events")
 async def list_calendar_events(
     day: Optional[Date] = Query(None, alias="date", description="YYYY-MM-DD (default: tomorrow)"),
+    from_date: Optional[Date] = Query(
+        None, alias="from", description="Range start YYYY-MM-DD (inclusive)"
+    ),
+    to_date: Optional[Date] = Query(
+        None, alias="to", description="Range end YYYY-MM-DD (inclusive)"
+    ),
     timezone_name: str = Query("America/Chicago", alias="timezone"),
     user: User = Depends(get_current_user),
 ) -> dict:
+    """Preview events for one day (`date`) or a month/range (`from` + `to`)."""
     from datetime import timedelta
 
-    target = day or (Date.today() + timedelta(days=1))
     if not user.google_calendar_refresh_token:
         raise api_error(
             404,
             "Google Calendar is not connected. Call GET /v1/calendar/connect first.",
             "CALENDAR_NOT_CONNECTED",
         )
+
+    if (from_date is None) ^ (to_date is None):
+        raise api_error(
+            400,
+            "Provide both `from` and `to`, or use `date` for a single day.",
+            "VALIDATION_ERROR",
+        )
+
+    if from_date is not None and to_date is not None:
+        if to_date < from_date:
+            raise api_error(400, "`to` must be on or after `from`.", "VALIDATION_ERROR")
+        if (to_date - from_date).days > 62:
+            raise api_error(
+                400,
+                "Date range cannot exceed 62 days. Request one month at a time.",
+                "VALIDATION_ERROR",
+            )
+        try:
+            events = await gcal.fetch_events_for_range(
+                user.google_calendar_refresh_token,
+                start_day=from_date,
+                end_day=to_date,
+                timezone_name=timezone_name,
+            )
+        except Exception as exc:
+            raise _calendar_fetch_error(exc) from exc
+
+        return {
+            "from": from_date.isoformat(),
+            "to": to_date.isoformat(),
+            "timezone": timezone_name,
+            "events": events,
+            "summary": gcal.events_to_summary(events),
+        }
+
+    target = day or (Date.today() + timedelta(days=1))
     try:
         events = await gcal.fetch_events_for_day(
             user.google_calendar_refresh_token,
@@ -189,22 +271,7 @@ async def list_calendar_events(
             timezone_name=timezone_name,
         )
     except Exception as exc:
-        # Surface a short Google/httpx reason so local debugging isn't a black box.
-        reason = str(exc).strip()
-        if hasattr(exc, "response") and getattr(exc, "response", None) is not None:
-            try:
-                payload = exc.response.json()
-                reason = (
-                    payload.get("error", {}).get("message")
-                    or payload.get("error_description")
-                    or reason
-                )
-            except Exception:
-                reason = (exc.response.text or reason)[:300]
-        detail = "Failed to fetch Google Calendar events"
-        if reason:
-            detail = f"{detail}: {reason}"
-        raise api_error(502, detail, "CALENDAR_FETCH_ERROR") from exc
+        raise _calendar_fetch_error(exc) from exc
 
     return {
         "date": target.isoformat(),

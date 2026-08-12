@@ -4,6 +4,7 @@ import {
   homeRiskHeading,
   loadDisplayForecast,
 } from "../../helper-functions/getForecast";
+import { logInhalerPuff } from "../../helper-functions/checkIns";
 
 const FALLBACK_LOCATION = {
   lat: 43.0731,
@@ -51,6 +52,10 @@ function HomePage() {
   const [status, setStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [loggingPuff, setLoggingPuff] = useState(false);
+  const [puffMessage, setPuffMessage] = useState("");
+  const [puffError, setPuffError] = useState("");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -74,7 +79,10 @@ function HomePage() {
       } catch (error) {
         if (cancelled) return;
 
-        if (error.code === "CHECK_IN_REQUIRED" || error.code === "FORECAST_NOT_FOUND") {
+        if (
+          error.code === "CHECK_IN_REQUIRED" ||
+          error.code === "FORECAST_NOT_FOUND"
+        ) {
           setStatus("check-in-required");
           setErrorMessage(
             "Complete yesterday’s check-in before generating your risk forecast."
@@ -96,6 +104,32 @@ function HomePage() {
       cancelled = true;
     };
   }, [token]);
+
+  async function handleRescueInhalerClick() {
+    if (!token || loggingPuff) return;
+
+    try {
+      setLoggingPuff(true);
+      setPuffMessage("");
+      setPuffError("");
+
+      const data = await logInhalerPuff({
+        token,
+      });
+
+      setPuffMessage(
+        `Logged. Today's total: ${data.puffs_today} ${
+          data.puffs_today === 1 ? "puff" : "puffs"
+        }.`
+      );
+    } catch (error) {
+      setPuffError(
+        error.message || "Unable to log rescue inhaler use."
+      );
+    } finally {
+      setLoggingPuff(false);
+    }
+  }
 
   const riskPercentage = useMemo(() => {
     const probability = Number(forecast?.flare_probability);
@@ -129,10 +163,21 @@ function HomePage() {
 
   return (
     <main className="home-page">
+      <section className="home-header">
+        <h1>Hi, {formatName(user)}!</h1>
+
+        <div
+          className="home-profile-placeholder"
+          aria-hidden="true"
+        />
+      </section>
+
+      <hr />
 
       {status === "loading" && (
         <section className="home-state-card">
           <h2>Loading your forecast...</h2>
+
           <p>
             We are combining your check-in and environmental data.
           </p>
@@ -157,7 +202,9 @@ function HomePage() {
         <>
           <section className="home-risk-section">
             <div className={`risk-summary risk-${riskClass}`}>
-              <h2>{homeRiskHeading(forecast, riskLevel)}</h2>
+              <h2>
+                {homeRiskHeading(forecast, riskLevel)}
+              </h2>
 
               <div className="risk-circle">
                 <span>{riskPercentage}%</span>
@@ -167,20 +214,38 @@ function HomePage() {
             <div className="home-next-step-column">
               <article className="home-card next-step-card">
                 <h2>Next Step</h2>
-                <hr/>
+
+                <hr />
+
                 <p>{nextStep}</p>
               </article>
 
               <button
                 className="rescue-inhaler-button"
                 type="button"
+                onClick={handleRescueInhalerClick}
+                disabled={loggingPuff}
               >
-                I used my rescue inhaler.
+                {loggingPuff
+                  ? "Logging..."
+                  : "I used my rescue inhaler."}
               </button>
+
+              {puffMessage && (
+                <p className="inhaler-log-success">
+                  {puffMessage}
+                </p>
+              )}
+
+              {puffError && (
+                <p className="inhaler-log-error">
+                  {puffError}
+                </p>
+              )}
             </div>
           </section>
 
-          <hr/>
+          <hr />
 
           <ForecastCard
             title="Predicted Triggers"
@@ -207,17 +272,24 @@ function ForecastCard({ title, items }) {
   return (
     <article className="home-card forecast-card">
       <h2>{title}</h2>
-      <hr/>
+
+      <hr />
 
       <div className="forecast-tags">
         {items.map((item, index) => (
-          <span className="forecast-tag" key={`${item}-${index}`}>
+          <span
+            className="forecast-tag"
+            key={`${item}-${index}`}
+          >
             {item}
           </span>
         ))}
       </div>
 
-      <button className="more-details-button" type="button">
+      <button
+        className="more-details-button"
+        type="button"
+      >
         More Details
       </button>
     </article>

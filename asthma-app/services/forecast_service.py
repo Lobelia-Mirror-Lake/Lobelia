@@ -112,6 +112,108 @@ def forecast_has_advice(advice: Any) -> bool:
     )
 
 
+def free_text_as_manual_events(text: str | None, day: date) -> list[dict]:
+    """Turn the check-in Calendar event field into a structured manual event."""
+    title = (text or "").strip()
+    if not title:
+        return []
+    return [
+        {
+            "title": title,
+            "start": day.isoformat(),
+            "all_day": True,
+            "source": "manual",
+        }
+    ]
+
+
+def _manual_calendar_stale(forecast: dict, target_check_in: CheckIn | None) -> bool:
+    """True when stored advice still has a manual event that doesn't match this day."""
+    stored = forecast.get("calendar_events") or []
+    stored_manual = [
+        event
+        for event in stored
+        if isinstance(event, dict)
+        and str(event.get("source") or "") in {"manual", "manual_override"}
+    ]
+    text = (target_check_in.calendar_event or "").strip() if target_check_in is not None else ""
+    if text:
+        return not any(str(event.get("title") or "").strip() == text for event in stored)
+    return bool(stored_manual)
+
+
+async def resolve_calendar_for_advice(
+    db: Session,
+    user: User,
+    *,
+    anchor_check_in: CheckIn | None,
+    forecast_for: date,
+    calendar_events_override: list[dict] | None = None,
+    timezone_name: str = "America/Chicago",
+) -> tuple[list[dict], str | None]:
+    """Resolve calendar context for Copilot advice.
+
+    The check-in Calendar event field belongs to that calendar day. Today's
+    Home card must not reuse yesterday's ice skating as a plan for today.
+
+    Priority:
+    1. Request override
+    2. Free-text on the check-in for ``forecast_for`` (user edit wins over Google)
+    3. Google Calendar for ``forecast_for``
+    4. Structured events stored on the forecast-day check-in, else the anchor
+       (``/manual-events`` / cached Google)
+    """
+    from services import google_calendar as gcal
+
+    if calendar_events_override is not None:
+        events = [dict(event) for event in calendar_events_override]
+        for event in events:
+            event.setdefault("source", "request")
+        return events, gcal.events_to_summary(events)
+
+    target_check_in = db.scalar(
+        select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == forecast_for)
+    )
+    free_text = (
+        (target_check_in.calendar_event or "").strip() if target_check_in is not None else ""
+    )
+    if free_text:
+        return free_text_as_manual_events(free_text, forecast_for), free_text
+
+    events: list[dict] = []
+    if user.google_calendar_refresh_token:
+        try:
+            events = await gcal.fetch_events_for_day(
+                user.google_calendar_refresh_token,
+                day=forecast_for,
+                timezone_name=timezone_name,
+            )
+            for event in events:
+                event.setdefault("source", "google_calendar")
+        except Exception:
+            cached = (target_check_in or anchor_check_in)
+            events = list((cached.calendar_events if cached is not None else None) or [])
+            for event in events:
+                if isinstance(event, dict):
+                    event.setdefault("source", "check_in_fallback")
+    else:
+        structured_from = None
+        if target_check_in is not None and target_check_in.calendar_events:
+            structured_from = target_check_in
+        elif anchor_check_in is not None and anchor_check_in.calendar_events:
+            structured_from = anchor_check_in
+        if structured_from is not None:
+            events = [dict(event) for event in structured_from.calendar_events]
+            for event in events:
+                event.setdefault("source", "check_in")
+
+    if events:
+        return events, gcal.events_to_summary(events)
+
+    return [], None
+
+
+
 async def ensure_forecast_advice(
     db: Session,
     user: User,
@@ -121,10 +223,22 @@ async def ensure_forecast_advice(
     advice_type: AdviceType = "daily",
 ) -> dict | None:
     """If a stored forecast is missing advice, regenerate and merge it."""
-    if forecast is None or forecast_has_advice(forecast.get("advice")):
+    if forecast is None:
         return forecast
 
     anchor_date = date.fromisoformat(forecast["date"])
+    forecast_for = (
+        date.fromisoformat(forecast["forecast_for"])
+        if forecast.get("forecast_for")
+        else anchor_date + timedelta(days=1)
+    )
+    target_check_in = db.scalar(
+        select(CheckIn).where(CheckIn.user_id == user.id, CheckIn.date == forecast_for)
+    )
+    calendar_stale = _manual_calendar_stale(forecast, target_check_in)
+    if forecast_has_advice(forecast.get("advice")) and not calendar_stale:
+        return forecast
+
     try:
         regenerated = await regenerate_advice(
             db,
@@ -314,14 +428,21 @@ async def refresh_forecast_after_check_in(
     *,
     day: date,
     today: date | None = None,
+    calendar_changed: bool = False,
 ) -> dict | None:
     """Re-run ML for today/yesterday when a forecast already exists for that check-in day.
 
     Skips LLM advice so check-in saves stay fast; Home/``POST /v1/forecasts/today``
     backfills advice when ``advice`` is null. Does not create a first-time forecast
     (preserves the 6pm tomorrow unlock rule).
+
+    When ``calendar_changed`` is true, also clear advice on the card targeting
+    ``day`` so Home picks up the check-in Calendar event field.
     """
     today = today or date.today()
+    if calendar_changed:
+        _clear_advice_for_target_day(db, user.id, day)
+
     if day not in {today, today - timedelta(days=1)}:
         return None
     if get_forecast(db, user.id, run_on=day) is None:
@@ -350,6 +471,19 @@ async def refresh_forecast_after_check_in(
         return None
 
 
+def _clear_advice_for_target_day(db: Session, user_id, day: date) -> None:
+    """Drop stored advice for the prediction targeting ``day`` so it regenerates."""
+    row = db.scalar(
+        select(Forecast)
+        .where(Forecast.user_id == user_id, Forecast.forecast_for == day)
+        .order_by(Forecast.created_at.desc())
+    )
+    if row is None:
+        return
+    row.advice = None
+    db.commit()
+
+
 async def run_forecast(
     db: Session,
     user: User,
@@ -365,8 +499,6 @@ async def run_forecast(
     skip_advice: bool = False,
     reuse_stored_env: bool = False,
 ) -> dict:
-    from services import google_calendar as gcal
-
     anchor_date = anchor_date or date.today()
     forecast_for = anchor_date + timedelta(days=1)
 
@@ -397,38 +529,15 @@ async def run_forecast(
             "CHECK_IN_REQUIRED",
         )
 
-    # Structured calendar for tomorrow (forecast_for): override → Google → check-in cache
-    resolved_events: list[dict] = []
-    calendar_source = "none"
-    if calendar_events is not None:
-        resolved_events = calendar_events
-        calendar_source = "request"
-    elif user.google_calendar_refresh_token:
-        try:
-            resolved_events = await gcal.fetch_events_for_day(
-                user.google_calendar_refresh_token,
-                day=forecast_for,
-                timezone_name=timezone_name,
-            )
-            for event in resolved_events:
-                event.setdefault("source", "google_calendar")
-            calendar_source = "google_calendar"
-        except Exception:
-            # Soft-fail: still forecast without calendar rather than 502 the whole request.
-            resolved_events = list(check_in.calendar_events or [])
-            calendar_source = "check_in_fallback" if resolved_events else "google_fetch_failed"
-    elif check_in.calendar_events:
-        resolved_events = list(check_in.calendar_events)
-        calendar_source = "check_in"
-
-    for event in resolved_events:
-        if isinstance(event, dict):
-            event.setdefault("source", calendar_source if calendar_source != "none" else "check_in")
-
-    calendar_summary = gcal.events_to_summary(resolved_events) or check_in.calendar_event
-    if resolved_events:
-        check_in.calendar_events = resolved_events
-        check_in.calendar_event = calendar_summary
+    # Calendar for the prediction target day — not the check-in day that powered ML.
+    resolved_events, calendar_summary = await resolve_calendar_for_advice(
+        db,
+        user,
+        anchor_check_in=check_in,
+        forecast_for=forecast_for,
+        calendar_events_override=calendar_events,
+        timezone_name=timezone_name,
+    )
 
     yesterday = anchor_date - timedelta(days=1)
     wearable = db.scalar(
@@ -603,6 +712,13 @@ async def run_forecast(
     if not resolved_events and not (calendar_summary or "").strip():
         unavailable.append("calendar")
 
+    if calendar_events is not None:
+        calendar_source = "request"
+    elif resolved_events:
+        calendar_source = str(resolved_events[0].get("source") or "check_in")
+    else:
+        calendar_source = "none"
+
     quality_warnings = list(advice_warnings)
     if "wearables" in unavailable:
         quality_warnings.append("Forecast used no wearable lag features for yesterday.")
@@ -758,8 +874,6 @@ async def _advice_from_cached_forecast(
         advice_warnings.append(
             "No stored environment snapshot for this date; advice may be less specific."
         )
-    calendar_event = check_in.calendar_event if check_in is not None else None
-
     symptoms = _symptoms_summary(check_in)
     # Prompt still needs a string; mark unknown explicitly so the LLM does not
     # treat missing check-in as "no symptoms."
@@ -770,25 +884,11 @@ async def _advice_from_cached_forecast(
     )
     puffs_today = check_in.puffs_today if check_in is not None else 0
 
-    from services import google_calendar as gcal
-
-    check_in_events = list(check_in.calendar_events or []) if check_in is not None else []
-    resolved_events: list[dict] = list(forecast.calendar_events or check_in_events or [])
-    if not resolved_events and user.google_calendar_refresh_token:
-        try:
-            resolved_events = await gcal.fetch_events_for_day(
-                user.google_calendar_refresh_token,
-                day=forecast.forecast_for,
-            )
-            for event in resolved_events:
-                event.setdefault("source", "google_calendar")
-        except Exception:
-            resolved_events = []
-    for event in resolved_events:
-        if isinstance(event, dict):
-            event.setdefault("source", event.get("source") or "check_in")
-    calendar_summary = gcal.events_to_summary(resolved_events) or (
-        check_in.calendar_event if check_in is not None else None
+    resolved_events, calendar_summary = await resolve_calendar_for_advice(
+        db,
+        user,
+        anchor_check_in=check_in,
+        forecast_for=forecast.forecast_for,
     )
     if not resolved_events and not (calendar_summary or "").strip():
         unavailable.append("calendar")
@@ -799,7 +899,7 @@ async def _advice_from_cached_forecast(
             generate_advice(
                 risk_level=forecast.risk_level or "Medium",
                 contributing_factors=contributing_factors,
-                calendar_event=calendar_summary or calendar_event,
+                calendar_event=calendar_summary,
                 calendar_events=resolved_events,
                 symptoms_summary=symptoms_for_prompt,
                 puffs_today=puffs_today,
@@ -828,7 +928,7 @@ async def _advice_from_cached_forecast(
     if persist:
         if advice is not None:
             forecast.advice = advice
-        forecast.calendar_events = resolved_events or forecast.calendar_events
+        forecast.calendar_events = resolved_events
         db.commit()
         db.refresh(forecast)
 
