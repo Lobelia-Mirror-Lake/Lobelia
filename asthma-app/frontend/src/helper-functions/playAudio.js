@@ -23,7 +23,7 @@ export async function preloadAudio() {
 
   const promises = Object.entries(soundFiles).map(
     async ([name, file]) => {
-      const response = await fetch(`/Mirror-Lake/sounds/${file}`);
+      const response = await fetch(`${import.meta.env.BASE_URL}sounds/${file}`);
       const arrayBuffer = await response.arrayBuffer();
 
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);

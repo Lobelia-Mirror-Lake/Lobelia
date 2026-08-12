@@ -27,7 +27,7 @@ Mirror Lake predicts **tomorrow's asthma flare risk** and returns **personalized
 | Chat Q&A (`/v1/chat`) | **Shipped** (same Copilot graph; does not persist Home advice) |
 | Legacy `/predict/*` routes | **Shipped** (research / fallback; product uses `/v1/forecast`) |
 | **Edge AI** (per-user on-device model) | **Not implemented** — future phase |
-| Frontend integration | **Not wired** — clients should call `/v1` directly |
+| Frontend integration | **Partial** — auth, setup, home/stats forecast cards, calendar OAuth + month view, check-ins, chat wired; inhaler button + wearables UI still open |
 
 ### Typical daily flow
 
@@ -636,7 +636,7 @@ Backend can connect a user's Google Calendar (read-only OAuth) and automatically
 | Status | `GET /v1/calendar/status` |
 | Start OAuth | `GET /v1/calendar/connect` → open `auth_url` |
 | Google redirect | `GET /v1/calendar/callback` (stores refresh token) |
-| Preview events | `GET /v1/calendar/events?date=YYYY-MM-DD` |
+| Preview events | `GET /v1/calendar/events?date=YYYY-MM-DD` **or** `?from=&to=` (inclusive range, max 62 days; preferred for month grids) |
 | Disconnect | `DELETE /v1/calendar/disconnect` |
 
 Setup details: [CALENDAR.md](./CALENDAR.md).
@@ -697,7 +697,7 @@ LLM provider outages on `/v1/forecast`, `/v1/advice`, and `/v1/chat` do not use 
 | `POST` | `/v1/wearables/daily` | Yes | Sync Health aggregates |
 | `GET` | `/v1/calendar/status` | Yes | Google Calendar connection status |
 | `GET` | `/v1/calendar/connect` | Yes | Start Google OAuth |
-| `GET` | `/v1/calendar/events` | Yes | Preview events for a day |
+| `GET` | `/v1/calendar/events` | Yes | Preview events for a day (`date`) or range (`from`/`to`) |
 | `POST` | `/v1/calendar/manual-events` | Yes | Dev: store structured events |
 | `DELETE` | `/v1/calendar/disconnect` | Yes | Disconnect Google Calendar |
 | `POST` | `/v1/forecast` | Yes | Tomorrow risk + advice (+ auto calendar) |

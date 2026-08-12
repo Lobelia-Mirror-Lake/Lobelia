@@ -9,11 +9,14 @@ import {
   getProfile,
   updateProfile,
   uploadAndSaveProfileImage,
+  deleteProfileImage,
 } from "../../helper-functions/profile";
 import "./ProfilePage.css";
 import EditButton from "../input/EditButton";
 import ProfileCircle from "../input/ProfileCircle";
-import { Card } from "react-bootstrap"
+import { Card, Button } from "react-bootstrap"
+import EmergencyContactsManager from "../input/EmergencyContactsManager";
+import FormModal from "../input/FormModal";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -69,12 +72,12 @@ function normalizeStringArray(value) {
     .filter(Boolean);
 }
 
-function getSymptomsField(profile) {
-  if (!profile) return null;
+function getSymptomsField(user) {
+  if (!user) return null;
 
   if (
     Object.prototype.hasOwnProperty.call(
-      profile,
+      user,
       "known_symptoms"
     )
   ) {
@@ -82,7 +85,7 @@ function getSymptomsField(profile) {
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(profile, "symptoms")
+    Object.prototype.hasOwnProperty.call(user, "symptoms")
   ) {
     return "symptoms";
   }
@@ -95,11 +98,10 @@ function EditIcon() {
 }
 
 function ProfilePage() {
-  const { token, user } = useAuth();
+  const { token, user, refreshUserProfile } = useAuth();
   const fileInputRef = useRef(null);
 
-  const [profile, setProfile] = useState(null);
-  const [pageStatus, setPageStatus] = useState("loading");
+  const [pageStatus, setPageStatus] = useState("success");
   const [pageError, setPageError] = useState("");
 
   const [activeEditor, setActiveEditor] = useState(null);
@@ -112,85 +114,43 @@ function ProfilePage() {
   const [listDraft, setListDraft] = useState([]);
   const [newListItem, setNewListItem] = useState("");
 
-  const [contactDraft, setContactDraft] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] =
     useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      try {
-        setPageStatus("loading");
-        setPageError("");
-
-        const data = await getProfile(token);
-
-        if (!cancelled) {
-          setProfile(data);
-          setPageStatus("success");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPageStatus("error");
-          setPageError(
-            error.message || "Unable to load your profile."
-          );
-        }
-      }
-    }
-
-    if (token) {
-      loadProfile();
-    } else {
-      setPageStatus("error");
-      setPageError(
-        "You must be logged in to view your profile."
-      );
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
   const symptomsField = useMemo(
-    () => getSymptomsField(profile),
-    [profile]
+    () => getSymptomsField(user),
+    [user]
   );
 
   const symptoms = useMemo(() => {
     if (!symptomsField) return [];
 
-    return normalizeStringArray(profile?.[symptomsField]);
-  }, [profile, symptomsField]);
+    return normalizeStringArray(user?.[symptomsField]);
+  }, [user, symptomsField]);
 
   const triggers = useMemo(
     () =>
-      normalizeStringArray(profile?.trigger_preferences),
-    [profile]
+      normalizeStringArray(user?.trigger_preferences),
+    [user]
   );
 
   const emergencyContacts = useMemo(() => {
-    if (
-      typeof profile?.emergency_contact !== "string" ||
-      !profile.emergency_contact.trim()
-    ) {
+    if (!Array.isArray(user?.emergency_contacts)) {
       return [];
     }
 
-    return [profile.emergency_contact.trim()];
-  }, [profile]);
+    return user.emergency_contacts;
+  }, [user]);
 
-  const age = calculateAge(profile?.date_of_birth);
+  const age = calculateAge(user?.date_of_birth);
 
   const photoSupported =
-    profile &&
+    user &&
     Object.prototype.hasOwnProperty.call(
-      profile,
+      user,
       "profile_image_url"
     );
 
@@ -198,8 +158,8 @@ function ProfilePage() {
     setActionError("");
 
     setProfileDraft({
-      name: profile?.name || "",
-      date_of_birth: profile?.date_of_birth || "",
+      name: user?.name || "",
+      date_of_birth: user?.date_of_birth || "",
     });
 
     setActiveEditor("profile");
@@ -227,19 +187,12 @@ function ProfilePage() {
     setActiveEditor("symptoms");
   }
 
-  function openContactEditor() {
-    setActionError("");
-    setContactDraft(profile?.emergency_contact || "");
-    setActiveEditor("contact");
-  }
-
   function closeEditor() {
     if (saving) return;
 
     setActiveEditor(null);
     setListDraft([]);
     setNewListItem("");
-    setContactDraft("");
     setActionError("");
   }
 
@@ -289,7 +242,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -312,7 +265,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -342,7 +295,7 @@ function ProfilePage() {
         },
       });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
       setActiveEditor(null);
     } catch (error) {
       setActionError(
@@ -353,27 +306,45 @@ function ProfilePage() {
     }
   }
 
-  async function saveEmergencyContact() {
+  async function updateEmergencyContacts(contacts) {
     try {
       setSaving(true);
       setActionError("");
 
-      const updatedProfile = await updateProfile({
+      await updateProfile({
         token,
         updates: {
-          emergency_contact: contactDraft.trim(),
+          emergency_contacts: contacts,
         },
       });
 
-      setProfile(updatedProfile);
-      setActiveEditor(null);
+      await refreshUserProfile();
     } catch (error) {
       setActionError(
         error.message ||
-          "Unable to update your emergency contact."
+        "Unable to update your emergency contacts."
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeletePhoto() {
+    try {
+      setUploadingPhoto(true);
+      setActionError("");
+
+      await deleteProfileImage({
+        token,
+      });
+
+      await refreshUserProfile();
+    } catch (error) {
+      setActionError(
+        error.message || "Unable to remove your photo."
+      );
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
@@ -400,7 +371,7 @@ function ProfilePage() {
           token,
         });
 
-      setProfile(updatedProfile);
+      await refreshUserProfile();
     } catch (error) {
       setActionError(
         error.message || "Unable to upload your photo."
@@ -460,7 +431,7 @@ function ProfilePage() {
                 return;
               }
 
-              fileInputRef.current?.click();
+              setShowPhotoModal(true);
             }}
             disabled={uploadingPhoto}
             ariaLabel="Upload profile photo"
@@ -476,7 +447,7 @@ function ProfilePage() {
           />
 
           <div className="vertical-8">
-            <h2 className={"section-header-text"}>{profile?.name || "No name saved"}</h2>
+            <h2 className={"section-header-text"}>{user?.name || "No name saved"}</h2>
 
             <p>
               {age === null
@@ -484,7 +455,7 @@ function ProfilePage() {
                 : `${age} years old`}
             </p>
 
-            <p>{formatBirthdate(profile?.date_of_birth)}</p>
+            <p>{formatBirthdate(user?.date_of_birth)}</p>
           </div>
         </Card>
 
@@ -502,6 +473,7 @@ function ProfilePage() {
                 ? openSymptomsEditor
                 : null
             }
+            type="symptoms"
           />
 
           <ProfileListCard
@@ -509,15 +481,17 @@ function ProfilePage() {
             items={triggers}
             emptyMessage="No triggers saved"
             onEdit={openTriggersEditor}
+            type="triggers"
           />
         </div>
       </section>
 
       <ProfileListCard
-        title="Emergency Contacts"
-        items={emergencyContacts}
-        emptyMessage="No emergency contact saved"
-        onEdit={openContactEditor}
+          title="Emergency Contacts"
+          items={emergencyContacts}
+          emptyMessage="No emergency contacts saved"
+          onEdit={() => setActiveEditor("contacts")}
+          type="contacts"
       />
 
       {activeEditor && (
@@ -666,44 +640,62 @@ function ProfilePage() {
               </>
             )}
 
-            {activeEditor === "contact" && (
-              <>
-                <h2 id="profile-editor-title">
-                  Edit Emergency Contact
-                </h2>
+            {activeEditor === "contacts" && (
+                <>
+                    <h2 id="profile-editor-title">
+                        Edit Emergency Contacts
+                    </h2>
 
-                <label className="profile-field">
-                  <span>Contact</span>
+                    <EmergencyContactsManager
+                        contacts={emergencyContacts}
+                        onChange={updateEmergencyContacts}
+                        compact={true}
+                    />
 
-                  <input
-                    type="text"
-                    value={contactDraft}
-                    placeholder="Name — phone number"
-                    onChange={(event) =>
-                      setContactDraft(event.target.value)
-                    }
-                  />
-                </label>
-
-                <p className="profile-editor-note">
-                  The current backend supports one emergency
-                  contact.
-                </p>
-
-                <EditorError message={actionError} />
-
-                <button
-                  type="button"
-                  className="profile-save-button"
-                  onClick={saveEmergencyContact}
-                  disabled={saving}
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </>
+                    <EditorError message={actionError} />
+                </>
             )}
           </section>
         </div>
+      )}
+
+      {showPhotoModal && (
+        <FormModal
+          title="Profile Photo"
+          onHide={() => setShowPhotoModal(false)}
+          onSubmit={() => setShowPhotoModal(false)}
+          submitText="Cancel"
+          showSubmit={false}
+        >
+          <div className="vertical-16 at-middle-center">
+            <Button
+              className="button-light body-text"
+              onClick={() => {
+                setShowPhotoModal(false);
+                fileInputRef.current?.click();
+              }}
+            >
+              {user?.profile_image_url
+                ? "Change Photo"
+                : "Add Photo"}
+            </Button>
+
+            {user?.profile_image_url && (
+              <Button
+                className="button-light body-text"
+                disabled={uploadingPhoto}
+                onClick={async () => {
+                  await handleDeletePhoto();
+                  setShowPhotoModal(false);
+                }}
+              >
+                {uploadingPhoto
+                  ? "Removing..."
+                  : "Remove Photo"}
+              </Button>
+            )}
+          </div>
+        </FormModal>
       )}
     </main>
   );
@@ -715,6 +707,7 @@ function ProfileListCard({
   emptyMessage,
   onEdit,
   wide = true,
+  type = "strings"
 }) {
   return (
     <Card
@@ -738,17 +731,35 @@ function ProfileListCard({
       <hr />
 
       {items.length > 0 ? (
-        <div className="profile-chip-list">
-          {items.map((item) => (
-            <span className="profile-chip" key={item}>
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="profile-empty-message">
-          {emptyMessage}
-        </p>
+          <div className="profile-chip-list">
+            {type === "contacts"
+              ? items.map(contact => (
+                  <div
+                      className="profile-chip"
+                      key={contact.id}
+                  >
+                      <div>
+                          {contact.firstName} {contact.lastName}
+                      </div>
+
+                      {contact.phone && (
+                          <div>{contact.phone}</div>
+                      )}
+                  </div>
+              ))
+              : items.map(item => (
+                  <span
+                      className="profile-chip"
+                      key={item}
+                  >
+                      {item}
+                  </span>
+              ))}
+          </div>
+        ) : (
+          <p className="profile-empty-message">
+            {emptyMessage}
+          </p>
       )}
     </Card>
   );

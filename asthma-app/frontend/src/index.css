@@ -39,7 +39,12 @@
   /* Status colors */
   --color-success: #FFFFFF;          /* Success or Safe */
   --color-warning: #FFFFFF;          /* Warning or Medium Risk */
+  
   --color-error-light: #FF94BD;
+  --color-error-light-dark: #ed83ac;
+  --color-error-light-darkest: #d86c96;
+  
+  --color-error: #aa0041;
   --color-error-dark: #8D0036;
   --color-error-darkest: #5F0024;
 
@@ -202,6 +207,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /************************************* COLORS ***************************************/
@@ -239,6 +245,32 @@
   --text-color: var(--color-secondary);
   --text-color-dark: var(--color-secondary-dark);
   --text-color-darkest: var(--color-secondary-darkest);
+}
+
+.error-light-theme {
+  background-color: var(--color-error-light);
+  color: var(--color-error-darkest);
+
+  --bg-color: var(--color-error-light);
+  --bg-color-dark: var(--color-error-light-dark);
+  --bg-color-darkest: var(--color-error-light-darkest);
+
+  --text-color: var(--color-error-darkest);
+  --text-color-dark: var(--color-error-dark);
+  --text-color-darkest: var(--color-error-darkest);
+}
+
+.error-dark-theme {
+  background-color: var(--color-error);
+  color: var(--color-primary);
+
+  --bg-color: var(--color-error);
+  --bg-color-dark: var(--color-error-dark);
+  --bg-color-darkest: var(--color-error-darkest);
+
+  --text-color: var(--color-primary);
+  --text-color-dark: var(--color-primary-dark);
+  --text-color-darkest: var(--color-primary-darkest);
 }
 
 .dark-main {
@@ -320,6 +352,10 @@ body {
         clamp(1rem, 10vw, var(--space-144));
 }
 
+.login-signup-button {
+  width: clamp(140px, 20vw, 600px);
+}
+
 .button-dark {
   background-color: var(--color-secondary);
   color: var(--color-primary);
@@ -375,10 +411,69 @@ body {
   border-color: var(--color-primary-darkest);
 }
 
+.button-error-light {
+  background-color: var(--color-error-light);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-dark);
+}
+
+.button-error-light:disabled {
+  background-color: var(--color-error-light);
+  color: var(--color-error-dark);
+  border-color: var(--color-error-light-dark);
+}
+
+.button-error-light:hover,
+.button-error-light:focus,
+.button-error-light.active {
+  background-color: var(--color-error-light-dark);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-darkest);
+}
+
+.button-error-light:active,
+.button-error-light:focus:active {
+  background-color: var(--color-error-light-darkest);
+  color: var(--color-error-darkest);
+  border-color: var(--color-error-light-darkest);
+}
+
+.button-error-dark {
+  background-color: var(--color-error);
+  color: var(--color-primary);
+  border-color: var(--color-error-dark);
+}
+
+.button-error-dark:disabled {
+  background-color: var(--color-error);
+  color: var(--color-primary-dark);
+  border-color: var(--color-error-dark);
+}
+
+.button-error-dark:hover,
+.button-error-dark:focus,
+.button-error-dark.active {
+  background-color: var(--color-error-dark);
+  color: var(--color-primary-dark);
+  border-color: var(--color-error-darkest);
+}
+
+.button-error-dark:active,
+.button-error-dark:focus:active {
+  background-color: var(--color-error-darkest);
+  color: var(--color-primary-darkest);
+  border-color: var(--color-error-darkest);
+}
+
 .button-small {
   border-radius: 8px;
   border-width: calc(var(--stroke-width) / 2);
   padding: 2px;
+}
+
+.button-medium {
+  padding: clamp(0.5rem, 4vw, var(--space-8))
+          clamp(1rem, 4vw, var(--space-48));
 }
 
 .alert-error {
@@ -597,29 +692,26 @@ hr {
 }
 
 .form-modal {
-  width: clamp(280px, 90vw, 600px);
+  width: fit-content;
+  max-width: calc(100vw - 2 * var(--space-24));
+
   max-height: calc(100vh - 2 * var(--space-24));
+  min-height: 0;
 
   display: flex;
   flex-direction: column;
 
   border-radius: var(--space-16);
-  padding: clamp(16px, 4vw, var(--space-32));
+}
 
-  --font-section-text-size: 24px;
-  --font-body-size: 18px;
-  --font-invalid-size: 14px;
-  --form-item-gap: 4px;
+.form-modal.container {
+  width: fit-content;
+  max-width: clamp(280px, 90vw, 600px);
 }
 
 .form-modal-header,
 .form-modal-footer {
   flex-shrink: 0;
-}
-
-.form-modal-body {
-  flex: 1;
-  overflow-y: auto;
 }
 
 .form-modal h2 {
@@ -634,6 +726,22 @@ hr {
 .form-modal .form-control {
   font-size: 18px;
   line-height: 18px;
+}
+
+.form-item .invalid-feedback {
+  display: block;
+}
+
+/* Hide Edge/Chromium built-in password reveal button */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
+
+/* Hide WebKit password reveal controls (if present) */
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-password-reveal-button {
+    display: none;
 }
 
 .password-wrapper {
@@ -677,6 +785,11 @@ hr {
   word-wrap: break-word;
   overflow-wrap: break-word;
   min-width: 0;
+}
+
+.contact-card.compact {
+  width: 100%;
+  max-width: 600px;
 }
 
 .checkbox {
@@ -1050,6 +1163,8 @@ hr {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  gap: var(--space-16);
 }
 
 .chatbot-conversation {
@@ -1123,8 +1238,6 @@ hr {
   display: flex;
   align-items: flex-end;
   gap: var(--space-16);
-
-  margin-top: var(--space-16);
 }
 
 .chatbot-input textarea {
@@ -1143,10 +1256,6 @@ hr {
 }
 
 .chatbot-floating {
-  overflow: auto;
-
-  width: clamp(320px, 40vw, 600px);
-
   z-index: 1050;
 
   box-shadow:
@@ -1163,6 +1272,26 @@ hr {
 
 .chatbot-layer > * {
   pointer-events: auto;
+}
+
+.chat-page {
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-24);
+  padding: var(--space-40);
+  background-color: var(--color-secondary);
+  border: var(--stroke-width) solid var(--color-secondary-dark);
+  border-radius: var(--space-16);
+}
+
+.chat-page .chatbot-conversation {
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-page .chatbot-input {
+  flex-shrink: 0;
 }
 
 .spinner-overlay {
@@ -1286,6 +1415,10 @@ hr {
   
   line-height: var(--font-title-size);
   margin: 0;
+}
+
+.paragraph {
+  line-height: calc( (var(--font-body-size) + 5px) );
 }
 
 h1 {

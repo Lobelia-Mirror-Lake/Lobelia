@@ -10,6 +10,7 @@ export const urls = {
   statistics: `${dashboardBase}/statistics`,
   calendar: `${dashboardBase}/calendar`,
   profile: `${dashboardBase}/profile`,
+  chat: `${dashboardBase}/chat`,
 };
 
 export const BREAKPOINTS = {

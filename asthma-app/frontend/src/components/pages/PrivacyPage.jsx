@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { urls } from "../../constants";
 import "./PrivacyPage.css";
 
-const LAST_UPDATED = "August 4, 2026";
+const LAST_UPDATED = "August 10, 2026";
 const CONTACT_EMAIL = "support@lobelia.app";
 
 function PrivacyPage() {
@@ -13,162 +13,357 @@ function PrivacyPage() {
         <h1>Privacy Policy</h1>
         <p className="privacy-updated">Last updated: {LAST_UPDATED}</p>
         <p className="privacy-intro">
-          This Privacy Policy describes how Lobelia (“we,” “us,” or “our”)
-          collects, uses, and shares information when you use our website and
-          related services. Lobelia provides educational asthma risk forecasts
-          and tips. It is not a medical device and does not diagnose, treat, or
-          prescribe.
+          This Privacy Policy explains how Lobelia (“Lobelia,” “we,” “us,” or “our”) collects, uses, stores, and shares information when you use the Lobelia website and related services.
+        </p>
+        <p className="privacy-intro">
+          Lobelia is a personal asthma self-management platform that combines information you provide with environmental conditions, planned activities, and other contextual information to provide personalized asthma risk forecasts and self-management support.
+        </p>
+        <p className="privacy-intro">
+          Lobelia is not a medical device and does not diagnose, treat, cure, or prevent any disease. Lobelia does not replace professional medical advice or your asthma action plan.
         </p>
       </header>
 
       <section>
-        <h2>1. Information we collect</h2>
+        <h2>1. Information We Collect</h2>
+        <div className="d-flex vertical-16">
+          <div>
+            <h3><strong>Account Information</strong></h3>
+            <p>When you create an account, we may collect:</p>
+            <ul>
+              <li>
+                Email address
+              </li>
+              <li>
+                Password, stored in hashed form
+              </li>
+              <li>
+                Name and other optional profile information
+              </li>
+              <li>
+                Profile photo URL, if you choose to add a profile photo
+              </li>
+              <li>
+                Date of birth
+              </li>
+              <li>
+                Emergency contact information
+              </li>
+              <li>
+                Preferences, asthma triggers, and self-management goals
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3><strong>Health and Symptom Information</strong></h3>
+            <p>If you choose to use Lobelia's health-tracking features, you may provide information such as:</p>
+            <ul>
+              <li>
+                Daily symptoms and symptom severity
+              </li>
+              <li>
+                Activity limitations
+              </li>
+              <li>
+                Asthma triggers
+              </li>
+              <li>
+                Rescue inhaler use
+              </li>
+              <li>
+                Personal notes
+              </li>
+              <li>
+                Other information you choose to provide about your asthma or daily activities
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3><strong>Optional Wearable and Activity Information</strong></h3>
+            <p>If supported features are enabled, you may provide or sync summaries such as:</p>
+            <ul>
+              <li>
+                Sleep duration
+              </li>
+              <li>
+                Step count
+              </li>
+              <li>
+                Activity information
+              </li>
+              <li>
+                Heart-rate summaries
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3><strong>Health and Symptom Information</strong></h3>
+            <p>If you choose to use Lobelia's health-tracking features, you may provide information such as:</p>
+            <ul>
+              <li>
+                Daily symptoms and symptom severity
+              </li>
+              <li>
+                Activity limitations
+              </li>
+              <li>
+                Asthma triggers
+              </li>
+              <li>
+                Rescue inhaler use
+              </li>
+              <li>
+                Personal notes
+              </li>
+              <li>
+                Other information you choose to provide about your asthma or daily activities
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3><strong>Location Information</strong></h3>
+            <p>
+              If you grant permission through your device or browser, Lobelia may receive approximate location information, such as latitude and longitude, to obtain relevant environmental information including weather, air quality, and pollen conditions.
+            </p>
+            <p>
+              You may deny location access. Some features may use a fallback location or provide reduced functionality when location access is unavailable.
+            </p>
+          </div>
+          <div>
+            <h3><strong>Google Calendar Information</strong></h3>
+            <p>
+              If you choose to connect your Google Calendar, Lobelia requests read-only access to your calendar using Google's Calendar API.
+            </p>
+            <div style={{marginTop:25, marginBottom: 15}}>
+              <p>
+                With your permission, Lobelia may access calendar event information such as:
+              </p>
+              <ul>
+                <li>
+                  Event title
+                </li>
+                <li>
+                  Date and time
+                </li>
+                <li>
+                  Location
+                </li>
+                <li>
+                  Description
+                </li>
+              </ul>
+            </div>
+            <p>
+              Lobelia uses this information to provide more context-aware self-management guidance based on your planned activities.
+            </p>
+            <p>
+              Lobelia does not request permission to modify, create, or delete your Google Calendar events.
+            </p>
+          </div>
+          <div>
+            <h3><strong>Chat and AI Feature Information</strong></h3>
+            <div style={{marginBottom: 15}}>
+              <p>
+                If you use Lobelia's chat or AI-assisted features, we may process:
+              </p>
+              <ul>
+                <li>
+                  Messages you send
+                </li>
+                <li>
+                  Information needed to respond to your request
+                </li>
+                <li>
+                  Relevant context such as symptoms, forecasts, environmental conditions, planned activities, and information from your previous Lobelia records
+                </li>
+              </ul>
+            </div>
+            <p>
+              Chat messages are used to generate responses and are not stored as a conversation history in Lobelia's database. Other information, such as check-ins, forecasts, and derived summaries, may be stored as described elsewhere in this Privacy Policy.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>2. How We Use Information</h2>
+        <p>We use information collected through Lobelia to:</p>
         <ul>
           <li>
-            <strong>Account information:</strong> email address, password
-            (stored in hashed form), and optional profile details such as name,
-            profile photo URL, date of birth, emergency contacts, preferences,
-            triggers, and care goals.
+            Create and manage your account
           </li>
           <li>
-            <strong>Health logs you provide:</strong> daily symptom check-ins,
-            activity limitation, notes, triggers, and rescue-inhaler use.
+            Authenticate your account and provide account-related emails
           </li>
           <li>
-            <strong>Optional wearable summaries:</strong> sleep, steps,
-            activity, and heart-rate summaries you sync or log.
+            Process symptom and health information you choose to provide
           </li>
           <li>
-            <strong>Location (when permitted):</strong> approximate latitude and
-            longitude used to fetch weather, air quality, and pollen for your
-            forecast.
+            Generate short-term asthma risk forecasts
           </li>
           <li>
-            <strong>Google Calendar (optional):</strong> if you connect Google
-            Calendar, we store a refresh token and your Google account email,
-            and we read calendar event details (such as title, time, location,
-            and description) to personalize tips.
+            Provide personalized self-management guidance
           </li>
           <li>
-            <strong>AI feature inputs:</strong> messages you send in chat, plus
-            context needed to respond (for example forecast, symptoms, calendar,
-            environment, and similar past days).
+            Consider environmental conditions and planned activities when generating personalized guidance
+          </li>
+          <li>
+            Retrieve relevant information from your previous records to provide more personalized responses
+          </li>
+          <li>
+            Provide and maintain Google Calendar integration when you enable it
+          </li>
+          <li>
+            Operate, maintain, and secure Lobelia
+          </li>
+          <li>
+            Respond to requests and provide support
+          </li>
+          <li>
+            Identify and address technical problems
           </li>
         </ul>
       </section>
 
       <section>
-        <h2>2. How we use information</h2>
-        <ul>
-          <li>Create and sign in to your account.</li>
-          <li>
-            Send verification and password-reset emails with short-lived codes.
-          </li>
-          <li>
-            Run risk predictions and show personalized educational advice (such
-            as the Home “Next Step”).
-          </li>
-          <li>
-            Personalize tips using your logs, environment data, and (if
-            connected) planned activities.
-          </li>
-          <li>
-            Remember similar past days (summaries and embeddings) so advice can
-            reflect your history.
-          </li>
-          <li>Operate, secure, and improve the service.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>3. AI and third-party services</h2>
+        <h2>3. AI and Third-Party Services</h2>
+        <div style={{marginBottom: 15}}>
+          <p>
+            Lobelia uses third-party service providers to operate certain features of the platform. Depending on the features you use, these may include:
+          </p>
+          <ul>
+            <li>
+              <strong>Resend</strong> — used to send account verification and authentication emails.
+            </li>
+            <li>
+              <strong>Google Gemini and/or Anthropic Claude</strong> — used to generate personalized guidance and responses and, where applicable, process information used for personalization and retrieval.
+            </li>
+            <li>
+              <strong>Open-Meteo and/or OpenWeather</strong> — used to obtain weather and related environmental information.
+            </li>
+            <li>
+              <strong>Google Pollen</strong> — used to obtain pollen information.
+            </li>
+            <li>
+              <strong>Google Calendar API</strong> — used to provide the optional Google Calendar integration.
+            </li>
+            <li>
+              <strong>Cloudinary</strong> — used to store profile images when the applicable feature is used.
+            </li>
+            <li>
+              <strong>Hosting and cloud infrastructure providers</strong> — used to host the Lobelia website, backend services, and database.
+            </li>
+          </ul>
+        </div>
         <p>
-          We use third-party providers to operate Lobelia. Depending on
-          configuration, these may include:
+          Depending on the feature being used, information such as health-related context, environmental information, planned activities, or chat messages may be transmitted to third-party providers to perform the requested service.
         </p>
-        <ul>
-          <li>
-            <strong>Resend</strong> — authentication emails containing
-            verification codes.
-          </li>
-          <li>
-            <strong>Google Gemini and/or Anthropic Claude</strong> — generating
-            advice and chat replies; embeddings for personal history retrieval.
-          </li>
-          <li>
-            <strong>Open-Meteo and/or OpenWeather / Google Pollen</strong> —
-            weather, air quality, and pollen based on your location.
-          </li>
-          <li>
-            <strong>Google</strong> — Calendar OAuth (read-only) and Calendar
-            API.
-          </li>
-          <li>
-            <strong>Hosting and infrastructure</strong> — for example Google
-            Cloud Run (API), a hosted Postgres database, Vercel (web app), and
-            Cloudinary (profile photos).
-          </li>
-        </ul>
         <p>
-          Calendar event details and health-related context may be sent to AI
-          providers solely to generate your advice or chat reply. We do not sell
-          your personal information.
+          We do not sell your personal information.
+        </p>
+        <p>
+          Third-party services may process information according to their own privacy policies and terms.
         </p>
       </section>
 
       <section>
-        <h2>4. What we store</h2>
-        <ul>
-          <li>
-            <strong>Stored:</strong> account data, check-ins, inhaler events,
-            wearable summaries, forecasts and advice, environment snapshots,
-            calendar connection credentials, and derived episode memory used for
-            personalization.
-          </li>
-          <li>
-            <strong>Chat:</strong> one-off Copilot chat messages are processed to
-            generate a reply and are not kept as a conversation history log in
-            our database. Personalization comes from check-ins, forecasts,
-            calendar, and episode memory instead.
-          </li>
-        </ul>
+        <h2>4. How We Store Information</h2>
+        <div style={{marginBottom: 15}}>
+          <p>
+            Information stored by Lobelia may include:
+          </p>
+          <ul>
+            <li>
+              Account information
+            </li>
+            <li>
+              Health and symptom logs
+            </li>
+            <li>
+              Inhaler-use records
+            </li>
+            <li>
+              Wearable and activity summaries
+            </li>
+            <li>
+              Environmental information associated with forecasts
+            </li>
+            <li>
+              Risk forecasts and personalized guidance
+            </li>
+            <li>
+              Calendar connection information
+            </li>
+            <li>
+              Relevant calendar information used in forecasts or guidance
+            </li>
+            <li>
+              Derived summaries or embeddings used to retrieve relevant information from your previous records
+            </li>
+          </ul>
+        </div>
+        <p>
+          We use hosted cloud infrastructure to store and process this information.
+        </p>
+        <p>
+          Lobelia does not store your one-off chat messages as a persistent conversation history in its application database. However, information from your health logs, forecasts, calendar context, and other records may be stored separately and used to personalize future guidance.
+        </p>
       </section>
 
       <section>
         <h2>5. Google Calendar</h2>
         <p>
-          If you choose to connect Google Calendar, Lobelia requests{" "}
-          <strong>read-only</strong> access
-          (<code>https://www.googleapis.com/auth/calendar.readonly</code>). You
-          can disconnect Calendar in the app, which removes the stored Google
-          token and email. Event details already saved into past forecasts or
-          check-ins may remain until overwritten by newer data.
+          Google Calendar integration is optional.
         </p>
-      </section>
-
-      <section>
-        <h2>6. Retention</h2>
         <p>
-          We keep account and logged health/forecast data while your account is
-          active. Authentication email codes expire quickly (about 10 minutes).
-          Self-serve full account deletion is not currently available in the
-          app; contact us to request deletion.
+          When you connect your Google Calendar, Lobelia requests the <strong style={{color:"var(--color-error-dark)"}}>calendar.readonly</strong> permission, which allows Lobelia to read calendar information but not modify your calendar.
+        </p>
+        <p>
+          To maintain the connection, Lobelia stores the credentials necessary to access your Google Calendar, including an OAuth refresh token and associated Google account information.
+        </p>
+        <p>
+          You can disconnect Google Calendar through the Lobelia application. When you disconnect it, Lobelia removes the stored Google Calendar connection credentials.
+        </p>
+        <p>
+          Information that was previously incorporated into a forecast, check-in, or other stored record may remain in Lobelia after the Calendar connection is removed.
         </p>
       </section>
 
       <section>
-        <h2>7. Your choices</h2>
+        <h2>6. Data Retention</h2>
+        <p>
+          We retain account information and health, symptom, forecast, and related records while your account remains active or for as long as necessary to provide the services described in this Privacy Policy.
+        </p>
+        <p>
+          Authentication and verification codes are short-lived and expire after approximately 10 minutes.
+        </p>
+        <p>
+          Information associated with a disconnected Google Calendar may remain in previously stored forecasts, check-ins, or other records.
+        </p>
+        <p>
+          Some information may be retained where necessary for security, legal, or operational purposes.
+        </p>
+      </section>
+
+      <section>
+        <h2>Your Choices</h2>
+        <p>
+          Depending on the features you use, you may:
+        </p>
         <ul>
-          <li>Use Lobelia without connecting Google Calendar.</li>
           <li>
-            Deny browser location access (forecasts may use a fallback
-            location).
+            Choose whether to provide optional profile and health information
           </li>
-          <li>Disconnect Google Calendar at any time in the app.</li>
-          <li>Update your profile and overwrite today’s check-in.</li>
           <li>
-            Contact us for access or deletion requests at{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            Deny browser or device location access
+          </li>
+          <li>
+            Choose whether to connect Google Calendar
+          </li>
+          <li>
+            Disconnect Google Calendar through the application
+          </li>
+          <li>
+            Update information in your profile and health logs
           </li>
         </ul>
       </section>
@@ -176,44 +371,49 @@ function PrivacyPage() {
       <section>
         <h2>8. Security</h2>
         <p>
-          Passwords are hashed. Access uses login tokens. Data is stored in
-          hosted cloud infrastructure used to operate the service. No method of
-          transmission or storage is completely secure.
+          We take reasonable measures to protect information handled by Lobelia.
+        </p>
+        <div style={{marginBottom: 15}}>
+          <p>
+            For example:
+          </p>
+          <ul>
+            <li>
+              Account passwords are stored in hashed form.
+            </li>
+            <li>
+              Authentication uses login tokens.
+            </li>
+            <li>
+              Data is stored using hosted cloud infrastructure with security controls provided by our infrastructure providers.
+            </li>
+            <li>
+              Access to application services is restricted according to the needs of operating the platform.
+            </li>
+          </ul>
+        </div>
+        <p>
+          However, no method of transmission or electronic storage is completely secure. We cannot guarantee the absolute security of information transmitted to or stored by Lobelia.
         </p>
       </section>
 
       <section>
-        <h2>9. Children</h2>
+        <h2>9. Medical Disclaimer</h2>
         <p>
-          Lobelia is not directed at children under 13 (or under 16 where
-          required by law). We do not knowingly collect personal information
-          from children.
+          Lobelia provides personalized asthma self-management support and risk forecasts. Its content and recommendations are intended to support everyday self-management and are not a substitute for professional medical advice, diagnosis, treatment, or an asthma action plan.
+        </p>
+        <p>
+          Lobelia is not a medical device and does not diagnose, treat, cure, or prevent any disease or medical condition.
+        </p>
+        <p>
+          You should consult a qualified healthcare professional for medical decisions. If you experience a medical emergency, seek emergency medical care immediately.
         </p>
       </section>
 
       <section>
-        <h2>10. Medical disclaimer</h2>
+        <h2>10. Changes to This Privacy Policy</h2>
         <p>
-          Content in Lobelia is for educational purposes only and is not a
-          substitute for your clinician or asthma action plan. If you
-          experience a medical emergency, seek emergency care immediately.
-        </p>
-      </section>
-
-      <section>
-        <h2>11. Changes</h2>
-        <p>
-          We may update this Privacy Policy from time to time. The “Last
-          updated” date will change when we do. Material changes may be noted
-          in the app or by email.
-        </p>
-      </section>
-
-      <section>
-        <h2>12. Contact</h2>
-        <p>
-          Questions about this policy:{" "}
-          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+          We may update this Privacy Policy from time to time to reflect changes to Lobelia, our practices, or applicable requirements.
         </p>
       </section>
 

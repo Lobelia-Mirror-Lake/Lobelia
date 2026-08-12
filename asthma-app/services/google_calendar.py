@@ -142,28 +142,50 @@ def _parse_event(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def fetch_events_for_day(
+def _resolve_timezone(timezone_name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(timezone_name)
+    except Exception:
+        return ZoneInfo("America/Chicago")
+
+
+def event_local_date(event: dict[str, Any], timezone_name: str = "America/Chicago") -> str:
+    """Local calendar date (YYYY-MM-DD) for an event's start."""
+    start = str(event.get("start") or "")
+    if event.get("all_day") or ("T" not in start and len(start) >= 10):
+        return start[:10]
+    try:
+        tz = _resolve_timezone(timezone_name)
+        dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        return dt.astimezone(tz).date().isoformat()
+    except Exception:
+        return start[:10] if len(start) >= 10 else start
+
+
+async def fetch_events_for_range(
     refresh_token: str,
     *,
-    day: date,
+    start_day: date,
+    end_day: date,
     timezone_name: str = "America/Chicago",
+    max_results: int = 250,
 ) -> list[dict[str, Any]]:
-    """Fetch primary-calendar events overlapping the given local calendar day."""
+    """Fetch primary-calendar events overlapping [start_day, end_day] inclusive."""
+    if end_day < start_day:
+        raise ValueError("end_day must be on or after start_day")
+
     access_token = await refresh_access_token(refresh_token)
-    # Bound the day in the user's local timezone (exclusive end).
-    try:
-        tz = ZoneInfo(timezone_name)
-    except Exception:
-        tz = ZoneInfo("America/Chicago")
-    start_local = datetime(day.year, day.month, day.day, tzinfo=tz)
-    end_local = start_local + timedelta(days=1)
+    tz = _resolve_timezone(timezone_name)
+    start_local = datetime(start_day.year, start_day.month, start_day.day, tzinfo=tz)
+    # Exclusive end: midnight after end_day.
+    end_local = datetime(end_day.year, end_day.month, end_day.day, tzinfo=tz) + timedelta(days=1)
 
     params = {
         "timeMin": start_local.isoformat(),
         "timeMax": end_local.isoformat(),
         "singleEvents": "true",
         "orderBy": "startTime",
-        "maxResults": 50,
+        "maxResults": max_results,
         "timeZone": timezone_name,
     }
     async with httpx.AsyncClient(timeout=30) as client:
@@ -176,7 +198,26 @@ async def fetch_events_for_day(
         payload = response.json()
 
     items = payload.get("items") or []
-    return [_parse_event(item) for item in items if item.get("status") != "cancelled"]
+    events = [_parse_event(item) for item in items if item.get("status") != "cancelled"]
+    for event in events:
+        event["date"] = event_local_date(event, timezone_name)
+    return events
+
+
+async def fetch_events_for_day(
+    refresh_token: str,
+    *,
+    day: date,
+    timezone_name: str = "America/Chicago",
+) -> list[dict[str, Any]]:
+    """Fetch primary-calendar events overlapping the given local calendar day."""
+    return await fetch_events_for_range(
+        refresh_token,
+        start_day=day,
+        end_day=day,
+        timezone_name=timezone_name,
+        max_results=50,
+    )
 
 
 def events_to_summary(events: list[dict[str, Any]] | None) -> str | None:

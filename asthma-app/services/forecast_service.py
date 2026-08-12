@@ -213,7 +213,6 @@ async def resolve_calendar_for_advice(
     return [], None
 
 
-
 async def ensure_forecast_advice(
     db: Session,
     user: User,
@@ -718,6 +717,7 @@ async def run_forecast(
         calendar_source = str(resolved_events[0].get("source") or "check_in")
     else:
         calendar_source = "none"
+
 
     quality_warnings = list(advice_warnings)
     if "wearables" in unavailable:

@@ -6,6 +6,7 @@ import CalendarPage from './components/pages/CalendarPage';
 import HomePage from './components/pages/HomePage';
 import ProfilePage from './components/pages/ProfilePage';
 import StatisticsPage from './components/pages/StatisticsPage';
+import ChatPage from './components/pages/ChatPage';
 import { preloadAudio } from "./helper-functions/playAudio";
 import DashboardRoute from './components/routes/DashboardRoute';
 import { SetupRoute } from './components/routes/SetupRoute';
@@ -68,6 +69,7 @@ function App() {
             <Route path={urls.statistics} element={<StatisticsPage />} />
             <Route path={urls.calendar} element={<CalendarPage />} />
             <Route path={urls.profile} element={<ProfilePage />} />
+            <Route path={urls.chat} element={<ChatPage />} />
             <Route path="/oauth-done" element={<OAuthDone />} />
           </Route>
         </Route>
