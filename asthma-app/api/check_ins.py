@@ -80,7 +80,12 @@ async def create_check_in(
         triggers=body.triggers,
         calendar_event=body.calendar_event,
     )
-    forecast = await refresh_forecast_after_check_in(db, user, day=day)
+    forecast = await refresh_forecast_after_check_in(
+        db,
+        user,
+        day=day,
+        calendar_changed=body.calendar_event is not None,
+    )
     return _with_forecast_refresh(check_in_to_dict(check_in), forecast)
 
 
