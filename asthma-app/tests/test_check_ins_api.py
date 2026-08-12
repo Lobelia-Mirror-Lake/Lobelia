@@ -191,13 +191,14 @@ def test_updating_yesterday_check_in_refreshes_today_card(
     )
     assert updated.status_code == 201, updated.text
     assert updated.json()["forecast_refreshed"] is True
-    assert "Night symptoms today" in updated.json()["forecast"]["contributing_factors"]
+    assert "Night symptoms yesterday" in updated.json()["forecast"]["contributing_factors"]
 
     cards = client.get("/v1/forecasts/today", headers=auth_headers)
     assert cards.status_code == 200
     today_card = cards.json().get("today")
     assert today_card is not None
-    assert "Night symptoms today" in (today_card.get("contributing_factors") or [])
+    assert "Night symptoms yesterday" in (today_card.get("contributing_factors") or [])
+    assert "Night symptoms today" not in (today_card.get("contributing_factors") or [])
 
 
 @patch("services.forecast_service.generate_advice")
